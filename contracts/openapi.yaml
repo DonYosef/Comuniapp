@@ -1,0 +1,121 @@
+openapi: 3.0.3
+info:
+  title: Comuniapp API
+  description: API para la aplicación de comunidades
+  version: 0.0.1
+  contact:
+    name: Equipo Comuniapp
+    email: dev@comuniapp.com
+servers:
+  - url: http://localhost:3001
+    description: Servidor de desarrollo
+  - url: https://api.comuniapp.com
+    description: Servidor de producción
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Verificar el estado de la API
+      description: Endpoint para verificar que la API está funcionando correctamente
+      responses:
+        '200':
+          description: API funcionando correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+                    description: Tiempo de actividad en segundos
+  /users:
+    get:
+      tags:
+        - Users
+      summary: Obtener todos los usuarios
+      description: Retorna una lista de todos los usuarios registrados
+      responses:
+        '200':
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+    post:
+      tags:
+        - Users
+      summary: Crear un nuevo usuario
+      description: Crea un nuevo usuario en el sistema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: Usuario creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Datos de entrada inválidos
+        '409':
+          description: El email ya está registrado
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Identificador único del usuario
+          example: "clh1234567890abcdef"
+        email:
+          type: string
+          format: email
+          description: Email del usuario
+          example: "usuario@ejemplo.com"
+        name:
+          type: string
+          nullable: true
+          description: Nombre del usuario
+          example: "Juan Pérez"
+        createdAt:
+          type: string
+          format: date-time
+          description: Fecha de creación
+        updatedAt:
+          type: string
+          format: date-time
+          description: Fecha de última actualización
+      required:
+        - id
+        - email
+        - createdAt
+        - updatedAt
+    CreateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email del usuario
+          example: "usuario@ejemplo.com"
+        name:
+          type: string
+          nullable: true
+          description: Nombre del usuario
+          example: "Juan Pérez"
+      required:
+        - email

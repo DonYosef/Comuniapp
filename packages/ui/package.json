@@ -1,0 +1,15 @@
+{
+  "name": "@comuniapp/ui",
+  "version": "0.0.1",
+  "private": true,
+  "main": "index.tsx",
+  "dependencies": {
+    "react": "^18.0.0",
+    "react-native": "^0.72.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-native": "^0.72.0",
+    "typescript": "^5.0.0"
+  }
+}
