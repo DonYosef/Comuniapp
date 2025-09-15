@@ -5,6 +5,7 @@ export class User {
     public readonly name: string,
     public readonly passwordHash: string,
     public readonly status: UserStatus,
+    public readonly organizationId: string | null,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
   ) {}
@@ -13,6 +14,7 @@ export class User {
     email: string,
     name: string,
     passwordHash: string,
+    organizationId: string | null = null,
     status: UserStatus = UserStatus.ACTIVE,
   ): User {
     const now = new Date();
@@ -22,6 +24,7 @@ export class User {
       name,
       passwordHash,
       status,
+      organizationId,
       now,
       now,
     );
@@ -37,6 +40,15 @@ export class User {
 
   canLogin(): boolean {
     return this.isActive();
+  }
+
+  belongsToOrganization(): boolean {
+    return this.organizationId !== null;
+  }
+
+  isSuperAdmin(): boolean {
+    // Esta lógica se implementará en el servicio con los roles
+    return false;
   }
 }
 

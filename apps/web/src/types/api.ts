@@ -29,7 +29,9 @@ export interface UserResponseDto {
   id: string;
   email: string;
   name: string;
+  phone?: string;
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  organizationId?: string;
   createdAt: string;
   updatedAt: string;
 }

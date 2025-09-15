@@ -39,4 +39,13 @@ export class CreateUserDto {
   @IsOptional()
   @IsEnum(UserStatus, { message: 'El estado debe ser uno de los valores válidos' })
   status?: UserStatus;
+
+  @ApiProperty({
+    description: 'ID de la organización',
+    example: 'org_123',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  organizationId?: string;
 }

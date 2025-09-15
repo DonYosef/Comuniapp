@@ -1,5 +1,5 @@
 import { Injectable, ConflictException, Inject } from '@nestjs/common';
-import { Role } from '../../domain/entities/role.entity';
+import { Role, RoleName } from '../../domain/entities/role.entity';
 import { RoleRepository } from '../../domain/repositories/role.repository.interface';
 import { CreateRoleDto } from '../dto/create-role.dto';
 
@@ -20,7 +20,7 @@ export class CreateRoleUseCase {
     }
 
     // Crear el rol
-    const role = Role.create(name, description || null, permissions);
+    const role = Role.create(name as RoleName, description || null, permissions);
 
     // Guardar en el repositorio
     return await this.roleRepository.create(role);

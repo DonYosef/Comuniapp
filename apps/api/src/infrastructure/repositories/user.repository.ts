@@ -36,8 +36,11 @@ export class UserRepository implements IUserRepository {
     return user ? this.toDomainEntity(user) : null;
   }
 
-  async findAll(): Promise<User[]> {
+  async findAll(organizationId?: string): Promise<User[]> {
+    const where = organizationId ? { organizationId } : {};
+
     const users = await this.prisma.user.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -89,6 +92,7 @@ export class UserRepository implements IUserRepository {
       prismaUser.name,
       prismaUser.passwordHash,
       prismaUser.status as UserStatus,
+      prismaUser.organizationId || null,
       prismaUser.createdAt,
       prismaUser.updatedAt,
     );

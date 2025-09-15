@@ -1,10 +1,10 @@
 'use client';
 
-import { Resident } from '@/types/resident';
+import { UserResponseDto } from '@/types/api';
 
 interface ExportButtonProps {
-  residents: Resident[];
-  filteredResidents: Resident[];
+  residents: UserResponseDto[];
+  filteredResidents: UserResponseDto[];
   className?: string;
 }
 
@@ -15,53 +15,32 @@ export default function ExportButton({
 }: ExportButtonProps) {
   const exportToCSV = () => {
     const headers = [
+      'ID',
       'Nombre',
-      'Apellidos',
       'Email',
       'Teléfono',
-      'Apartamento',
-      'Edificio',
       'Estado',
-      'Rol',
-      'Fecha Ingreso',
-      'Fecha Salida',
-      'Contacto Emergencia',
-      'Teléfono Emergencia',
-      'Relación Emergencia',
-      'Vehículos',
-      'Mascotas',
-      'Notas',
+      'Organización ID',
+      'Fecha Creación',
+      'Fecha Actualización',
     ];
 
     const csvContent = [
       headers.join(','),
-      ...filteredResidents.map((resident) =>
+      ...filteredResidents.map((user) =>
         [
-          resident.firstName,
-          resident.lastName,
-          resident.email,
-          resident.phone,
-          resident.apartment,
-          resident.building || '',
-          resident.status === 'active'
+          user.id,
+          user.name,
+          user.email,
+          user.phone || '',
+          user.status === 'ACTIVE'
             ? 'Activo'
-            : resident.status === 'inactive'
+            : user.status === 'INACTIVE'
               ? 'Inactivo'
-              : 'Pendiente',
-          resident.role === 'owner'
-            ? 'Propietario'
-            : resident.role === 'tenant'
-              ? 'Inquilino'
-              : 'Invitado',
-          new Date(resident.moveInDate).toLocaleDateString('es-ES'),
-          resident.moveOutDate ? new Date(resident.moveOutDate).toLocaleDateString('es-ES') : '',
-          resident.emergencyContact.name,
-          resident.emergencyContact.phone,
-          resident.emergencyContact.relationship,
-          resident.vehicles?.map((v) => `${v.make} ${v.model} (${v.licensePlate})`).join('; ') ||
-            '',
-          resident.pets?.map((p) => `${p.name} (${p.type})`).join('; ') || '',
-          `"${resident.notes || ''}"`,
+              : 'Suspendido',
+          user.organizationId || '',
+          new Date(user.createdAt).toLocaleDateString('es-ES'),
+          new Date(user.updatedAt).toLocaleDateString('es-ES'),
         ].join(','),
       ),
     ].join('\n');
@@ -70,7 +49,7 @@ export default function ExportButton({
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `residentes_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `usuarios_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -83,7 +62,7 @@ export default function ExportButton({
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `residentes_${new Date().toISOString().split('T')[0]}.json`);
+    link.setAttribute('download', `usuarios_${new Date().toISOString().split('T')[0]}.json`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();

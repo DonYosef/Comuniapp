@@ -9,7 +9,7 @@ export class GetAllUsersUseCase {
     private readonly userRepository: UserRepository,
   ) {}
 
-  async execute(): Promise<User[]> {
-    return await this.userRepository.findAll();
+  async execute(organizationId?: string): Promise<User[]> {
+    return await this.userRepository.findAll(organizationId);
   }
 }

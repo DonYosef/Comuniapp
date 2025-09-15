@@ -11,8 +11,8 @@ export class CreateUserUseCase {
     private readonly userRepository: UserRepository,
   ) {}
 
-  async execute(createUserDto: CreateUserDto): Promise<User> {
-    const { email, name, password, status = UserStatus.ACTIVE } = createUserDto;
+  async execute(createUserDto: CreateUserDto, createdByUserId?: string): Promise<User> {
+    const { email, name, password, status = UserStatus.ACTIVE, organizationId } = createUserDto;
 
     // Verificar si el usuario ya existe
     const existingUser = await this.userRepository.findByEmail(email);
@@ -25,7 +25,7 @@ export class CreateUserUseCase {
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     // Crear el usuario
-    const user = User.create(email, name, passwordHash, status);
+    const user = User.create(email, name, passwordHash, organizationId || null, status);
 
     // Guardar en el repositorio
     return await this.userRepository.create(user);

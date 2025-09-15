@@ -8,7 +8,7 @@ async function main() {
   // Crear roles iniciales
   const roles = [
     {
-      name: RoleName.ADMIN,
+      name: RoleName.SUPER_ADMIN,
       description: 'Administrador con acceso completo al sistema',
       permissions: [
         'communities:read',
@@ -102,7 +102,7 @@ async function main() {
 
   if (!adminUser) {
     const bcrypt = require('bcryptjs');
-    const hashedPassword = await bcrypt.hash('admin123', 12);
+    const hashedPassword = await bcrypt.hash('contrasegura321', 12);
 
     const newAdminUser = await prisma.user.create({
       data: {
@@ -117,7 +117,7 @@ async function main() {
 
     // Asignar rol de administrador
     const adminRole = await prisma.role.findUnique({
-      where: { name: RoleName.ADMIN },
+      where: { name: RoleName.SUPER_ADMIN },
     });
 
     if (adminRole) {

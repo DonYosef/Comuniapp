@@ -8,8 +8,13 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RequirePermission } from '../../auth/decorators/require-permission.decorator';
+import { Permission } from '../../domain/entities/role.entity';
 import { CreateUserDto } from '../../application/dto/create-user.dto';
 import { UpdateUserDto } from '../../application/dto/update-user.dto';
 import { UserResponseDto } from '../../application/dto/user-response.dto';
@@ -21,6 +26,8 @@ import { DeleteUserUseCase } from '../../application/use-cases/delete-user.use-c
 import { User } from '../../domain/entities/user.entity';
 
 @ApiTags('users')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
   constructor(
@@ -33,6 +40,7 @@ export class UsersController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @RequirePermission(Permission.MANAGE_ALL_USERS)
   @ApiOperation({ summary: 'Crear un nuevo usuario' })
   @ApiResponse({
     status: 201,
@@ -43,20 +51,21 @@ export class UsersController {
     status: 409,
     description: 'El usuario con este email ya existe',
   })
-  async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
-    const user = await this.createUserUseCase.execute(createUserDto);
+  async create(@Body() createUserDto: CreateUserDto, @Request() req): Promise<UserResponseDto> {
+    const user = await this.createUserUseCase.execute(createUserDto, req.user.id);
     return this.toResponseDto(user);
   }
 
   @Get()
+  @RequirePermission(Permission.MANAGE_ALL_USERS)
   @ApiOperation({ summary: 'Obtener todos los usuarios' })
   @ApiResponse({
     status: 200,
     description: 'Lista de usuarios obtenida exitosamente',
     type: [UserResponseDto],
   })
-  async findAll(): Promise<UserResponseDto[]> {
-    const users = await this.getAllUsersUseCase.execute();
+  async findAll(@Request() req): Promise<UserResponseDto[]> {
+    const users = await this.getAllUsersUseCase.execute(req.user.organizationId);
     return users.map((user) => this.toResponseDto(user));
   }
 

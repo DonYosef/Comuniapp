@@ -1,15 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { UserService } from '@/services/userService';
 import { CreateUserDto, UpdateUserDto, UserResponseDto } from '@/types/api';
+import { useAuth } from './useAuth';
 
 // Clave para el cache de usuarios
 const USERS_QUERY_KEY = 'users';
 
 // Hook para obtener todos los usuarios
 export const useUsers = () => {
+  const { isAuthenticated } = useAuth();
+
   return useQuery({
     queryKey: [USERS_QUERY_KEY],
     queryFn: UserService.getAllUsers,
+    enabled: isAuthenticated, // Solo ejecutar si está autenticado
     staleTime: 5 * 60 * 1000, // 5 minutos
     refetchOnWindowFocus: false,
   });
@@ -17,10 +21,12 @@ export const useUsers = () => {
 
 // Hook para obtener un usuario por ID
 export const useUser = (id: string) => {
+  const { isAuthenticated } = useAuth();
+
   return useQuery({
     queryKey: [USERS_QUERY_KEY, id],
     queryFn: () => UserService.getUserById(id),
-    enabled: !!id,
+    enabled: !!id && isAuthenticated,
   });
 };
 
@@ -79,19 +85,24 @@ export const useDeleteUser = () => {
 
 // Hook para buscar usuarios
 export const useSearchUsers = (query: string) => {
+  const { isAuthenticated } = useAuth();
+
   return useQuery({
     queryKey: [USERS_QUERY_KEY, 'search', query],
     queryFn: () => UserService.searchUsers(query),
-    enabled: !!query && query.length > 2,
+    enabled: !!query && query.length > 2 && isAuthenticated,
     staleTime: 2 * 60 * 1000, // 2 minutos
   });
 };
 
 // Hook para obtener usuarios por estado
 export const useUsersByStatus = (status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED') => {
+  const { isAuthenticated } = useAuth();
+
   return useQuery({
     queryKey: [USERS_QUERY_KEY, 'status', status],
     queryFn: () => UserService.getUsersByStatus(status),
+    enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutos
   });
 };

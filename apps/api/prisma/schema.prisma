@@ -17,15 +17,35 @@ datasource db {
 
 // ===== ENTIDADES PRINCIPALES =====
 
-model Community {
+model Organization {
   id          String   @id @default(cuid())
   name        String
-  address     String
-  description String?
+  plan        PlanType @default(BASIC)
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
+
+  // Relaciones
+  communities Community[]
+  users       User[]
+
+  @@map("organizations")
+}
+
+model Community {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  address        String
+  description    String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  // Relación con la organización
+  organization   Organization @relation(fields: [organizationId], references: [id])
 
   // Relación con el creador
   createdById String @map("created_by_id")
@@ -69,16 +89,20 @@ model Unit {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  phone        String?
-  passwordHash String   @map("password_hash")
-  status       UserStatus @default(ACTIVE)
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  deletedAt    DateTime? @map("deleted_at")
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  phone          String?
+  passwordHash   String   @map("password_hash")
+  status         UserStatus @default(ACTIVE)
+  isActive       Boolean  @default(true) @map("is_active")
+  organizationId String?  @map("organization_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  // Relación con la organización
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 
   // Relaciones
   roles              UserRole[]
@@ -93,6 +117,7 @@ model User {
   userUnits         UserUnit[]
 
   @@index([email])
+  @@index([organizationId])
   @@map("users")
 }
 
@@ -328,9 +353,18 @@ enum UserStatus {
 }
 
 enum RoleName {
-  ADMIN
+  SUPER_ADMIN
+  COMMUNITY_ADMIN
+  OWNER
+  TENANT
   RESIDENT
   CONCIERGE
+}
+
+enum PlanType {
+  BASIC
+  PREMIUM
+  ENTERPRISE
 }
 
 enum UnitType {

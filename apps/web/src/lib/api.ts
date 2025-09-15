@@ -16,11 +16,11 @@ export const api = axios.create({
 // Interceptor para requests
 api.interceptors.request.use(
   (config) => {
-    // Aquí puedes agregar tokens de autenticación si los tienes
-    // const token = localStorage.getItem('token');
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
+    // Agregar token de autenticación si existe
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => {
@@ -36,8 +36,14 @@ api.interceptors.response.use(
   (error) => {
     // Manejo global de errores
     if (error.response?.status === 401) {
-      // Redirigir al login si no está autenticado
-      console.error('No autorizado');
+      // Limpiar token y redirigir al login si no está autenticado
+      localStorage.removeItem('token');
+      console.error('No autorizado - Token expirado o inválido');
+
+      // Solo redirigir si no estamos ya en la página de login
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     } else if (error.response?.status >= 500) {
       console.error('Error del servidor');
     }
