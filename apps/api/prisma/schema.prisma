@@ -5,17 +5,414 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator erd {
+  provider = "prisma-erd-generator"
+  output   = "./ERD/schema.pdf"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ===== ENTIDADES PRINCIPALES =====
 
+model Community {
+  id          String   @id @default(cuid())
+  name        String
+  address     String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Relación con el creador
+  createdById String @map("created_by_id")
+  createdBy   User   @relation("CommunityCreator", fields: [createdById], references: [id])
+
+  // Relaciones
+  units         Unit[]
+  announcements Announcement[]
+  documents     Document[]
+
+  // Administradores de la comunidad (relación N:M)
+  communityAdmins CommunityAdmin[]
+
+  @@map("communities")
+}
+
+model Unit {
+  id          String   @id @default(cuid())
+  number      String
+  floor       String?
+  type        UnitType @default(APARTMENT)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Relación con la comunidad
+  communityId String @map("community_id")
+  community   Community @relation(fields: [communityId], references: [id])
+
+  // Relaciones
+  expenses     Expense[]
+  parcels      Parcel[]
+  visitors     Visitor[]
+  reservations SpaceReservation[]
+  userUnits    UserUnit[]
+
+  @@unique([communityId, number])
+  @@index([number])
+  @@map("units")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  phone        String?
+  passwordHash String   @map("password_hash")
+  status       UserStatus @default(ACTIVE)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  // Relaciones
+  roles              UserRole[]
+  payments           Payment[]
+  communications     Communication[]
+  incidents          Incident[]
+  hostedVisitors     Visitor[] @relation("HostedVisitors")
+  
+  // Relaciones con comunidades y unidades
+  createdCommunities Community[] @relation("CommunityCreator")
+  communityAdmins   CommunityAdmin[]
+  userUnits         UserUnit[]
+
+  @@index([email])
   @@map("users")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        RoleName @unique
+  description String?
+  permissions String[] // Array de permisos como strings
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  userRoles   UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  roleId String @map("role_id")
+
+  // Relaciones
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+// ===== RELACIONES N:M =====
+
+model CommunityAdmin {
+  id          String   @id @default(cuid())
+  communityId String   @map("community_id")
+  userId      String   @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relaciones
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([communityId, userId])
+  @@map("community_admins")
+}
+
+model UserUnit {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  unitId      String   @map("unit_id")
+  status      UserUnitStatus @default(PENDING)
+  confirmedAt DateTime? @map("confirmed_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unit        Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, unitId])
+  @@map("user_units")
+}
+
+// ===== ENTIDADES DE NEGOCIO =====
+
+model Expense {
+  id          String        @id @default(cuid())
+  unitId      String        @map("unit_id")
+  amount      Decimal       @db.Decimal(10, 2)
+  concept     String
+  description String?
+  dueDate     DateTime      @map("due_date")
+  status      ExpenseStatus @default(PENDING)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  // Relaciones
+  unit     Unit      @relation(fields: [unitId], references: [id])
+  payments Payment[]
+
+  @@index([status])
+  @@map("expenses")
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  userId      String        @map("user_id")
+  expenseId  String        @map("expense_id")
+  amount      Decimal       @db.Decimal(10, 2)
+  method      PaymentMethod @default(BANK_TRANSFER)
+  status      PaymentStatus @default(PENDING)
+  paymentDate DateTime?     @map("payment_date")
+  reference   String?       // Referencia bancaria o número de transacción
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  // Relaciones
+  user    User    @relation(fields: [userId], references: [id])
+  expense Expense @relation(fields: [expenseId], references: [id])
+
+  @@index([status])
+  @@map("payments")
+}
+
+model Parcel {
+  id          String       @id @default(cuid())
+  unitId      String       @map("unit_id")
+  description String
+  sender      String?
+  receivedAt  DateTime     @default(now()) @map("received_at")
+  retrievedAt DateTime?     @map("retrieved_at")
+  status      ParcelStatus @default(RECEIVED)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  // Relaciones
+  unit Unit @relation(fields: [unitId], references: [id])
+
+  @@map("parcels")
+}
+
+model Visitor {
+  id              String        @id @default(cuid())
+  unitId          String        @map("unit_id")
+  hostUserId      String        @map("host_user_id")
+  visitorName     String        @map("visitor_name")
+  visitorDocument String        @map("visitor_document")
+  visitorPhone    String?       @map("visitor_phone")
+  entryDate       DateTime      @map("entry_date")
+  exitDate        DateTime?     @map("exit_date")
+  status          VisitorStatus @default(REGISTERED)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  // Relaciones
+  unit Unit @relation(fields: [unitId], references: [id])
+  host User @relation("HostedVisitors", fields: [hostUserId], references: [id])
+
+  @@map("visitors")
+}
+
+model Announcement {
+  id          String   @id @default(cuid())
+  communityId String   @map("community_id")
+  title       String
+  content     String
+  type        AnnouncementType @default(GENERAL)
+  isActive    Boolean  @default(true) @map("is_active")
+  publishedAt DateTime @default(now()) @map("published_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  community Community @relation(fields: [communityId], references: [id])
+
+  @@map("announcements")
+}
+
+model Document {
+  id          String   @id @default(cuid())
+  communityId String   @map("community_id")
+  name        String
+  description String?
+  fileUrl     String   @map("file_url")
+  fileType    String   @map("file_type")
+  fileSize    Int      @map("file_size")
+  category    DocumentCategory @default(GENERAL)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  community Community @relation(fields: [communityId], references: [id])
+
+  @@map("documents")
+}
+
+model Communication {
+  id        String              @id @default(cuid())
+  userId    String              @map("user_id")
+  type      CommunicationType
+  content   String
+  sentAt    DateTime            @default(now()) @map("sent_at")
+  read      Boolean             @default(false)
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+
+  // Relaciones
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("communications")
+}
+
+model SpaceReservation {
+  id          String              @id @default(cuid())
+  unitId      String              @map("unit_id")
+  space       String
+  reservationDate DateTime        @map("reservation_date")
+  startTime   String              @map("start_time")
+  endTime     String              @map("end_time")
+  status      ReservationStatus   @default(PENDING)
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  // Relaciones
+  unit Unit @relation(fields: [unitId], references: [id])
+
+  @@map("space_reservations")
+}
+
+model Incident {
+  id          String          @id @default(cuid())
+  userId      String          @map("user_id")
+  title       String
+  description String
+  status      IncidentStatus  @default(OPEN)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  closedAt    DateTime?       @map("closed_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  // Relaciones
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("incidents")
+}
+
+// ===== ENUMS =====
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum RoleName {
+  ADMIN
+  RESIDENT
+  CONCIERGE
+}
+
+enum UnitType {
+  APARTMENT
+  HOUSE
+  OFFICE
+  COMMERCIAL
+}
+
+enum UserUnitStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum ExpenseStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CASH
+  CHECK
+  CARD
+}
+
+enum ParcelStatus {
+  RECEIVED
+  RETRIEVED
+  EXPIRED
+}
+
+enum VisitorStatus {
+  REGISTERED
+  ENTERED
+  EXITED
+  EXPIRED
+}
+
+enum AnnouncementType {
+  GENERAL
+  URGENT
+  MAINTENANCE
+  SECURITY
+  SOCIAL
+}
+
+enum DocumentCategory {
+  GENERAL
+  LEGAL
+  FINANCIAL
+  MAINTENANCE
+  SECURITY
+  MEETINGS
+}
+
+enum CommunicationType {
+  NOTICE
+  MESSAGE
+  ALERT
+  REMINDER
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum IncidentStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
 }
