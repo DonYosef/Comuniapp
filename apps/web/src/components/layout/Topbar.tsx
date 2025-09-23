@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 
 interface TopbarProps {
   onSidebarToggle?: () => void;
@@ -10,6 +12,8 @@ export default function Topbar({ onSidebarToggle }: TopbarProps) {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const { user, logout } = useAuth();
+  const router = useRouter();
 
   // Cargar tema desde localStorage al montar el componente
   useEffect(() => {
@@ -44,6 +48,13 @@ export default function Topbar({ onSidebarToggle }: TopbarProps) {
     e.preventDefault();
     console.log('Búsqueda:', searchQuery);
     // Aquí implementarías la lógica de búsqueda
+  };
+
+  // Función para manejar logout
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+    setIsUserMenuOpen(false);
   };
 
   // Función para cerrar menú de usuario al hacer clic fuera
@@ -156,10 +167,20 @@ export default function Topbar({ onSidebarToggle }: TopbarProps) {
               className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200"
             >
               <div className="w-8 h-8 bg-sky-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-medium">JD</span>
+                <span className="text-white text-sm font-medium">
+                  {user?.name
+                    ? user.name
+                        .split(' ')
+                        .map((n) => n[0])
+                        .join('')
+                        .toUpperCase()
+                    : 'U'}
+                </span>
               </div>
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Juan Delgado</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {user?.name || 'Usuario'}
+                </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Administrador</p>
               </div>
               <svg
@@ -219,9 +240,9 @@ export default function Topbar({ onSidebarToggle }: TopbarProps) {
                   Configuración
                 </a>
                 <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
-                <a
-                  href="#"
-                  className="flex items-center px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                 >
                   <svg
                     className="w-4 h-4 mr-3"
@@ -237,7 +258,7 @@ export default function Topbar({ onSidebarToggle }: TopbarProps) {
                     />
                   </svg>
                   Cerrar sesión
-                </a>
+                </button>
               </div>
             )}
           </div>

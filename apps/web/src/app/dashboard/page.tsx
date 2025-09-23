@@ -8,7 +8,7 @@ export default function DashboardPage() {
         <div className="space-y-6">
           {/* Header de la página */}
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+            <h1 className="text-2xl font-bold gradient-title-primary">Dashboard</h1>
             <p className="text-gray-600 dark:text-gray-400">
               Bienvenido a la administración de Comuniapp
             </p>

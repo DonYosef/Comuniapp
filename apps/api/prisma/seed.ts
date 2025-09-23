@@ -1,4 +1,4 @@
-import { PrismaClient, RoleName } from '@prisma/client';
+import { PrismaClient, RoleName, PlanType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -95,6 +95,27 @@ async function main() {
     }
   }
 
+  // Crear organización por defecto
+  const defaultOrg = await prisma.organization.findFirst({
+    where: { name: 'Comuniapp Organization' },
+  });
+
+  let organizationId: string;
+  if (!defaultOrg) {
+    const newOrg = await prisma.organization.create({
+      data: {
+        name: 'Comuniapp Organization',
+        plan: PlanType.BASIC,
+        isActive: true,
+      },
+    });
+    organizationId = newOrg.id;
+    console.log('✅ Organización por defecto creada');
+  } else {
+    organizationId = defaultOrg.id;
+    console.log('⚠️  Organización por defecto ya existe');
+  }
+
   // Crear usuario administrador por defecto
   const adminUser = await prisma.user.findUnique({
     where: { email: 'admin@comuniapp.com' },
@@ -112,6 +133,7 @@ async function main() {
         passwordHash: hashedPassword,
         status: 'ACTIVE',
         isActive: true,
+        organizationId: organizationId,
       },
     });
 

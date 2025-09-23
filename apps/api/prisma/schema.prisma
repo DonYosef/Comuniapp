@@ -39,6 +39,16 @@ model Community {
   name           String
   address        String
   description    String?
+  phone          String?
+  email          String?
+  website        String?
+  type           CommunityType @default(CONDOMINIO)
+  totalUnits     Int?
+  constructionYear Int?
+  floors         Int?
+  unitsPerFloor  Int?
+  buildingStructure Json?
+  imageUrl       String?
   isActive       Boolean  @default(true) @map("is_active")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -55,11 +65,33 @@ model Community {
   units         Unit[]
   announcements Announcement[]
   documents     Document[]
+  commonSpaces  CommunityCommonSpace[]
 
   // Administradores de la comunidad (relación N:M)
   communityAdmins CommunityAdmin[]
 
   @@map("communities")
+}
+
+model CommunityCommonSpace {
+  id          String   @id @default(cuid())
+  name        String   // "Piscina", "Gimnasio", "Quincho", etc.
+  quantity    Int      @default(1)
+  description String?  // Descripción del espacio
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  
+  // Relación con la comunidad
+  communityId String @map("community_id")
+  community   Community @relation(fields: [communityId], references: [id])
+  
+  // Relación con reservas
+  reservations SpaceReservation[]
+  
+  @@unique([communityId, name])
+  @@map("community_common_spaces")
 }
 
 model Unit {
@@ -314,7 +346,7 @@ model Communication {
 model SpaceReservation {
   id          String              @id @default(cuid())
   unitId      String              @map("unit_id")
-  space       String
+  commonSpaceId String            @map("common_space_id")
   reservationDate DateTime        @map("reservation_date")
   startTime   String              @map("start_time")
   endTime     String              @map("end_time")
@@ -323,7 +355,8 @@ model SpaceReservation {
   updatedAt   DateTime            @updatedAt @map("updated_at")
 
   // Relaciones
-  unit Unit @relation(fields: [unitId], references: [id])
+  unit        Unit @relation(fields: [unitId], references: [id])
+  commonSpace CommunityCommonSpace @relation(fields: [commonSpaceId], references: [id])
 
   @@map("space_reservations")
 }
@@ -449,4 +482,9 @@ enum IncidentStatus {
   OPEN
   IN_PROGRESS
   CLOSED
+}
+
+enum CommunityType {
+  CONDOMINIO
+  EDIFICIO
 }

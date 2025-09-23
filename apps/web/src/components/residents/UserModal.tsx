@@ -108,24 +108,52 @@ export default function UserModal({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-          <div className="absolute inset-0 bg-gray-500 opacity-75" onClick={onClose}></div>
+          <div
+            className="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
+            onClick={onClose}
+          ></div>
         </div>
 
-        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full border border-gray-200 dark:border-gray-700">
           <form onSubmit={handleSubmit}>
-            <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div className="bg-white dark:bg-gray-800 px-8 pt-8 pb-6">
               <div className="sm:flex sm:items-start">
                 <div className="w-full">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-                    {mode === 'create' && 'Crear Usuario'}
-                    {mode === 'edit' && 'Editar Usuario'}
-                    {mode === 'view' && 'Ver Usuario'}
-                  </h3>
-
-                  <div className="space-y-4">
+                  <div className="flex items-center space-x-3 mb-6">
+                    <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-xl">
+                      <svg
+                        className="w-8 h-8 text-blue-600 dark:text-blue-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                        />
+                      </svg>
+                    </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Nombre *
+                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {mode === 'create' && 'Crear Nuevo Residente'}
+                        {mode === 'edit' && 'Editar Residente'}
+                        {mode === 'view' && 'Detalles del Residente'}
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {mode === 'create' &&
+                          'Completa la información para crear un nuevo residente'}
+                        {mode === 'edit' && 'Modifica la información del residente'}
+                        {mode === 'view' && 'Información completa del residente'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        Nombre completo *
                       </label>
                       <input
                         type="text"
@@ -133,17 +161,35 @@ export default function UserModal({
                         value={formData.name}
                         onChange={handleChange}
                         disabled={mode === 'view'}
-                        className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm ${
-                          errors.name ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
-                        } ${mode === 'view' ? 'bg-gray-100 dark:bg-gray-700' : 'bg-white dark:bg-gray-600'} text-gray-900 dark:text-white`}
+                        placeholder="Ej: Juan Pérez"
+                        className={`block w-full px-4 py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                          errors.name
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-200 dark:border-gray-600'
+                        } ${mode === 'view' ? 'bg-gray-50 dark:bg-gray-700' : 'bg-white dark:bg-gray-800'} text-gray-900 dark:text-white placeholder-gray-400`}
                       />
                       {errors.name && (
-                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>
+                        <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center">
+                          <svg
+                            className="w-4 h-4 mr-1"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          {errors.name}
+                        </p>
                       )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                         Email *
                       </label>
                       <input
@@ -152,12 +198,28 @@ export default function UserModal({
                         value={formData.email}
                         onChange={handleChange}
                         disabled={mode === 'view'}
-                        className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm ${
-                          errors.email ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
-                        } ${mode === 'view' ? 'bg-gray-100 dark:bg-gray-700' : 'bg-white dark:bg-gray-600'} text-gray-900 dark:text-white`}
+                        placeholder="juan.perez@email.com"
+                        className={`block w-full px-4 py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                          errors.email
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-200 dark:border-gray-600'
+                        } ${mode === 'view' ? 'bg-gray-50 dark:bg-gray-700' : 'bg-white dark:bg-gray-800'} text-gray-900 dark:text-white placeholder-gray-400`}
                       />
                       {errors.email && (
-                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                        <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center">
+                          <svg
+                            className="w-4 h-4 mr-1"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
                           {errors.email}
                         </p>
                       )}
@@ -165,7 +227,7 @@ export default function UserModal({
 
                     {mode === 'create' && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                           Contraseña *
                         </label>
                         <input
@@ -173,14 +235,28 @@ export default function UserModal({
                           name="password"
                           value={formData.password}
                           onChange={handleChange}
-                          className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm ${
+                          placeholder="Mínimo 6 caracteres"
+                          className={`block w-full px-4 py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
                             errors.password
-                              ? 'border-red-300'
-                              : 'border-gray-300 dark:border-gray-600'
-                          } bg-white dark:bg-gray-600 text-gray-900 dark:text-white`}
+                              ? 'border-red-300 bg-red-50'
+                              : 'border-gray-200 dark:border-gray-600'
+                          } bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400`}
                         />
                         {errors.password && (
-                          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                          <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center">
+                            <svg
+                              className="w-4 h-4 mr-1"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
                             {errors.password}
                           </p>
                         )}
@@ -188,7 +264,7 @@ export default function UserModal({
                     )}
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                         Teléfono
                       </label>
                       <input
@@ -197,16 +273,17 @@ export default function UserModal({
                         value={formData.phone}
                         onChange={handleChange}
                         disabled={mode === 'view'}
-                        className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm border-gray-300 dark:border-gray-600 ${
+                        placeholder="+34 600 123 456"
+                        className={`block w-full px-4 py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 border-gray-200 dark:border-gray-600 ${
                           mode === 'view'
-                            ? 'bg-gray-100 dark:bg-gray-700'
-                            : 'bg-white dark:bg-gray-600'
-                        } text-gray-900 dark:text-white`}
+                            ? 'bg-gray-50 dark:bg-gray-700'
+                            : 'bg-white dark:bg-gray-800'
+                        } text-gray-900 dark:text-white placeholder-gray-400`}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                         Estado
                       </label>
                       <select
@@ -214,37 +291,111 @@ export default function UserModal({
                         value={formData.status}
                         onChange={handleChange}
                         disabled={mode === 'view'}
-                        className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm border-gray-300 dark:border-gray-600 ${
+                        className={`block w-full px-4 py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 border-gray-200 dark:border-gray-600 ${
                           mode === 'view'
-                            ? 'bg-gray-100 dark:bg-gray-700'
-                            : 'bg-white dark:bg-gray-600'
-                        } text-gray-900 dark:text-white`}
+                            ? 'bg-gray-50 dark:bg-gray-700'
+                            : 'bg-white dark:bg-gray-800'
+                        } text-gray-900 dark:text-white appearance-none cursor-pointer`}
                       >
                         <option value="ACTIVE">Activo</option>
                         <option value="INACTIVE">Inactivo</option>
                         <option value="SUSPENDED">Suspendido</option>
                       </select>
                     </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        Unidad Asociada
+                      </label>
+                      <select
+                        disabled={mode === 'view'}
+                        className={`block w-full px-4 py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 border-gray-200 dark:border-gray-600 ${
+                          mode === 'view'
+                            ? 'bg-gray-50 dark:bg-gray-700'
+                            : 'bg-white dark:bg-gray-800'
+                        } text-gray-900 dark:text-white appearance-none cursor-pointer`}
+                      >
+                        <option value="">Sin unidad</option>
+                        <option value="torre-a-101">Torre A - Depto 101</option>
+                        <option value="torre-a-102">Torre A - Depto 102</option>
+                        <option value="torre-b-201">Torre B - Depto 201</option>
+                        <option value="torre-b-202">Torre B - Depto 202</option>
+                        <option value="casa-1">Casa 1</option>
+                        <option value="casa-2">Casa 2</option>
+                      </select>
+                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        Selecciona la unidad donde reside este usuario
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <div className="bg-gray-50 dark:bg-gray-700 px-8 py-6 sm:flex sm:flex-row-reverse space-y-3 sm:space-y-0 sm:space-x-3">
               {mode !== 'view' && (
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-sky-600 text-base font-medium text-white hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-semibold rounded-xl shadow-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:-translate-y-0.5"
                 >
-                  {isLoading ? 'Guardando...' : 'Guardar'}
+                  {isLoading ? (
+                    <>
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        className="w-5 h-5 mr-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      Guardar Cambios
+                    </>
+                  )}
                 </button>
               )}
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                className="w-full sm:w-auto inline-flex justify-center items-center px-6 py-3 border border-gray-300 dark:border-gray-600 text-base font-semibold rounded-xl shadow-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
               >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
                 {mode === 'view' ? 'Cerrar' : 'Cancelar'}
               </button>
             </div>
