@@ -8,6 +8,7 @@ import { useCommunities } from '@/hooks/useCommunities';
 interface SidebarProps {
   isCollapsed?: boolean;
   onToggle?: () => void;
+  onHoverChange?: (isHovered: boolean) => void;
 }
 
 interface NavItem {
@@ -24,16 +25,28 @@ interface SubmenuItem {
   icon?: React.ReactNode;
 }
 
-export default function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
+export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }: SidebarProps) {
   const pathname = usePathname();
   const { communities, hasCommunities } = useCommunities();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [isHovered, setIsHovered] = useState(false);
 
   // Función para alternar el estado de expansión de un elemento
   const toggleExpanded = (itemName: string) => {
     setExpandedItems((prev) =>
       prev.includes(itemName) ? prev.filter((name) => name !== itemName) : [...prev, itemName],
     );
+  };
+
+  // Función para manejar el hover
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    onHoverChange?.(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    onHoverChange?.(false);
   };
 
   // Generar elementos de navegación dinámicamente
@@ -82,7 +95,7 @@ export default function Sidebar({ isCollapsed = false, onToggle }: SidebarProps)
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
+              d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
             />
           </svg>
         ),
@@ -168,33 +181,46 @@ export default function Sidebar({ isCollapsed = false, onToggle }: SidebarProps)
     <div
       className={`
         fixed left-0 top-0 z-40 h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700
-        transition-all duration-300 ease-in-out
-        ${isCollapsed ? 'w-16' : 'w-64'}
+        transition-all duration-300 ease-in-out shadow-xl
+        ${isCollapsed && !isHovered ? 'w-16' : 'w-64 sm:w-72'}
         lg:translate-x-0
-        ${isCollapsed ? '-translate-x-full' : 'translate-x-0'}
+        ${isCollapsed && !isHovered ? 'translate-x-0' : 'translate-x-0'}
       `}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {/* Header */}
-      <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-700">
-        {!isCollapsed && <h1 className="text-xl font-bold gradient-title-primary">Comuniapp</h1>}
-        <button
-          onClick={onToggle}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200"
-          aria-label={isCollapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d={isCollapsed ? 'M4 6h16M4 12h16M4 18h16' : 'M6 18L18 6M6 6l12 12'}
-            />
-          </svg>
-        </button>
+      <div
+        className={`flex items-center ${isCollapsed && !isHovered ? 'justify-center' : 'justify-start'} h-16 sm:h-18 ${isCollapsed && !isHovered ? 'px-2' : 'px-4 sm:px-6'} border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900`}
+      >
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-xl">
+            <svg
+              className="w-6 h-6 text-blue-600 dark:text-blue-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+              />
+            </svg>
+          </div>
+          {!(isCollapsed && !isHovered) && (
+            <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
+              Comuniapp
+            </h1>
+          )}
+        </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 py-6 space-y-2">
+      <nav
+        className={`flex-1 ${isCollapsed && !isHovered ? 'px-2' : 'px-4 sm:px-6'} py-4 sm:py-6 space-y-1 sm:space-y-2`}
+      >
         {getNavItems().map((item) => {
           const isActive = pathname === item.href;
           const isExpanded = expandedItems.includes(item.name);
@@ -206,30 +232,30 @@ export default function Sidebar({ isCollapsed = false, onToggle }: SidebarProps)
                 <button
                   onClick={() => toggleExpanded(item.name)}
                   className={`
-                    w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                    w-full flex items-center ${isCollapsed && !isHovered ? 'justify-center' : 'justify-between'} ${isCollapsed && !isHovered ? 'px-2 py-3' : 'px-3 sm:px-4 py-3 sm:py-2'} rounded-xl text-sm font-medium transition-all duration-200
                     group relative
                     ${
                       isActive
-                        ? 'bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 shadow-sm'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:from-gray-800 dark:hover:to-blue-900/20 hover:text-gray-900 dark:hover:text-white hover:shadow-sm'
                     }
                   `}
                 >
                   <div className="flex items-center">
                     <span
                       className={`
-                        flex-shrink-0 transition-colors duration-200
-                        ${isActive ? 'text-sky-600 dark:text-sky-400' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'}
+                        flex-shrink-0 transition-all duration-200 p-1 rounded-lg
+                        ${isActive ? 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30' : 'text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20'}
                       `}
                     >
                       {item.icon}
                     </span>
-                    {!isCollapsed && (
+                    {!(isCollapsed && !isHovered) && (
                       <span className="ml-3 transition-opacity duration-200">{item.name}</span>
                     )}
                   </div>
 
-                  {!isCollapsed && (
+                  {!(isCollapsed && !isHovered) && (
                     <svg
                       className={`w-4 h-4 transition-transform duration-200 ${
                         isExpanded ? 'rotate-180' : ''
@@ -248,24 +274,25 @@ export default function Sidebar({ isCollapsed = false, onToggle }: SidebarProps)
                   )}
 
                   {/* Tooltip para modo colapsado */}
-                  {isCollapsed && (
-                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                  {isCollapsed && !isHovered && (
+                    <div className="absolute left-full ml-3 px-3 py-2 bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-50 border border-gray-700 dark:border-gray-600 transform translate-y-1">
+                      <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-900 dark:bg-gray-800 border-l border-b border-gray-700 dark:border-gray-600 rotate-45"></div>
                       {item.name}
                     </div>
                   )}
                 </button>
 
                 {/* Submenú */}
-                {!isCollapsed && isExpanded && item.submenuItems && (
-                  <div className="ml-6 mt-2 space-y-1">
+                {!(isCollapsed && !isHovered) && isExpanded && item.submenuItems && (
+                  <div className="ml-4 sm:ml-6 mt-2 space-y-1">
                     {item.submenuItems.map((subItem) => (
                       <Link
                         key={subItem.name}
                         href={subItem.href as any}
-                        className="flex items-center px-3 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-all duration-200"
+                        className="flex items-center px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-sm text-gray-600 dark:text-gray-400 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:from-gray-800 dark:hover:to-blue-900/20 hover:text-gray-900 dark:hover:text-white transition-all duration-200 group"
                       >
                         {subItem.icon && (
-                          <span className="flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400">
+                          <span className="flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors duration-200">
                             {subItem.icon}
                           </span>
                         )}
@@ -284,30 +311,31 @@ export default function Sidebar({ isCollapsed = false, onToggle }: SidebarProps)
               key={item.name}
               href={item.href as any}
               className={`
-                flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                flex items-center ${isCollapsed && !isHovered ? 'justify-center' : ''} ${isCollapsed && !isHovered ? 'px-2 py-3' : 'px-3 sm:px-4 py-3 sm:py-2'} rounded-xl text-sm font-medium transition-all duration-200
                 group relative
                 ${
                   isActive
-                    ? 'bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 shadow-sm'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:from-gray-800 dark:hover:to-blue-900/20 hover:text-gray-900 dark:hover:text-white hover:shadow-sm'
                 }
               `}
             >
               <span
                 className={`
-                  flex-shrink-0 transition-colors duration-200
-                  ${isActive ? 'text-sky-600 dark:text-sky-400' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'}
+                  flex-shrink-0 transition-all duration-200 p-1 rounded-lg
+                  ${isActive ? 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30' : 'text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20'}
                 `}
               >
                 {item.icon}
               </span>
-              {!isCollapsed && (
+              {!(isCollapsed && !isHovered) && (
                 <span className="ml-3 transition-opacity duration-200">{item.name}</span>
               )}
 
               {/* Tooltip para modo colapsado */}
-              {isCollapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+              {isCollapsed && !isHovered && (
+                <div className="absolute left-full ml-3 px-3 py-2 bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-50 border border-gray-700 dark:border-gray-600 transform translate-y-1">
+                  <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-900 dark:bg-gray-800 border-l border-b border-gray-700 dark:border-gray-600 rotate-45"></div>
                   {item.name}
                 </div>
               )}
@@ -317,9 +345,19 @@ export default function Sidebar({ isCollapsed = false, onToggle }: SidebarProps)
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-        {!isCollapsed && (
-          <div className="text-xs text-gray-500 dark:text-gray-400">© 2024 Comuniapp</div>
+      <div
+        className={`${isCollapsed && !isHovered ? 'p-2' : 'p-4 sm:p-6'} border-t border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-800 dark:to-gray-900`}
+      >
+        {!(isCollapsed && !isHovered) && (
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">© 2024 Comuniapp</div>
+          </div>
+        )}
+        {isCollapsed && !isHovered && (
+          <div className="flex justify-center">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+          </div>
         )}
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { UserResponseDto, CreateUserDto, UpdateUserDto } from '@/types/api';
+import { useAuth } from '@/hooks/useAuth';
 
 interface UserModalProps {
   isOpen: boolean;
@@ -20,12 +21,20 @@ export default function UserModal({
   onSave,
   isLoading = false,
 }: UserModalProps) {
+  const { user: authUser } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     phone: '',
     status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE' | 'SUSPENDED',
+    roleName: 'RESIDENT' as
+      | 'SUPER_ADMIN'
+      | 'COMMUNITY_ADMIN'
+      | 'OWNER'
+      | 'TENANT'
+      | 'RESIDENT'
+      | 'CONCIERGE',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -38,6 +47,7 @@ export default function UserModal({
         password: '',
         phone: user.phone || '',
         status: user.status,
+        roleName: 'RESIDENT', // Por defecto, se puede cambiar si es necesario
       });
     } else if (mode === 'create') {
       setFormData({
@@ -46,6 +56,7 @@ export default function UserModal({
         password: '',
         phone: '',
         status: 'ACTIVE',
+        roleName: 'RESIDENT',
       });
     }
     setErrors({});
@@ -84,9 +95,11 @@ export default function UserModal({
     const userData = {
       name: formData.name,
       email: formData.email,
-      phone: formData.phone || undefined,
       status: formData.status,
+      roleName: formData.roleName,
       ...(mode === 'create' && { password: formData.password }),
+      ...(formData.phone && { phone: formData.phone }),
+      ...(authUser?.organizationId && { organizationId: authUser.organizationId }),
     };
 
     onSave(userData);
@@ -300,6 +313,29 @@ export default function UserModal({
                         <option value="ACTIVE">Activo</option>
                         <option value="INACTIVE">Inactivo</option>
                         <option value="SUSPENDED">Suspendido</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        Rol
+                      </label>
+                      <select
+                        name="roleName"
+                        value={formData.roleName}
+                        onChange={handleChange}
+                        disabled={mode === 'view'}
+                        className={`block w-full px-4 py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 border-gray-200 dark:border-gray-600 ${
+                          mode === 'view'
+                            ? 'bg-gray-50 dark:bg-gray-700'
+                            : 'bg-white dark:bg-gray-800'
+                        } text-gray-900 dark:text-white appearance-none cursor-pointer`}
+                      >
+                        <option value="RESIDENT">Residente</option>
+                        <option value="OWNER">Propietario</option>
+                        <option value="TENANT">Inquilino</option>
+                        <option value="CONCIERGE">Conserje</option>
+                        <option value="COMMUNITY_ADMIN">Administrador de Comunidad</option>
                       </select>
                     </div>
 

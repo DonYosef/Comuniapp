@@ -44,6 +44,17 @@ export class CommunitiesController {
 
   @Delete(':id')
   remove(@Param('id') id: string, @Request() req) {
+    console.log('🎯 [CONTROLLER] DELETE /communities/:id recibido:', {
+      communityId: id,
+      userId: req.user?.id,
+      userEmail: req.user?.email,
+      timestamp: new Date().toISOString(),
+      headers: {
+        authorization: req.headers.authorization ? 'Bearer ***' : 'No auth header',
+        userAgent: req.headers['user-agent'],
+      },
+    });
+
     return this.communitiesService.deleteCommunity(id, req.user.id);
   }
 

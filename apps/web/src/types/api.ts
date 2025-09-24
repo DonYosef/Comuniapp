@@ -17,6 +17,8 @@ export interface CreateUserDto {
   password: string;
   phone?: string;
   status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  organizationId?: string;
+  roleName?: 'SUPER_ADMIN' | 'COMMUNITY_ADMIN' | 'OWNER' | 'TENANT' | 'RESIDENT' | 'CONCIERGE';
 }
 
 export interface UpdateUserDto {

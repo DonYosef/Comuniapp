@@ -154,18 +154,52 @@ class CommunityService {
   }
 
   async deleteCommunity(id: string): Promise<void> {
+    console.log('🔧 [SERVICE] deleteCommunity iniciado:', {
+      id,
+      apiUrl: config.apiUrl,
+      endpoint: `${config.apiUrl}/communities/${id}`,
+      timestamp: new Date().toISOString(),
+      environment: {
+        isDevelopment: config.isDevelopment,
+        isProduction: config.isProduction,
+        nodeEnv: process.env.NODE_ENV,
+      },
+    });
+
     try {
+      const headers = await this.getAuthHeaders();
+      console.log('🔐 [SERVICE] Headers de autenticación:', {
+        hasAuth: !!headers.Authorization,
+        authPrefix: headers.Authorization?.substring(0, 20) + '...',
+        contentType: headers['Content-Type'],
+      });
+
+      console.log('📡 [SERVICE] Enviando petición DELETE...');
       const response = await fetch(`${config.apiUrl}/communities/${id}`, {
         method: 'DELETE',
-        headers: await this.getAuthHeaders(),
+        headers,
+      });
+
+      console.log('📊 [SERVICE] Respuesta recibida:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries()),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('❌ [SERVICE] Error en respuesta:', errorData);
         throw new Error(errorData.message || 'Error al eliminar la comunidad');
       }
+
+      console.log('✅ [SERVICE] Comunidad eliminada exitosamente');
     } catch (error) {
-      console.error('Error deleting community:', error);
+      console.error('❌ [SERVICE] Error deleting community:', {
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined,
+        id,
+      });
       throw error;
     }
   }

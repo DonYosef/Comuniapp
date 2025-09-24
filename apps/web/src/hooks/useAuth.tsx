@@ -33,16 +33,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedToken = AuthService.getToken();
     if (storedToken && !AuthService.isTokenExpired()) {
       setToken(storedToken);
-      // Aquí podrías hacer una llamada para obtener los datos del usuario
-      // Por ahora, asumimos que el token es válido
+      // Por ahora, usar datos del usuario administrador real
       setUser({
-        id: 'temp-id',
+        id: 'cmfu76mie0003k48oj64ug2b9', // ID real del usuario admin
         email: 'admin@comuniapp.com',
-        name: 'Super Administrador',
-        organizationId: null,
+        name: 'Administrador del Sistema',
+        organizationId: 'cmfub8plc0000pnod3jl14lo4', // ID real de la organización
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+    } else {
+      // Para testing, hacer login automático
+      const autoLogin = async () => {
+        try {
+          const response = await AuthService.login({
+            email: 'admin@comuniapp.com',
+            password: 'contrasegura321',
+          });
+          setUser(response.user);
+          setToken(response.accessToken);
+        } catch (error) {
+          console.error('Error en login automático:', error);
+        }
+      };
+      autoLogin();
     }
     setIsLoading(false);
   }, []);

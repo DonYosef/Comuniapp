@@ -5,13 +5,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 
 interface TopbarProps {
-  onSidebarToggle?: () => void;
+  isSidebarCollapsed?: boolean;
 }
 
-export default function Topbar({ onSidebarToggle }: TopbarProps) {
+export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const { user, logout } = useAuth();
   const router = useRouter();
 
@@ -43,13 +42,6 @@ export default function Topbar({ onSidebarToggle }: TopbarProps) {
     }
   };
 
-  // Función para manejar búsqueda
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Búsqueda:', searchQuery);
-    // Aquí implementarías la lógica de búsqueda
-  };
-
   // Función para manejar logout
   const handleLogout = () => {
     logout();
@@ -73,51 +65,17 @@ export default function Topbar({ onSidebarToggle }: TopbarProps) {
   return (
     <header className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between h-16 px-4 lg:px-6">
-        {/* Botón de menú móvil */}
-        <button
-          onClick={onSidebarToggle}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 lg:hidden"
-          aria-label="Abrir menú"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-          </svg>
-        </button>
+        {/* Título móvil cuando sidebar está colapsado */}
+        {isSidebarCollapsed && (
+          <div className="flex items-center ml-4">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
+              Comuniapp
+            </h1>
+          </div>
+        )}
 
-        {/* Campo de búsqueda centrado */}
-        <div className="flex-1 max-w-md mx-4">
-          <form onSubmit={handleSearch} className="relative">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg
-                  className="h-5 w-5 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </div>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar en la comunidad..."
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all duration-200"
-              />
-            </div>
-          </form>
-        </div>
+        {/* Espaciador cuando sidebar no está colapsado */}
+        {!isSidebarCollapsed && <div className="flex-1"></div>}
 
         {/* Controles del usuario */}
         <div className="flex items-center space-x-4">

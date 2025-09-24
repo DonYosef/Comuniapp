@@ -54,19 +54,69 @@ pnpm install
 
 ### 2. Configurar la base de datos
 
+#### 2.1 Levantar servicios de infraestructura
+
 ```bash
-# Levantar servicios de infraestructura
+# Levantar PostgreSQL y Redis con Docker
 docker compose -f infra/docker-compose.yml up -d
 
-# Configurar variables de entorno para la API
+# Verificar que los servicios estén corriendo
+docker ps
+```
+
+**Verificación:** Deberías ver los contenedores `comuniapp-postgres` y `comuniapp-redis` corriendo.
+
+#### 2.2 Configurar variables de entorno
+
+```bash
+# Navegar a la API y copiar variables de entorno
 cd apps/api
 cp env.example .env
+```
 
-# Ejecutar migraciones de Prisma
-pnpm prisma migrate dev --name init
+**Archivo `.env` creado:**
+
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/comuniapp"
+NODE_ENV=development
+PORT=3001
+JWT_SECRET="your-super-secret-jwt-key-change-in-production"
+JWT_EXPIRES_IN="7d"
+CORS_ORIGIN="http://localhost:3000,http://localhost:8081"
+```
+
+#### 2.3 Configurar Prisma y base de datos
+
+```bash
+# Generar cliente de Prisma
 pnpm prisma generate
+
+# Ejecutar migraciones (crea todas las tablas)
+pnpm prisma migrate dev --name init
+
+# Poblar base de datos con datos iniciales
+pnpm prisma db seed
+
+# Regresar al directorio raíz
 cd ../..
 ```
+
+**¿Qué se crea automáticamente?**
+
+- ✅ **14 entidades principales**: Organizations, Communities, Users, Units, Expenses, etc.
+- ✅ **6 roles del sistema**: SUPER_ADMIN, COMMUNITY_ADMIN, CONCIERGE, OWNER, TENANT, RESIDENT
+- ✅ **Usuario administrador**: `admin@comuniapp.com` / `admin123`
+- ✅ **Organización demo**: Comuniapp Demo
+
+**Verificación:**
+
+```bash
+# Abrir Prisma Studio para ver los datos
+cd apps/api
+pnpm prisma studio
+```
+
+Se abre en http://localhost:5555
 
 ### 3. Ejecutar en desarrollo
 
@@ -76,6 +126,7 @@ pnpm dev
 ```
 
 Esto iniciará:
+
 - **Web**: http://localhost:3000
 - **API**: http://localhost:3001
 - **API Docs**: http://localhost:3001/api
@@ -123,21 +174,57 @@ pnpm start:prod   # Producción
 ```bash
 cd apps/api
 
-# Crear migración
-pnpm prisma migrate dev --name <nombre-migracion>
-
-# Aplicar migraciones
-pnpm prisma migrate deploy
-
-# Generar cliente
+# Generar cliente de Prisma
 pnpm prisma generate
 
-# Abrir Prisma Studio
+# Crear y aplicar migración
+pnpm prisma migrate dev --name <nombre-migracion>
+
+# Aplicar migraciones (producción)
+pnpm prisma migrate deploy
+
+# Poblar base de datos con datos iniciales
+pnpm prisma db seed
+
+# Abrir Prisma Studio (interfaz visual)
 pnpm prisma studio
 
-# Resetear base de datos
+# Resetear base de datos completamente
 pnpm prisma migrate reset
+
+# Sincronizar schema sin migración
+pnpm prisma db push
+
+# Ver estado de migraciones
+pnpm prisma migrate status
 ```
+
+### Estructura de la Base de Datos
+
+**Entidades principales creadas automáticamente:**
+
+- **Organizations** - Organizaciones que usan el sistema
+- **Communities** - Comunidades dentro de organizaciones
+- **Users** - Usuarios del sistema con roles y permisos
+- **Units** - Unidades dentro de comunidades
+- **Expenses** - Gastos comunes de la comunidad
+- **Payments** - Pagos de gastos por parte de usuarios
+- **Visitors** - Visitantes registrados en la comunidad
+- **Parcels** - Encomiendas recibidas
+- **Announcements** - Anuncios de la comunidad
+- **Documents** - Documentos compartidos
+- **Communications** - Comunicaciones entre usuarios
+- **SpaceReservations** - Reservas de espacios comunes
+- **Incidents** - Incidencias reportadas por usuarios
+
+**Roles del sistema:**
+
+- **SUPER_ADMIN**: Acceso total al sistema
+- **COMMUNITY_ADMIN**: Administrador de comunidad
+- **CONCIERGE**: Personal de conserjería
+- **OWNER**: Propietario de unidad
+- **TENANT**: Arrendatario
+- **RESIDENT**: Residente
 
 ### Variables de entorno
 
@@ -148,6 +235,54 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/comuniapp"
 NODE_ENV=development
 PORT=3001
 JWT_SECRET="your-super-secret-jwt-key-change-in-production"
+JWT_EXPIRES_IN="7d"
+CORS_ORIGIN="http://localhost:3000,http://localhost:8081"
+```
+
+### Usuario Administrador por Defecto
+
+Después del seed, tienes acceso con:
+
+- **Email**: `admin@comuniapp.com`
+- **Contraseña**: `admin123`
+- **Rol**: SUPER_ADMIN
+- **Permisos**: Acceso total al sistema
+
+### Solución de Problemas Comunes
+
+**Error: "Database connection failed"**
+
+```bash
+# Verificar que Docker esté corriendo
+docker ps
+
+# Reiniciar servicios si es necesario
+docker compose -f infra/docker-compose.yml down
+docker compose -f infra/docker-compose.yml up -d
+```
+
+**Error: "Migration failed"**
+
+```bash
+# Resetear base de datos y aplicar migraciones
+pnpm prisma migrate reset
+pnpm prisma migrate dev --name init
+```
+
+**Error: "Prisma Client not generated"**
+
+```bash
+# Limpiar y regenerar cliente
+rm -rf node_modules/@prisma/client
+pnpm prisma generate
+```
+
+**Error: "Seed failed"**
+
+```bash
+# Limpiar datos y ejecutar seed
+pnpm prisma migrate reset
+pnpm prisma db seed
 ```
 
 ## 🛠️ Herramientas de desarrollo

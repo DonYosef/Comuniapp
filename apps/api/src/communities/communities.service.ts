@@ -196,7 +196,14 @@ export class CommunitiesService {
   }
 
   async deleteCommunity(id: string, userId: string) {
+    console.log('🔧 [SERVICE] deleteCommunity iniciado:', {
+      communityId: id,
+      userId,
+      timestamp: new Date().toISOString(),
+    });
+
     // Verificar que el usuario es administrador de la comunidad
+    console.log('🔍 [SERVICE] Verificando permisos de administrador...');
     const communityAdmin = await this.prisma.communityAdmin.findUnique({
       where: {
         communityId_userId: {
@@ -206,18 +213,61 @@ export class CommunitiesService {
       },
     });
 
+    console.log('👤 [SERVICE] Resultado de verificación de permisos:', {
+      found: !!communityAdmin,
+      communityAdminId: communityAdmin?.id,
+      communityId: communityAdmin?.communityId,
+      userId: communityAdmin?.userId,
+    });
+
     if (!communityAdmin) {
+      console.error('❌ [SERVICE] Usuario no tiene permisos para eliminar la comunidad');
       throw new NotFoundException('Comunidad no encontrada o no tienes permisos para eliminar');
     }
 
+    // Verificar el estado actual de la comunidad antes de eliminar
+    console.log('🔍 [SERVICE] Verificando estado actual de la comunidad...');
+    const currentCommunity = await this.prisma.community.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        isActive: true,
+        deletedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    console.log('📊 [SERVICE] Estado actual de la comunidad:', currentCommunity);
+
+    if (!currentCommunity) {
+      console.error('❌ [SERVICE] Comunidad no encontrada en la base de datos');
+      throw new NotFoundException('Comunidad no encontrada');
+    }
+
+    if (!currentCommunity.isActive) {
+      console.warn('⚠️ [SERVICE] La comunidad ya está marcada como inactiva');
+    }
+
     // Soft delete
-    return this.prisma.community.update({
+    console.log('🗑️ [SERVICE] Ejecutando soft delete...');
+    const result = await this.prisma.community.update({
       where: { id },
       data: {
         isActive: false,
         deletedAt: new Date(),
       },
     });
+
+    console.log('✅ [SERVICE] Soft delete completado:', {
+      communityId: result.id,
+      isActive: result.isActive,
+      deletedAt: result.deletedAt,
+      updatedAt: result.updatedAt,
+    });
+
+    return result;
   }
 
   // Métodos para gestión de espacios comunes

@@ -6,6 +6,172 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { communityService, Community, Unit, CommonSpace } from '@/services/communityService';
 
+// Toast notification component
+interface ToastProps {
+  message: string;
+  type: 'success' | 'error';
+  onClose: () => void;
+}
+
+const Toast = ({ message, type, onClose }: ToastProps) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 5000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className="fixed top-4 right-4 z-50 animate-slide-down">
+      <div
+        className={`rounded-xl shadow-lg border p-4 flex items-center space-x-3 max-w-md ${
+          type === 'success'
+            ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300'
+            : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-700 dark:text-red-300'
+        }`}
+      >
+        <div
+          className={`p-1 rounded-full ${
+            type === 'success' ? 'bg-green-100 dark:bg-green-800' : 'bg-red-100 dark:bg-red-800'
+          }`}
+        >
+          {type === 'success' ? (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          )}
+        </div>
+        <span className="flex-1 font-medium">{message}</span>
+        <button
+          onClick={onClose}
+          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Confirmation modal component
+interface ConfirmationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  type?: 'danger' | 'warning';
+}
+
+const ConfirmationModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText = 'Confirmar',
+  cancelText = 'Cancelar',
+  type = 'danger',
+}: ConfirmationModalProps) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+        onClick={onClose}
+      ></div>
+      <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full mx-4 animate-fade-in-up">
+        <div className="p-6">
+          <div className="flex items-center space-x-3 mb-4">
+            <div
+              className={`p-2 rounded-full ${
+                type === 'danger'
+                  ? 'bg-red-100 dark:bg-red-900'
+                  : 'bg-yellow-100 dark:bg-yellow-900'
+              }`}
+            >
+              {type === 'danger' ? (
+                <svg
+                  className="w-6 h-6 text-red-600 dark:text-red-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="w-6 h-6 text-yellow-600 dark:text-yellow-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              )}
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+          </div>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">{message}</p>
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
+            >
+              {cancelText}
+            </button>
+            <button
+              onClick={() => {
+                onConfirm();
+                onClose();
+              }}
+              className={`px-4 py-2 rounded-xl text-white font-medium transition-colors ${
+                type === 'danger'
+                  ? 'bg-red-600 hover:bg-red-700'
+                  : 'bg-yellow-600 hover:bg-yellow-700'
+              }`}
+            >
+              {confirmText}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface CommunityFormData {
   name: string;
   description: string;
@@ -36,6 +202,14 @@ export default function EditarComunidadPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Partial<CommunityFormData>>({});
+
+  // Modal and toast states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showUnitDeleteModal, setShowUnitDeleteModal] = useState(false);
+  const [showSpaceDeleteModal, setShowSpaceDeleteModal] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
+  const [selectedSpace, setSelectedSpace] = useState<CommonSpace | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
     const fetchCommunity = async () => {
@@ -121,21 +295,72 @@ export default function EditarComunidadPage() {
   };
 
   const handleDelete = async () => {
-    if (
-      !confirm(
-        '¿Estás seguro de que quieres eliminar esta comunidad? Esta acción no se puede deshacer.',
-      )
-    ) {
-      return;
-    }
+    console.log('🗑️ [FRONTEND] Iniciando eliminación de comunidad:', {
+      communityId,
+      communityName: community?.name,
+      timestamp: new Date().toISOString(),
+    });
 
     try {
+      console.log('📡 [FRONTEND] Llamando a communityService.deleteCommunity...');
       await communityService.deleteCommunity(communityId);
-      alert('Comunidad eliminada exitosamente!');
-      router.push('/dashboard');
+
+      console.log('✅ [FRONTEND] Comunidad eliminada exitosamente');
+      setToast({ message: 'Comunidad eliminada exitosamente ✅', type: 'success' });
+
+      setTimeout(() => {
+        console.log('🔄 [FRONTEND] Redirigiendo al dashboard...');
+        router.push('/dashboard');
+      }, 1500);
     } catch (error) {
-      console.error('Error al eliminar la comunidad:', error);
-      alert(error instanceof Error ? error.message : 'Hubo un error al eliminar la comunidad.');
+      console.error('❌ [FRONTEND] Error al eliminar la comunidad:', {
+        error: error instanceof Error ? error.message : error,
+        communityId,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+
+      setToast({
+        message: error instanceof Error ? error.message : 'Hubo un error al eliminar la comunidad.',
+        type: 'error',
+      });
+    }
+  };
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+  };
+
+  const handleDeleteUnit = async () => {
+    if (!selectedUnit) return;
+
+    try {
+      await communityService.removeUnit(selectedUnit.id);
+      setUnits(units.filter((u) => u.id !== selectedUnit.id));
+      setToast({ message: 'Unidad eliminada exitosamente ✅', type: 'success' });
+      setSelectedUnit(null);
+    } catch (error) {
+      console.error('Error al eliminar la unidad:', error);
+      setToast({
+        message: error instanceof Error ? error.message : 'Error al eliminar la unidad',
+        type: 'error',
+      });
+    }
+  };
+
+  const handleDeleteSpace = async () => {
+    if (!selectedSpace?.id) return;
+
+    try {
+      await communityService.removeCommonSpace(selectedSpace.id);
+      setCommonSpaces(commonSpaces.filter((s) => s.id !== selectedSpace.id));
+      setToast({ message: 'Espacio común eliminado exitosamente ✅', type: 'success' });
+      setSelectedSpace(null);
+    } catch (error) {
+      console.error('Error al eliminar el espacio común:', error);
+      setToast({
+        message: error instanceof Error ? error.message : 'Error al eliminar el espacio común',
+        type: 'error',
+      });
     }
   };
 
@@ -180,58 +405,6 @@ export default function EditarComunidadPage() {
     <ProtectedRoute>
       <DashboardLayout>
         <div className="space-y-8 animate-fade-in">
-          {/* Header moderno */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-4 sm:p-6 md:p-8 border border-blue-100 dark:border-gray-700 animate-slide-down">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 sm:p-3 bg-blue-100 dark:bg-blue-900 rounded-xl">
-                  <svg
-                    className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 dark:text-blue-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-                    Editar Comunidad
-                  </h1>
-                  <p className="text-sm sm:text-base lg:text-lg text-gray-600 dark:text-gray-400">
-                    Modifica la información de {community.name}
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                <button
-                  onClick={handleDelete}
-                  className="inline-flex items-center justify-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-colors duration-200"
-                >
-                  <svg
-                    className="w-5 h-5 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                  Eliminar
-                </button>
-              </div>
-            </div>
-          </div>
-
           {/* Información de la Comunidad */}
           <div
             className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in-up"
@@ -527,17 +700,8 @@ export default function EditarComunidadPage() {
                       </div>
                       <button
                         onClick={() => {
-                          if (confirm('¿Estás seguro de que quieres eliminar esta unidad?')) {
-                            communityService
-                              .removeUnit(unit.id)
-                              .then(() => {
-                                setUnits(units.filter((u) => u.id !== unit.id));
-                                alert('Unidad eliminada exitosamente');
-                              })
-                              .catch((error) => {
-                                alert('Error al eliminar la unidad: ' + error.message);
-                              });
-                          }
+                          setSelectedUnit(unit);
+                          setShowUnitDeleteModal(true);
                         }}
                         className="text-red-500 hover:text-red-700 transition-colors"
                       >
@@ -614,19 +778,8 @@ export default function EditarComunidadPage() {
                       </div>
                       <button
                         onClick={() => {
-                          if (
-                            confirm('¿Estás seguro de que quieres eliminar este espacio común?')
-                          ) {
-                            communityService
-                              .removeCommonSpace(space.id!)
-                              .then(() => {
-                                setCommonSpaces(commonSpaces.filter((s) => s.id !== space.id));
-                                alert('Espacio común eliminado exitosamente');
-                              })
-                              .catch((error) => {
-                                alert('Error al eliminar el espacio común: ' + error.message);
-                              });
-                          }
+                          setSelectedSpace(space);
+                          setShowSpaceDeleteModal(true);
                         }}
                         className="text-red-500 hover:text-red-700 transition-colors"
                       >
@@ -696,7 +849,7 @@ export default function EditarComunidadPage() {
 
                   <button
                     type="button"
-                    onClick={handleDelete}
+                    onClick={() => setShowDeleteModal(true)}
                     className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-all duration-200 flex items-center justify-center"
                   >
                     <svg
@@ -766,6 +919,51 @@ export default function EditarComunidadPage() {
               </div>
             </div>
           </form>
+
+          {/* Confirmation Modals */}
+          <ConfirmationModal
+            isOpen={showDeleteModal}
+            onClose={() => setShowDeleteModal(false)}
+            onConfirm={handleDelete}
+            title="Eliminar Comunidad"
+            message={`¿Estás seguro de que quieres eliminar la comunidad "${community?.name}"? Esta acción no se puede deshacer y eliminará todas las unidades y datos asociados.`}
+            confirmText="Eliminar"
+            cancelText="Cancelar"
+            type="danger"
+          />
+
+          <ConfirmationModal
+            isOpen={showUnitDeleteModal}
+            onClose={() => {
+              setShowUnitDeleteModal(false);
+              setSelectedUnit(null);
+            }}
+            onConfirm={handleDeleteUnit}
+            title="Eliminar Unidad"
+            message={`¿Estás seguro de que quieres eliminar la unidad ${selectedUnit?.floor ? `Piso ${selectedUnit.floor} - ` : ''}Unidad ${selectedUnit?.number}? Esta acción no se puede deshacer.`}
+            confirmText="Eliminar"
+            cancelText="Cancelar"
+            type="danger"
+          />
+
+          <ConfirmationModal
+            isOpen={showSpaceDeleteModal}
+            onClose={() => {
+              setShowSpaceDeleteModal(false);
+              setSelectedSpace(null);
+            }}
+            onConfirm={handleDeleteSpace}
+            title="Eliminar Espacio Común"
+            message={`¿Estás seguro de que quieres eliminar el espacio común "${selectedSpace?.name}"? Esta acción no se puede deshacer.`}
+            confirmText="Eliminar"
+            cancelText="Cancelar"
+            type="danger"
+          />
+
+          {/* Toast Notification */}
+          {toast && (
+            <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+          )}
         </div>
       </DashboardLayout>
     </ProtectedRoute>
