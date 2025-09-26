@@ -5,14 +5,20 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
-  // Configuración de validación global
-  app.useGlobalPipes(new ValidationPipe({
-    transform: true,
-    whitelist: true,
-    forbidNonWhitelisted: true,
-  }));
-
+  /*
+  // Configuración de validación global - COMPLETAMENTE DESHABILITADO PARA DEBUG
+  // app.useGlobalPipes(new ValidationPipe({
+  //   transform: true,
+  //   whitelist: false, // Deshabilitado para debug
+  //   forbidNonWhitelisted: false,
+  //   skipMissingProperties: false,
+  //   skipNullProperties: false, // NO saltar propiedades null
+  //   skipUndefinedProperties: false, // NO saltar propiedades undefined
+  //   transformOptions: {
+  //     enableImplicitConversion: false, // No convertir automáticamente
+  //   },
+  // }));
+*/
   // Configuración de CORS
   app.enableCors({
     origin: ['http://localhost:3000', 'http://localhost:8081'],
@@ -27,13 +33,13 @@ async function bootstrap() {
     .addTag('health')
     .addTag('users')
     .build();
-  
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  
+
   console.log(`🚀 API ejecutándose en http://localhost:${port}`);
   console.log(`📚 Documentación disponible en http://localhost:${port}/api`);
 }

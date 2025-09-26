@@ -34,21 +34,46 @@ export class UsersService {
   }
 
   async create(createUserDto: CreateUserDto, createdByUserId: string) {
-    const { password, roleName, organizationId, ...userData } = createUserDto;
+    console.log(
+      '🔍 [UsersService] create - Datos recibidos:',
+      JSON.stringify(createUserDto, null, 2),
+    );
+    console.log('🔍 [UsersService] create - createdByUserId:', createdByUserId);
+
+    // Escribir logs a archivo para debug
+    const fs = require('fs');
+    const logData = `
+=== DEBUG LOG ${new Date().toISOString()} ===
+Datos recibidos: ${JSON.stringify(createUserDto, null, 2)}
+CreatedByUserId: ${createdByUserId}
+Phone: ${createUserDto.phone} (tipo: ${typeof createUserDto.phone})
+OrganizationId: ${createUserDto.organizationId} (tipo: ${typeof createUserDto.organizationId})
+===========================
+`;
+    fs.appendFileSync('debug-user-creation.log', logData);
+
+    const { password, roleName, unitId, ...userData } = createUserDto;
 
     // Verificar permisos para crear usuario
-    if (organizationId) {
+    if (userData.organizationId) {
+      console.log(
+        '🔍 [UsersService] Verificando permisos para organizationId:',
+        userData.organizationId,
+      );
       const canCreate = await this.authorizationService.canCreateUserInOrganization(
         createdByUserId,
-        organizationId,
+        userData.organizationId,
       );
 
       if (!canCreate) {
+        console.log('❌ [UsersService] Sin permisos para crear usuario en organización');
         throw new ForbiddenException('No tienes permisos para crear usuarios en esta organización');
       }
+      console.log('✅ [UsersService] Permisos verificados correctamente');
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
+    console.log('✅ [UsersService] Password hasheado correctamente');
 
     // Crear usuario
     const userDataToCreate: any = {
@@ -56,13 +81,64 @@ export class UsersService {
       passwordHash,
     };
 
-    if (organizationId) {
-      userDataToCreate.organizationId = organizationId;
-    }
+    console.log(
+      '🔍 [UsersService] Datos para crear usuario:',
+      JSON.stringify(userDataToCreate, null, 2),
+    );
+
+    // Logging detallado de cada campo antes de crear
+    console.log('📊 [UsersService] Análisis detallado de campos:');
+    console.log('- email:', userDataToCreate.email, '(tipo:', typeof userDataToCreate.email, ')');
+    console.log('- name:', userDataToCreate.name, '(tipo:', typeof userDataToCreate.name, ')');
+    console.log('- phone:', userDataToCreate.phone, '(tipo:', typeof userDataToCreate.phone, ')');
+    console.log(
+      '- organizationId:',
+      userDataToCreate.organizationId,
+      '(tipo:',
+      typeof userDataToCreate.organizationId,
+      ')',
+    );
+    console.log(
+      '- passwordHash:',
+      userDataToCreate.passwordHash ? '[PRESENTE]' : '[AUSENTE]',
+      '(tipo:',
+      typeof userDataToCreate.passwordHash,
+      ')',
+    );
+    console.log(
+      '- status:',
+      userDataToCreate.status,
+      '(tipo:',
+      typeof userDataToCreate.status,
+      ')',
+    );
+
+    // Verificar valores nulos/undefined específicamente
+    console.log('🔍 [UsersService] Verificación de valores null/undefined:');
+    console.log('- phone === null:', userDataToCreate.phone === null);
+    console.log('- phone === undefined:', userDataToCreate.phone === undefined);
+    console.log('- phone === "":', userDataToCreate.phone === '');
+    console.log('- organizationId === null:', userDataToCreate.organizationId === null);
+    console.log('- organizationId === undefined:', userDataToCreate.organizationId === undefined);
+    console.log('- organizationId === "":', userDataToCreate.organizationId === '');
 
     const user = await this.prisma.user.create({
       data: userDataToCreate,
     });
+
+    console.log('✅ [UsersService] Usuario creado con ID:', user.id);
+    console.log('📊 [UsersService] Usuario creado - campos guardados:');
+    console.log('- email:', user.email);
+    console.log('- name:', user.name);
+    console.log('- phone:', user.phone, '(tipo:', typeof user.phone, ')');
+    console.log(
+      '- organizationId:',
+      user.organizationId,
+      '(tipo:',
+      typeof user.organizationId,
+      ')',
+    );
+    console.log('- status:', user.status);
 
     // Asignar rol si se especifica
     if (roleName) {
@@ -80,11 +156,56 @@ export class UsersService {
       }
     }
 
+    // Asociar usuario con unidad si se especifica
+    if (unitId) {
+      console.log('🔍 [UsersService] Asociando usuario con unidad:', unitId);
+      // Verificar que la unidad existe y pertenece a la organización del usuario
+      const unit = await this.prisma.unit.findUnique({
+        where: { id: unitId },
+        include: { community: true },
+      });
+
+      console.log('🔍 [UsersService] Unidad encontrada:', JSON.stringify(unit, null, 2));
+
+      if (!unit) {
+        console.log('❌ [UsersService] Unidad no encontrada');
+        throw new BadRequestException('La unidad especificada no existe');
+      }
+
+      console.log(
+        '🔍 [UsersService] Verificando organización - organizationId:',
+        userData.organizationId,
+        'unit.community.organizationId:',
+        unit.community.organizationId,
+      );
+
+      if (userData.organizationId && unit.community.organizationId !== userData.organizationId) {
+        console.log('❌ [UsersService] Unidad no pertenece a la organización');
+        throw new ForbiddenException('La unidad no pertenece a la organización especificada');
+      }
+
+      console.log('🔍 [UsersService] Creando asociación usuario-unidad');
+      await this.prisma.userUnit.create({
+        data: {
+          userId: user.id,
+          unitId: unitId,
+        },
+      });
+      console.log('✅ [UsersService] Asociación usuario-unidad creada');
+    }
+
     return this.prisma.user.findUnique({
       where: { id: user.id },
       include: {
         roles: {
           include: { role: true },
+        },
+        userUnits: {
+          include: {
+            unit: {
+              include: { community: true },
+            },
+          },
         },
       },
     });

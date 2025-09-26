@@ -45,6 +45,7 @@ export class AuthService {
       user.passwordHash,
       user.status as UserStatus,
       user.organizationId,
+      user.phone,
       user.createdAt,
       user.updatedAt,
     );

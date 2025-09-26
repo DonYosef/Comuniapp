@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { communityService, Community, Unit, CommonSpace } from '@/services/communityService';
+import { CommunityService, Community, Unit, CommonSpace } from '@/services/communityService';
 
 // Toast notification component
 interface ToastProps {
@@ -215,7 +215,7 @@ export default function EditarComunidadPage() {
     const fetchCommunity = async () => {
       try {
         setIsLoading(true);
-        const data = await communityService.getCommunityById(communityId);
+        const data = await CommunityService.getCommunityById(communityId);
         setCommunity(data);
 
         // Llenar el formulario con los datos de la comunidad
@@ -283,7 +283,7 @@ export default function EditarComunidadPage() {
 
     setIsSubmitting(true);
     try {
-      await communityService.updateCommunity(communityId, formData);
+      await CommunityService.updateCommunity(communityId, formData);
       alert('Comunidad actualizada exitosamente!');
       router.push('/dashboard');
     } catch (error) {
@@ -302,8 +302,8 @@ export default function EditarComunidadPage() {
     });
 
     try {
-      console.log('📡 [FRONTEND] Llamando a communityService.deleteCommunity...');
-      await communityService.deleteCommunity(communityId);
+      console.log('📡 [FRONTEND] Llamando a CommunityService.deleteCommunity...');
+      await CommunityService.deleteCommunity(communityId);
 
       console.log('✅ [FRONTEND] Comunidad eliminada exitosamente');
       setToast({ message: 'Comunidad eliminada exitosamente ✅', type: 'success' });
@@ -334,7 +334,7 @@ export default function EditarComunidadPage() {
     if (!selectedUnit) return;
 
     try {
-      await communityService.removeUnit(selectedUnit.id);
+      await CommunityService.removeUnit(selectedUnit.id);
       setUnits(units.filter((u) => u.id !== selectedUnit.id));
       setToast({ message: 'Unidad eliminada exitosamente ✅', type: 'success' });
       setSelectedUnit(null);
@@ -351,7 +351,7 @@ export default function EditarComunidadPage() {
     if (!selectedSpace?.id) return;
 
     try {
-      await communityService.removeCommonSpace(selectedSpace.id);
+      await CommunityService.removeCommonSpace(selectedSpace.id);
       setCommonSpaces(commonSpaces.filter((s) => s.id !== selectedSpace.id));
       setToast({ message: 'Espacio común eliminado exitosamente ✅', type: 'success' });
       setSelectedSpace(null);

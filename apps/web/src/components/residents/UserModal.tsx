@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { UserResponseDto, CreateUserDto, UpdateUserDto } from '@/types/api';
 import { useAuth } from '@/hooks/useAuth';
+import { useCommunity } from '@/hooks/useCommunity';
 
 interface UserModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export default function UserModal({
   isLoading = false,
 }: UserModalProps) {
   const { user: authUser } = useAuth();
+  const { currentCommunity, units } = useCommunity();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,6 +37,7 @@ export default function UserModal({
       | 'TENANT'
       | 'RESIDENT'
       | 'CONCIERGE',
+    unitId: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -48,6 +51,7 @@ export default function UserModal({
         phone: user.phone || '',
         status: user.status,
         roleName: 'RESIDENT', // Por defecto, se puede cambiar si es necesario
+        unitId: '', // TODO: Obtener unidad del usuario si existe
       });
     } else if (mode === 'create') {
       setFormData({
@@ -57,6 +61,7 @@ export default function UserModal({
         phone: '',
         status: 'ACTIVE',
         roleName: 'RESIDENT',
+        unitId: '',
       });
     }
     setErrors({});
@@ -64,10 +69,6 @@ export default function UserModal({
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'El nombre es requerido';
-    }
 
     if (!formData.email.trim()) {
       newErrors.email = 'El email es requerido';
@@ -93,13 +94,14 @@ export default function UserModal({
     }
 
     const userData = {
-      name: formData.name,
       email: formData.email,
       status: formData.status,
       roleName: formData.roleName,
       ...(mode === 'create' && { password: formData.password }),
-      ...(formData.phone && { phone: formData.phone }),
-      ...(authUser?.organizationId && { organizationId: authUser.organizationId }),
+      ...(formData.name && { name: formData.name }),
+      phone: formData.phone || undefined, // Enviar undefined si está vacío
+      organizationId: authUser?.organizationId || undefined, // Enviar undefined si no existe
+      ...(formData.unitId && { unitId: formData.unitId }),
     };
 
     onSave(userData);
@@ -156,7 +158,7 @@ export default function UserModal({
                       </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         {mode === 'create' &&
-                          'Completa la información para crear un nuevo residente'}
+                          `Completa la información para crear un nuevo residente${currentCommunity ? ` en ${currentCommunity.name}` : ''}`}
                         {mode === 'edit' && 'Modifica la información del residente'}
                         {mode === 'view' && 'Información completa del residente'}
                       </p>
@@ -166,7 +168,7 @@ export default function UserModal({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        Nombre completo *
+                        Nombre completo
                       </label>
                       <input
                         type="text"
@@ -344,24 +346,36 @@ export default function UserModal({
                         Unidad Asociada
                       </label>
                       <select
-                        disabled={mode === 'view'}
+                        name="unitId"
+                        value={formData.unitId}
+                        onChange={handleChange}
+                        disabled={mode === 'view' || !currentCommunity || units.length === 0}
                         className={`block w-full px-4 py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 border-gray-200 dark:border-gray-600 ${
-                          mode === 'view'
+                          mode === 'view' || !currentCommunity || units.length === 0
                             ? 'bg-gray-50 dark:bg-gray-700'
                             : 'bg-white dark:bg-gray-800'
                         } text-gray-900 dark:text-white appearance-none cursor-pointer`}
                       >
                         <option value="">Sin unidad</option>
-                        <option value="torre-a-101">Torre A - Depto 101</option>
-                        <option value="torre-a-102">Torre A - Depto 102</option>
-                        <option value="torre-b-201">Torre B - Depto 201</option>
-                        <option value="torre-b-202">Torre B - Depto 202</option>
-                        <option value="casa-1">Casa 1</option>
-                        <option value="casa-2">Casa 2</option>
+                        {units.map((unit) => (
+                          <option key={unit.id} value={unit.id}>
+                            {unit.floor ? `Piso ${unit.floor} - ` : ''}Unidad {unit.number}
+                          </option>
+                        ))}
                       </select>
-                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        Selecciona la unidad donde reside este usuario
-                      </p>
+                      {!currentCommunity ? (
+                        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                          ⚠️ Selecciona una comunidad primero para ver las unidades disponibles
+                        </p>
+                      ) : units.length === 0 ? (
+                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                          No hay unidades disponibles en esta comunidad
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                          Selecciona la unidad donde reside este usuario
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

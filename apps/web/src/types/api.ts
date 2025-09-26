@@ -13,18 +13,20 @@ export interface User {
 
 export interface CreateUserDto {
   email: string;
-  name: string;
+  name?: string;
   password: string;
   phone?: string;
   status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   organizationId?: string;
   roleName?: 'SUPER_ADMIN' | 'COMMUNITY_ADMIN' | 'OWNER' | 'TENANT' | 'RESIDENT' | 'CONCIERGE';
+  unitId?: string;
 }
 
 export interface UpdateUserDto {
   name?: string;
   phone?: string;
   status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  unitId?: string;
 }
 
 export interface UserResponseDto {

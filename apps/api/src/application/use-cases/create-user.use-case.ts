@@ -12,7 +12,14 @@ export class CreateUserUseCase {
   ) {}
 
   async execute(createUserDto: CreateUserDto, createdByUserId?: string): Promise<User> {
-    const { email, name, password, status = UserStatus.ACTIVE, organizationId } = createUserDto;
+    const {
+      email,
+      name,
+      password,
+      status = UserStatus.ACTIVE,
+      organizationId,
+      phone,
+    } = createUserDto;
 
     // Verificar si el usuario ya existe
     const existingUser = await this.userRepository.findByEmail(email);
@@ -25,7 +32,14 @@ export class CreateUserUseCase {
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     // Crear el usuario
-    const user = User.create(email, name, passwordHash, organizationId || null, status);
+    const user = User.create(
+      email,
+      name,
+      passwordHash,
+      organizationId || null,
+      status,
+      phone || null,
+    );
 
     // Guardar en el repositorio
     return await this.userRepository.create(user);

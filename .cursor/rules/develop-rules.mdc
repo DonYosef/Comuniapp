@@ -76,6 +76,3 @@ Ofrecer contexto y justificación antes de mostrar código.
 Señalar alternativas con pros y contras.
 
 Aclarar suposiciones y límites; solicitar más información cuando sea necesario.
-
-Nota: No levantes el proyecto (pnpm dev), cuando termines indicame los cambios realizados y yo pruebo las funcionalidades.
-

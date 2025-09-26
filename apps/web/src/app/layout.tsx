@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import QueryProvider from '@/providers/QueryProvider';
 import { AuthProvider } from '@/hooks/useAuth';
+import { CommunityProvider } from '@/hooks/useCommunity';
 
 export const metadata: Metadata = {
   title: 'Comuniapp',
@@ -13,7 +14,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es">
       <body>
         <AuthProvider>
-          <QueryProvider>{children}</QueryProvider>
+          <CommunityProvider>
+            <QueryProvider>{children}</QueryProvider>
+          </CommunityProvider>
         </AuthProvider>
       </body>
     </html>

@@ -6,6 +6,7 @@ export class User {
     public readonly passwordHash: string,
     public readonly status: UserStatus,
     public readonly organizationId: string | null,
+    public readonly phone: string | null,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
   ) {}
@@ -16,6 +17,7 @@ export class User {
     passwordHash: string,
     organizationId: string | null = null,
     status: UserStatus = UserStatus.ACTIVE,
+    phone: string | null = null,
   ): User {
     const now = new Date();
     return new User(
@@ -25,6 +27,7 @@ export class User {
       passwordHash,
       status,
       organizationId,
+      phone,
       now,
       now,
     );

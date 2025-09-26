@@ -3,12 +3,13 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionGuard } from '../auth/guards/permission.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { Permission } from '../domain/entities/role.entity';
 
 @ApiTags('users')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -26,6 +27,42 @@ export class UsersController {
   @ApiOperation({ summary: 'Crear un nuevo usuario' })
   @ApiResponse({ status: 201, description: 'Usuario creado exitosamente' })
   create(@Body() createUserDto: CreateUserDto, @Request() req) {
+    console.log(
+      '🔍 [UsersController] Datos recibidos en controlador:',
+      JSON.stringify(createUserDto, null, 2),
+    );
+    console.log('📊 [UsersController] Análisis de campos en controlador:');
+    console.log('- email:', createUserDto.email, '(tipo:', typeof createUserDto.email, ')');
+    console.log('- name:', createUserDto.name, '(tipo:', typeof createUserDto.name, ')');
+    console.log('- phone:', createUserDto.phone, '(tipo:', typeof createUserDto.phone, ')');
+    console.log(
+      '- organizationId:',
+      createUserDto.organizationId,
+      '(tipo:',
+      typeof createUserDto.organizationId,
+      ')',
+    );
+    console.log(
+      '- roleName:',
+      createUserDto.roleName,
+      '(tipo:',
+      typeof createUserDto.roleName,
+      ')',
+    );
+    console.log('- unitId:', createUserDto.unitId, '(tipo:', typeof createUserDto.unitId, ')');
+
+    // Escribir logs a archivo para debug del controlador
+    const fs = require('fs');
+    const controllerLogData = `
+=== CONTROLLER DEBUG LOG ${new Date().toISOString()} ===
+Datos recibidos en controlador: ${JSON.stringify(createUserDto, null, 2)}
+User ID: ${req.user?.id}
+Phone: ${createUserDto.phone} (tipo: ${typeof createUserDto.phone})
+OrganizationId: ${createUserDto.organizationId} (tipo: ${typeof createUserDto.organizationId})
+===========================
+`;
+    fs.appendFileSync('debug-controller.log', controllerLogData);
+
     return this.usersService.create(createUserDto, req.user.id);
   }
 
@@ -42,11 +79,47 @@ export class UsersController {
     return this.usersService.createCommunityUser(createUserDto, communityId, unitId, req.user.id);
   }
 
-  @Get('community/:communityId')
-  @RequirePermission(Permission.MANAGE_COMMUNITY_USERS)
-  @ApiOperation({ summary: 'Obtener usuarios de una comunidad' })
-  @ApiResponse({ status: 200, description: 'Lista de usuarios de la comunidad' })
-  getUsersByCommunity(@Param('communityId') communityId: string, @Request() req) {
-    return this.usersService.getUsersByCommunity(communityId, req.user.id);
+  @Post('test-debug')
+  @ApiOperation({ summary: 'Endpoint temporal para debug' })
+  @ApiResponse({ status: 201, description: 'Usuario creado para debug' })
+  async testDebug(@Body() createUserDto: any, @Request() req) {
+    console.log('🔍 [DEBUG] Datos recibidos:', JSON.stringify(createUserDto, null, 2));
+    console.log('🔍 [DEBUG] Tipos de datos:');
+    console.log('- phone:', createUserDto.phone, '(tipo:', typeof createUserDto.phone, ')');
+    console.log(
+      '- organizationId:',
+      createUserDto.organizationId,
+      '(tipo:',
+      typeof createUserDto.organizationId,
+      ')',
+    );
+
+    // Crear usuario directamente con Prisma para bypass el servicio
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+
+    try {
+      const timestamp = Date.now();
+      const userData = {
+        email: `debug-${timestamp}@comuniapp.com`,
+        name: 'Debug Test',
+        passwordHash: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4J8.8.8.8.8',
+        status: 'ACTIVE',
+        phone: createUserDto.phone,
+        organizationId: createUserDto.organizationId,
+      };
+
+      console.log('🔍 [DEBUG] Datos para Prisma:', JSON.stringify(userData, null, 2));
+
+      const user = await prisma.user.create({
+        data: userData,
+      });
+
+      console.log('✅ [DEBUG] Usuario creado:', JSON.stringify(user, null, 2));
+
+      return user;
+    } finally {
+      await prisma.$disconnect();
+    }
   }
 }

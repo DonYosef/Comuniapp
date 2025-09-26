@@ -7,6 +7,7 @@ import { AuthorizationService } from './services/authorization.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ContextAuthGuard } from './guards/context-auth.guard';
+import { PermissionGuard } from './guards/permission.guard';
 import { AuthController } from './controllers/auth.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 
@@ -23,8 +24,15 @@ import { PrismaModule } from '../prisma/prisma.module';
     }),
     PrismaModule,
   ],
-  providers: [AuthService, AuthorizationService, JwtStrategy, JwtAuthGuard, ContextAuthGuard],
+  providers: [
+    AuthService,
+    AuthorizationService,
+    JwtStrategy,
+    JwtAuthGuard,
+    ContextAuthGuard,
+    PermissionGuard,
+  ],
   controllers: [AuthController],
-  exports: [AuthService, AuthorizationService, JwtAuthGuard, ContextAuthGuard],
+  exports: [AuthService, AuthorizationService, JwtAuthGuard, ContextAuthGuard, PermissionGuard],
 })
 export class AuthModule {}

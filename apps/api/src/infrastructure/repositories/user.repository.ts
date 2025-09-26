@@ -14,6 +14,8 @@ export class UserRepository implements IUserRepository {
         name: user.name,
         passwordHash: user.passwordHash,
         status: user.status,
+        organizationId: user.organizationId,
+        phone: user.phone,
       },
     });
 
@@ -93,6 +95,7 @@ export class UserRepository implements IUserRepository {
       prismaUser.passwordHash,
       prismaUser.status as UserStatus,
       prismaUser.organizationId || null,
+      prismaUser.phone || null,
       prismaUser.createdAt,
       prismaUser.updatedAt,
     );

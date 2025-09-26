@@ -1,11 +1,30 @@
-import AuthService from './authService';
-import { config } from '@/config/env';
+import { api } from '@/lib/api';
 
-export interface CommonSpace {
-  id?: string;
+export interface Community {
+  id: string;
   name: string;
-  quantity: number;
+  address: string;
   description?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  type: 'CONDOMINIO' | 'EDIFICIO' | 'RESIDENCIAL';
+  totalUnits?: number;
+  constructionYear?: number;
+  floors?: number;
+  unitsPerFloor?: number;
+  imageUrl?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  organizationId: string;
+  createdById: string;
+  units?: Unit[];
+  commonSpaces?: CommonSpace[];
+  _count?: {
+    units: number;
+    commonSpaces: number;
+  };
 }
 
 export interface Unit {
@@ -14,296 +33,98 @@ export interface Unit {
   floor?: string;
   type: 'APARTMENT' | 'HOUSE' | 'OFFICE' | 'COMMERCIAL';
   isActive: boolean;
+  communityId: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CommunityFormData {
-  name: string;
-  description: string;
-  address: string;
-  phone?: string;
-  email?: string;
-  website?: string;
-  type: 'CONDOMINIO' | 'EDIFICIO';
-  totalUnits: number;
-  constructionYear?: number;
-  floors?: number;
-  unitsPerFloor?: number;
-  buildingStructure?: { [floor: number]: string[] };
-  commonSpaces?: CommonSpace[];
-  imageUrl?: string;
-}
-
-export interface Community {
+export interface CommonSpace {
   id: string;
   name: string;
+  quantity: number;
   description?: string;
+  isActive: boolean;
+  communityId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCommunityDto {
+  name: string;
   address: string;
+  description?: string;
   phone?: string;
   email?: string;
   website?: string;
-  type: 'CONDOMINIO' | 'EDIFICIO';
+  type: 'CONDOMINIO' | 'EDIFICIO' | 'RESIDENCIAL';
   totalUnits?: number;
   constructionYear?: number;
   floors?: number;
   unitsPerFloor?: number;
-  buildingStructure?: { [floor: number]: string[] };
+  buildingStructure?: Record<string, string[]>;
   imageUrl?: string;
-  organizationId: string;
-  createdById: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  organization?: {
-    id: string;
-    name: string;
-  };
-  commonSpaces?: CommonSpace[];
-  units?: Unit[];
-  _count?: {
-    units: number;
-  };
 }
 
-class CommunityService {
-  private async getAuthHeaders() {
-    const token = AuthService.getToken();
-    return {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    };
+export interface CreateUnitDto {
+  number: string;
+  floor?: string;
+  type?: 'APARTMENT' | 'HOUSE' | 'OFFICE' | 'COMMERCIAL';
+}
+
+export class CommunityService {
+  // Obtener todas las comunidades del usuario
+  static async getCommunities(): Promise<Community[]> {
+    const response = await api.get<Community[]>('/communities');
+    return response.data;
   }
 
-  async createCommunity(data: CommunityFormData): Promise<Community> {
-    try {
-      const response = await fetch(`${config.apiUrl}/communities`, {
-        method: 'POST',
-        headers: await this.getAuthHeaders(),
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al crear la comunidad');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error creating community:', error);
-      throw error;
-    }
+  // Obtener una comunidad por ID
+  static async getCommunityById(id: string): Promise<Community> {
+    const response = await api.get<Community>(`/communities/${id}`);
+    return response.data;
   }
 
-  async getCommunities(): Promise<Community[]> {
-    try {
-      const response = await fetch(`${config.apiUrl}/communities`, {
-        method: 'GET',
-        headers: await this.getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al obtener las comunidades');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching communities:', error);
-      throw error;
-    }
+  // Crear una nueva comunidad
+  static async createCommunity(communityData: CreateCommunityDto): Promise<Community> {
+    const response = await api.post<Community>('/communities', communityData);
+    return response.data;
   }
 
-  async getCommunityById(id: string): Promise<Community> {
-    try {
-      const response = await fetch(`${config.apiUrl}/communities/${id}`, {
-        method: 'GET',
-        headers: await this.getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al obtener la comunidad');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching community:', error);
-      throw error;
-    }
+  // Actualizar una comunidad
+  static async updateCommunity(
+    id: string,
+    communityData: Partial<CreateCommunityDto>,
+  ): Promise<Community> {
+    const response = await api.patch<Community>(`/communities/${id}`, communityData);
+    return response.data;
   }
 
-  async updateCommunity(id: string, data: Partial<CommunityFormData>): Promise<Community> {
-    try {
-      const response = await fetch(`${config.apiUrl}/communities/${id}`, {
-        method: 'PATCH',
-        headers: await this.getAuthHeaders(),
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al actualizar la comunidad');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error updating community:', error);
-      throw error;
-    }
+  // Eliminar una comunidad
+  static async deleteCommunity(id: string): Promise<void> {
+    await api.delete(`/communities/${id}`);
   }
 
-  async deleteCommunity(id: string): Promise<void> {
-    console.log('🔧 [SERVICE] deleteCommunity iniciado:', {
-      id,
-      apiUrl: config.apiUrl,
-      endpoint: `${config.apiUrl}/communities/${id}`,
-      timestamp: new Date().toISOString(),
-      environment: {
-        isDevelopment: config.isDevelopment,
-        isProduction: config.isProduction,
-        nodeEnv: process.env.NODE_ENV,
-      },
-    });
-
-    try {
-      const headers = await this.getAuthHeaders();
-      console.log('🔐 [SERVICE] Headers de autenticación:', {
-        hasAuth: !!headers.Authorization,
-        authPrefix: headers.Authorization?.substring(0, 20) + '...',
-        contentType: headers['Content-Type'],
-      });
-
-      console.log('📡 [SERVICE] Enviando petición DELETE...');
-      const response = await fetch(`${config.apiUrl}/communities/${id}`, {
-        method: 'DELETE',
-        headers,
-      });
-
-      console.log('📊 [SERVICE] Respuesta recibida:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries()),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('❌ [SERVICE] Error en respuesta:', errorData);
-        throw new Error(errorData.message || 'Error al eliminar la comunidad');
-      }
-
-      console.log('✅ [SERVICE] Comunidad eliminada exitosamente');
-    } catch (error) {
-      console.error('❌ [SERVICE] Error deleting community:', {
-        error: error instanceof Error ? error.message : error,
-        stack: error instanceof Error ? error.stack : undefined,
-        id,
-      });
-      throw error;
-    }
+  // Obtener unidades de una comunidad
+  static async getCommunityUnits(communityId: string): Promise<Unit[]> {
+    const response = await api.get<Unit[]>(`/communities/${communityId}/units`);
+    return response.data;
   }
 
-  // Métodos para gestión de espacios comunes
-  async addCommonSpace(
-    communityId: string,
-    spaceData: Omit<CommonSpace, 'id'>,
-  ): Promise<CommonSpace> {
-    try {
-      const response = await fetch(`${config.apiUrl}/communities/${communityId}/common-spaces`, {
-        method: 'POST',
-        headers: await this.getAuthHeaders(),
-        body: JSON.stringify(spaceData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al agregar el espacio común');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error adding common space:', error);
-      throw error;
-    }
+  // Agregar una unidad a una comunidad
+  static async addUnit(communityId: string, unitData: CreateUnitDto): Promise<Unit> {
+    const response = await api.post<Unit>(`/communities/${communityId}/units`, unitData);
+    return response.data;
   }
 
-  async removeCommonSpace(spaceId: string): Promise<void> {
-    try {
-      const response = await fetch(`${config.apiUrl}/communities/common-spaces/${spaceId}`, {
-        method: 'DELETE',
-        headers: await this.getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al eliminar el espacio común');
-      }
-    } catch (error) {
-      console.error('Error removing common space:', error);
-      throw error;
-    }
+  // Eliminar una unidad
+  static async removeUnit(unitId: string): Promise<void> {
+    await api.delete(`/communities/units/${unitId}`);
   }
 
-  // Métodos para gestión de unidades
-  async getCommunityUnits(communityId: string): Promise<Unit[]> {
-    try {
-      const response = await fetch(`${config.apiUrl}/communities/${communityId}/units`, {
-        method: 'GET',
-        headers: await this.getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al obtener las unidades');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching units:', error);
-      throw error;
-    }
-  }
-
-  async addUnit(
-    communityId: string,
-    unitData: { number: string; floor?: string; type?: string },
-  ): Promise<Unit> {
-    try {
-      const response = await fetch(`${config.apiUrl}/communities/${communityId}/units`, {
-        method: 'POST',
-        headers: await this.getAuthHeaders(),
-        body: JSON.stringify(unitData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al agregar la unidad');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error adding unit:', error);
-      throw error;
-    }
-  }
-
-  async removeUnit(unitId: string): Promise<void> {
-    try {
-      const response = await fetch(`${config.apiUrl}/communities/units/${unitId}`, {
-        method: 'DELETE',
-        headers: await this.getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al eliminar la unidad');
-      }
-    } catch (error) {
-      console.error('Error removing unit:', error);
-      throw error;
-    }
+  // Eliminar un espacio común
+  static async removeCommonSpace(spaceId: string): Promise<void> {
+    await api.delete(`/communities/common-spaces/${spaceId}`);
   }
 }
 
-export const communityService = new CommunityService();
+export default CommunityService;

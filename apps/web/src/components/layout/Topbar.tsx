@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useCommunity } from '@/hooks/useCommunity';
 import { useRouter } from 'next/navigation';
 
 interface TopbarProps {
@@ -11,7 +12,9 @@ interface TopbarProps {
 export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isCommunityMenuOpen, setIsCommunityMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { currentCommunity, communities, setCurrentCommunity, loadCommunities } = useCommunity();
   const router = useRouter();
 
   // Cargar tema desde localStorage al montar el componente
@@ -49,18 +52,31 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
     setIsUserMenuOpen(false);
   };
 
-  // Función para cerrar menú de usuario al hacer clic fuera
+  // Función para cambiar comunidad
+  const handleCommunityChange = (communityId: string) => {
+    const community = communities.find((c) => c.id === communityId);
+    if (community) {
+      setCurrentCommunity(community);
+      setIsCommunityMenuOpen(false);
+    }
+  };
+
+  // Función para cerrar menús al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
-      if (!target.closest('.user-menu-container')) {
+      if (!target.closest('.user-menu-container') && !target.closest('.community-menu-container')) {
         setIsUserMenuOpen(false);
+        setIsCommunityMenuOpen(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Determinar si el usuario es administrador (puede cambiar de comunidad)
+  const isAdmin = user?.email === 'admin@comuniapp.com'; // Por ahora, lógica simple
 
   return (
     <header className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
@@ -74,11 +90,132 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
           </div>
         )}
 
-        {/* Espaciador cuando sidebar no está colapsado */}
-        {!isSidebarCollapsed && <div className="flex-1"></div>}
+        {/* Título de comunidad actual */}
+        {!isSidebarCollapsed && currentCommunity && (
+          <div className="flex items-center ml-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                <svg
+                  className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {currentCommunity.name}
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {currentCommunity.address}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Espaciador cuando sidebar no está colapsado y no hay comunidad */}
+        {!isSidebarCollapsed && !currentCommunity && <div className="flex-1"></div>}
 
         {/* Controles del usuario */}
         <div className="flex items-center space-x-4">
+          {/* Selector de comunidad (solo para administradores) */}
+          {isAdmin && communities.length > 0 && (
+            <div className="relative community-menu-container">
+              <button
+                onClick={() => setIsCommunityMenuOpen(!isCommunityMenuOpen)}
+                className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 border border-gray-200 dark:border-gray-600"
+              >
+                <svg
+                  className="w-4 h-4 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Comunidades
+                </span>
+                <svg
+                  className="w-4 h-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+
+              {/* Menú desplegable de comunidades */}
+              {isCommunityMenuOpen && (
+                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                  <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      Seleccionar Comunidad
+                    </p>
+                  </div>
+                  {communities.map((community) => (
+                    <button
+                      key={community.id}
+                      onClick={() => handleCommunityChange(community.id)}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 ${
+                        currentCommunity?.id === community.id
+                          ? 'bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                          : 'text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      <div className="font-medium">{community.name}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {community.address}
+                      </div>
+                    </button>
+                  ))}
+                  <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                  <button
+                    onClick={() => {
+                      router.push('/dashboard/comunidad/nueva');
+                      setIsCommunityMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                  >
+                    <svg
+                      className="w-4 h-4 mr-2 inline"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                      />
+                    </svg>
+                    Nueva Comunidad
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Selector de tema */}
           <button
             onClick={toggleTheme}
@@ -197,6 +334,30 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
                   </svg>
                   Configuración
                 </a>
+                {isAdmin && currentCommunity && (
+                  <button
+                    onClick={() => {
+                      router.push(`/dashboard/comunidad/${currentCommunity.id}`);
+                      setIsUserMenuOpen(false);
+                    }}
+                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                  >
+                    <svg
+                      className="w-4 h-4 mr-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                      />
+                    </svg>
+                    Ajuste de comunidad
+                  </button>
+                )}
                 <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
                 <button
                   onClick={handleLogout}

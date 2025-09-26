@@ -1,0 +1,135 @@
+# Reglas de Clean Architecture - Comuniapp
+
+## 🏗️ Arquitectura y Estructura
+
+### 1. **Consistencia de Entidades de Dominio**
+- **REQUERIDO**: Cuando se agregue un nuevo campo a una entidad de dominio, DEBE actualizarse en TODOS los lugares donde se instancia
+- **VERIFICAR**: Constructor, método `create`, repositorios, servicios y casos de uso
+- **EJEMPLO**: Si agregas `phone` a `User`, actualiza:
+  - `User` constructor y método `create`
+  - `UserRepository.create()` y `toDomainEntity()`
+  - `CreateUserUseCase.execute()`
+  - `UpdateUserUseCase.execute()`
+  - `AuthService.validateUser()`
+  - Todos los DTOs relacionados
+
+### 2. **Mapeo Completo de DTOs**
+- **REQUERIDO**: Los DTOs de aplicación DEBEN incluir TODOS los campos de la entidad de dominio
+- **VERIFICAR**: `CreateUserDto`, `UpdateUserDto`, `UserResponseDto` deben estar sincronizados
+- **EJEMPLO**: Si `User` tiene `phone`, todos los DTOs deben tenerlo
+
+### 3. **Controladores Únicos por Endpoint**
+- **PROHIBIDO**: Tener múltiples controladores con la misma ruta
+- **REQUERIDO**: Un solo controlador por endpoint (`/users`, `/communities`, etc.)
+- **VERIFICAR**: `apps/api/src/users/users.controller.ts` vs `apps/api/src/infrastructure/controllers/users.controller.ts`
+- **SOLUCIÓN**: Usar solo el controlador de infrastructure para Clean Architecture
+
+### 4. **Repositorios Completos**
+- **REQUERIDO**: Los repositorios DEBEN mapear TODOS los campos de la entidad
+- **VERIFICAR**: Métodos `create()`, `update()`, `toDomainEntity()` incluyen todos los campos
+- **EJEMPLO**: `UserRepository.create()` debe incluir `phone` y `organizationId`
+
+## 🔍 Proceso de Desarrollo
+
+### 5. **Checklist de Nuevos Campos**
+Antes de agregar un campo a una entidad:
+
+```markdown
+- [ ] Entidad de dominio (constructor y método create)
+- [ ] DTOs de aplicación (Create, Update, Response)
+- [ ] Casos de uso (destructuring y creación)
+- [ ] Repositorio (create, update, toDomainEntity)
+- [ ] Controlador (toResponseDto)
+- [ ] Servicios que instancian la entidad
+- [ ] Tests unitarios
+- [ ] Documentación Swagger
+```
+
+### 6. **Validación de Arquitectura**
+- **REQUERIDO**: Ejecutar `pnpm dev` y verificar que no hay errores de TypeScript
+- **REQUERIDO**: Probar creación/actualización de entidades después de cambios
+- **REQUERIDO**: Verificar que los campos aparecen en la respuesta de la API
+
+### 7. **Testing Obligatorio**
+- **REQUERIDO**: Crear script de prueba para cada nueva funcionalidad
+- **EJEMPLO**: `test-user-creation.js` para verificar campos
+- **VERIFICAR**: Campos en respuesta de API y base de datos
+
+## 🚨 Señales de Alerta
+
+### 8. **Indicadores de Problemas**
+Si observas estos síntomas, revisa la arquitectura:
+
+- **Campos `null` en base de datos** → Repositorio no mapea correctamente
+- **Campos faltantes en respuesta** → DTO de respuesta incompleto
+- **Errores de TypeScript** → Instanciaciones de entidades desactualizadas
+- **Logs no aparecen** → Controlador incorrecto o middleware bloqueando
+
+### 9. **Debugging de Arquitectura**
+- **PASO 1**: Verificar qué controlador se está ejecutando
+- **PASO 2**: Revisar el flujo: DTO → Use Case → Repositorio → Base de Datos
+- **PASO 3**: Verificar mapeo en cada capa
+- **PASO 4**: Probar con script de verificación
+
+## 📋 Comandos de Verificación
+
+### 10. **Scripts de Validación**
+```bash
+# Verificar campos en base de datos
+node check-database-fields.js
+
+# Probar creación de usuarios
+node test-temporary-endpoint.js
+
+# Verificar tipos de TypeScript
+pnpm run build
+```
+
+### 11. **Verificación de Consistencia**
+```bash
+# Buscar todas las instanciaciones de entidades
+grep -r "new User(" apps/api/src/
+
+# Verificar DTOs
+grep -r "phone\|organizationId" apps/api/src/application/dto/
+```
+
+## 🎯 Reglas Específicas para Comuniapp
+
+### 12. **Entidades Críticas**
+- **User**: Siempre incluir `phone`, `organizationId`, `status`
+- **Community**: Siempre incluir `organizationId`, `address`
+- **Unit**: Siempre incluir `communityId`, `floor`, `number`
+
+### 13. **Flujo de Datos**
+```
+Frontend → DTO → Use Case → Repository → Prisma → Database
+                ↓
+            Response DTO ← Controller ← Domain Entity
+```
+
+### 14. **Convenciones de Naming**
+- **Entidades**: PascalCase (`User`, `Community`)
+- **DTOs**: PascalCase + sufijo (`CreateUserDto`, `UserResponseDto`)
+- **Repositorios**: PascalCase + sufijo (`UserRepository`)
+- **Use Cases**: PascalCase + sufijo (`CreateUserUseCase`)
+
+## ⚠️ Errores Comunes a Evitar
+
+### 15. **Anti-patrones**
+- ❌ Agregar campos solo en una capa
+- ❌ Usar múltiples controladores para la misma ruta
+- ❌ Ignorar errores de TypeScript
+- ❌ No probar después de cambios arquitectónicos
+- ❌ Mapeo incompleto en repositorios
+
+### 16. **Buenas Prácticas**
+- ✅ Mantener consistencia en todas las capas
+- ✅ Usar un solo controlador por endpoint
+- ✅ Resolver todos los errores de TypeScript
+- ✅ Probar funcionalidad completa después de cambios
+- ✅ Mapeo completo en repositorios
+
+---
+
+**📝 Nota**: Esta regla debe revisarse cada vez que se modifique la arquitectura o se agreguen nuevas entidades.

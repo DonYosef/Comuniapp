@@ -48,4 +48,13 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   organizationId?: string;
+
+  @ApiProperty({
+    description: 'Teléfono del usuario',
+    example: '+1234567890',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  phone?: string;
 }

@@ -43,4 +43,13 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @ApiProperty({
+    description: 'ID de la unidad donde reside el usuario',
+    example: 'unit_123',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  unitId?: string;
 }

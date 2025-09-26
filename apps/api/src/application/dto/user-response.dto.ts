@@ -28,6 +28,20 @@ export class UserResponseDto {
   status: UserStatus;
 
   @ApiProperty({
+    description: 'Teléfono del usuario',
+    example: '+1234567890',
+    required: false,
+  })
+  phone?: string;
+
+  @ApiProperty({
+    description: 'ID de la organización',
+    example: 'org_123',
+    required: false,
+  })
+  organizationId?: string;
+
+  @ApiProperty({
     description: 'Fecha de creación del usuario',
     example: '2024-01-01T00:00:00.000Z',
   })

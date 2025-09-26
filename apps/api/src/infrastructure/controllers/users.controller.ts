@@ -128,6 +128,8 @@ export class UsersController {
       email: user.email,
       name: user.name,
       status: user.status,
+      phone: user.phone,
+      organizationId: user.organizationId,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

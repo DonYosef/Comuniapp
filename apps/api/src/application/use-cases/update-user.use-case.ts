@@ -24,6 +24,7 @@ export class UpdateUserUseCase {
       existingUser.passwordHash, // No permitir actualizar la contraseña desde aquí
       updateUserDto.status ?? existingUser.status,
       existingUser.organizationId,
+      existingUser.phone,
       existingUser.createdAt,
       new Date(), // updatedAt
     );
