@@ -9,9 +9,11 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
+
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
 import { CommunitiesService } from './communities.service';
 import { CreateCommunityDto, CreateCommonSpaceDto } from './dto/create-community.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('communities')
 @UseGuards(JwtAuthGuard)

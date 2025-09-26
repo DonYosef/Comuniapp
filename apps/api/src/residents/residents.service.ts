@@ -1,6 +1,7 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+
 import { AuthorizationService } from '../auth/services/authorization.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ResidentsService {

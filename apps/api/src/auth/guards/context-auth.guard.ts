@@ -1,6 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { AuthorizationService } from '../services/authorization.service';
+
 import { Permission } from '../../domain/entities/role.entity';
+import { AuthorizationService } from '../services/authorization.service';
 
 @Injectable()
 export class ContextAuthGuard implements CanActivate {

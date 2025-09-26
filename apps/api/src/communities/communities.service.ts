@@ -1,11 +1,13 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { UnitType } from '@prisma/client';
+
 import { PrismaService } from '../prisma/prisma.service';
+
 import {
   CreateCommunityDto,
   CreateCommonSpaceDto,
   CommunityType,
 } from './dto/create-community.dto';
-import { UnitType } from '@prisma/client';
 
 @Injectable()
 export class CommunitiesService {

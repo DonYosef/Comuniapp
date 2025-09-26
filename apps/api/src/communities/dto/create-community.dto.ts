@@ -1,3 +1,4 @@
+import { Transform, Type } from 'class-transformer';
 import {
   IsString,
   IsNotEmpty,
@@ -11,7 +12,6 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
 
 export enum CommunityType {
   CONDOMINIO = 'CONDOMINIO',

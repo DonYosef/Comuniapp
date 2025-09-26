@@ -12,17 +12,18 @@ import {
   Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RequirePermission } from '../../auth/decorators/require-permission.decorator';
-import { Permission } from '../../domain/entities/role.entity';
+
 import { CreateUserDto } from '../../application/dto/create-user.dto';
 import { UpdateUserDto } from '../../application/dto/update-user.dto';
 import { UserResponseDto } from '../../application/dto/user-response.dto';
 import { CreateUserUseCase } from '../../application/use-cases/create-user.use-case';
-import { GetUserUseCase } from '../../application/use-cases/get-user.use-case';
-import { GetAllUsersUseCase } from '../../application/use-cases/get-all-users.use-case';
-import { UpdateUserUseCase } from '../../application/use-cases/update-user.use-case';
 import { DeleteUserUseCase } from '../../application/use-cases/delete-user.use-case';
+import { GetAllUsersUseCase } from '../../application/use-cases/get-all-users.use-case';
+import { GetUserUseCase } from '../../application/use-cases/get-user.use-case';
+import { UpdateUserUseCase } from '../../application/use-cases/update-user.use-case';
+import { RequirePermission } from '../../auth/decorators/require-permission.decorator';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { Permission } from '../../domain/entities/role.entity';
 import { User } from '../../domain/entities/user.entity';
 
 @ApiTags('users')

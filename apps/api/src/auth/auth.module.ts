@@ -1,15 +1,17 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+
+import { PrismaModule } from '../prisma/prisma.module';
+
+import { AuthController } from './controllers/auth.controller';
+import { ContextAuthGuard } from './guards/context-auth.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { PermissionGuard } from './guards/permission.guard';
 import { AuthService } from './services/auth.service';
 import { AuthorizationService } from './services/authorization.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { ContextAuthGuard } from './guards/context-auth.guard';
-import { PermissionGuard } from './guards/permission.guard';
-import { AuthController } from './controllers/auth.controller';
-import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
   imports: [

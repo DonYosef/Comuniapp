@@ -1,9 +1,11 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException } from '@nestjs/common';
-import { CreateUserUseCase } from './create-user.use-case';
-import { UserRepository } from '../../domain/repositories/user.repository.interface';
+import { Test, TestingModule } from '@nestjs/testing';
+
 import { User, UserStatus } from '../../domain/entities/user.entity';
+import { UserRepository } from '../../domain/repositories/user.repository.interface';
 import { CreateUserDto } from '../dto/create-user.dto';
+
+import { CreateUserUseCase } from './create-user.use-case';
 
 describe('CreateUserUseCase', () => {
   let useCase: CreateUserUseCase;

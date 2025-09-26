@@ -1,4 +1,5 @@
 import { Injectable, ConflictException, Inject } from '@nestjs/common';
+
 import { Role, RoleName } from '../../domain/entities/role.entity';
 import { RoleRepository } from '../../domain/repositories/role.repository.interface';
 import { CreateRoleDto } from '../dto/create-role.dto';

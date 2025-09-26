@@ -1,9 +1,11 @@
 import { Controller, Get, Patch, Param, Body, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { ConciergeService } from './concierge.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Permission } from '../domain/entities/role.entity';
+
+import { ConciergeService } from './concierge.service';
 
 @ApiTags('concierge')
 @ApiBearerAuth()

@@ -1,11 +1,13 @@
 import { Controller, Get, Post, Body, Request, UseGuards, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
+
+import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
-import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { Permission } from '../domain/entities/role.entity';
+
+import { CreateUserDto } from './dto/create-user.dto';
+import { UsersService } from './users.service';
 
 @ApiTags('users')
 @ApiBearerAuth()

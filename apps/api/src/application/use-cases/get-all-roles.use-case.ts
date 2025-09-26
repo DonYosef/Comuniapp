@@ -1,4 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
+
 import { Role } from '../../domain/entities/role.entity';
 import { RoleRepository } from '../../domain/repositories/role.repository.interface';
 

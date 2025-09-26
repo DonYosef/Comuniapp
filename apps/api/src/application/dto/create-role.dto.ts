@@ -1,5 +1,5 @@
-import { IsString, IsNotEmpty, IsArray, IsOptional, ArrayMinSize } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, IsArray, IsOptional, ArrayMinSize } from 'class-validator';
 
 export class CreateRoleDto {
   @ApiProperty({

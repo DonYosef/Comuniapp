@@ -1,10 +1,12 @@
 import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateUserDto } from './dto/create-user.dto';
-import { AuthorizationService } from '../auth/services/authorization.service';
-import { RoleName as DomainRoleName } from '../domain/entities/role.entity';
 import { RoleName } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+
+import { AuthorizationService } from '../auth/services/authorization.service';
+import { RoleName as DomainRoleName } from '../domain/entities/role.entity';
+import { PrismaService } from '../prisma/prisma.service';
+
+import { CreateUserDto } from './dto/create-user.dto';
 
 @Injectable()
 export class UsersService {

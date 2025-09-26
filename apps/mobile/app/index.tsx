@@ -1,7 +1,7 @@
-import { View, Text, StyleSheet, Alert } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { Button } from '@comuniapp/ui';
 import { formatDate } from '@comuniapp/utils';
+import { StatusBar } from 'expo-status-bar';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 
 export default function HomeScreen() {
   return (
