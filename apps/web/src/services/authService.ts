@@ -35,14 +35,40 @@ export class AuthService {
   }
 
   // Logout
-  static logout(): void {
-    localStorage.removeItem('token');
+  static async logout(): Promise<void> {
+    try {
+      // Llamar al endpoint de logout del backend si hay token
+      const token = this.getToken();
+      if (token) {
+        await api.post(
+          '/auth/logout',
+          {},
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+      }
+    } catch (error) {
+      // No importa si falla el logout del backend, continuamos con la limpieza local
+      console.warn('Error al cerrar sesión en el servidor:', error);
+    } finally {
+      // Limpiar datos locales independientemente del resultado del backend
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
 
-    // Limpiar cookies también
-    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      // Limpiar cookies también
+      document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie =
+        'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=strict';
 
-    // Redirigir al login si es necesario
-    window.location.href = '/login';
+      // Limpiar sessionStorage
+      sessionStorage.clear();
+
+      // Redirigir al login si es necesario
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+    }
   }
 
   // Verificar si está autenticado

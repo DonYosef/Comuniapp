@@ -46,10 +46,15 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
   };
 
   // Función para manejar logout
-  const handleLogout = () => {
-    logout();
-    router.push('/login');
-    setIsUserMenuOpen(false);
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setIsUserMenuOpen(false);
+      // No hacer router.push aquí, el AuthService ya maneja la redirección
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      setIsUserMenuOpen(false);
+    }
   };
 
   // Función para cambiar comunidad
