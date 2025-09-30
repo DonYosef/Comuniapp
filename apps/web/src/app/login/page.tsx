@@ -105,7 +105,7 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <div className="text-sm text-gray-600 text-center">
+          <div className="text-sm text-gray-600 text-center space-y-2">
             <p>Credenciales por defecto:</p>
             <p>
               <strong>Email:</strong> admin@comuniapp.com
@@ -113,6 +113,17 @@ export default function LoginPage() {
             <p>
               <strong>Contraseña:</strong> contrasegura321
             </p>
+            <div className="border-t border-gray-200 pt-4">
+              <p>
+                ¿No tienes una cuenta?{' '}
+                <a
+                  href="/register"
+                  className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
+                >
+                  Regístrate aquí
+                </a>
+              </p>
+            </div>
           </div>
         </form>
       </div>
