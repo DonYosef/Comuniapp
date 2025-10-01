@@ -35,6 +35,28 @@ export class CommunitiesController {
     return this.communitiesService.getCommunitiesByUser(req.user.id);
   }
 
+  @Get('my-community')
+  async getMyCommunity(@Request() req) {
+    console.log('🔍 [CommunitiesController] getMyCommunity - userId:', req.user.id);
+    console.log(
+      '🔍 [CommunitiesController] user roles:',
+      req.user.roles?.map((r: any) => r.name),
+    );
+
+    return this.communitiesService.getMyCommunity(req.user.id);
+  }
+
+  @Get('my-units')
+  async getMyUnits(@Request() req) {
+    console.log('🔍 [CommunitiesController] getMyUnits - userId:', req.user.id);
+    console.log(
+      '🔍 [CommunitiesController] user roles:',
+      req.user.roles?.map((r: any) => r.name),
+    );
+
+    return this.communitiesService.getMyUnits(req.user.id);
+  }
+
   @Get(':id')
   @RequirePermission(Permission.MANAGE_COMMUNITY)
   findOne(@Param('id') id: string, @Request() req) {

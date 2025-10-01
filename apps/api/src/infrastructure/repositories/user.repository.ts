@@ -113,7 +113,8 @@ export class UserRepository implements IUserRepository {
       data: {
         userId: userId,
         unitId: unitId,
-        status: 'PENDING',
+        status: 'CONFIRMED',
+        confirmedAt: new Date(),
       },
     });
   }

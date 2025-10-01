@@ -255,6 +255,107 @@ export class CommunitiesService {
     return communities;
   }
 
+  async getMyCommunity(userId: string) {
+    console.log('🔍 [CommunitiesService] getMyCommunity - userId:', userId);
+
+    // Buscar el usuario con sus roles y unidades
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        roles: { include: { role: true } },
+        userUnits: {
+          where: {
+            status: 'CONFIRMED',
+          },
+          include: {
+            unit: {
+              include: {
+                community: {
+                  include: {
+                    organization: true,
+                    commonSpaces: true,
+                    createdBy: { select: { id: true, name: true, email: true } },
+                    _count: { select: { units: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      console.log('❌ [CommunitiesService] Usuario no encontrado');
+      return null;
+    }
+
+    const userRoles = user.roles.map((ur) => ur.role.name);
+    console.log('🔍 [CommunitiesService] Roles del usuario:', userRoles);
+
+    // Si es SUPER_ADMIN o COMMUNITY_ADMIN, usar la lógica existente
+    if (userRoles.includes('SUPER_ADMIN') || userRoles.includes('COMMUNITY_ADMIN')) {
+      console.log(
+        '🔍 [CommunitiesService] Usuario es admin, usando lógica de getCommunitiesByUser',
+      );
+      const communities = await this.getCommunitiesByUser(userId);
+      return communities.length > 0 ? communities[0] : null; // Retornar la primera comunidad
+    }
+
+    // Para RESIDENT, CONCIERGE, etc., buscar a través de sus unidades
+    console.log('🔍 [CommunitiesService] Usuario es residente/concierge, buscando por unidades');
+
+    if (user.userUnits.length === 0) {
+      console.log('🔍 [CommunitiesService] Usuario no tiene unidades asignadas');
+      return null;
+    }
+
+    // Obtener la comunidad de la primera unidad (asumiendo que un residente solo pertenece a una comunidad)
+    const firstUnit = user.userUnits[0].unit;
+    const community = firstUnit.community;
+
+    console.log(`✅ [CommunitiesService] Comunidad encontrada para residente: ${community.name}`);
+    return community;
+  }
+
+  async getMyUnits(userId: string) {
+    console.log('🔍 [CommunitiesService] getMyUnits - userId:', userId);
+
+    // Buscar las unidades del usuario (solo CONFIRMED)
+    const userUnits = await this.prisma.userUnit.findMany({
+      where: {
+        userId: userId,
+        status: 'CONFIRMED',
+      },
+      include: {
+        unit: {
+          include: {
+            community: {
+              select: {
+                id: true,
+                name: true,
+                address: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (userUnits.length === 0) {
+      console.log('🔍 [CommunitiesService] Usuario no tiene unidades asignadas');
+      return [];
+    }
+
+    const units = userUnits.map((userUnit) => ({
+      ...userUnit.unit,
+      community: userUnit.unit.community,
+    }));
+    console.log(`✅ [CommunitiesService] Unidades encontradas para usuario: ${units.length}`);
+
+    return units;
+  }
+
   async getCommunityById(id: string, userId: string) {
     // Verificar que el usuario es administrador de la comunidad
     const communityAdmin = await this.prisma.communityAdmin.findUnique({

@@ -76,8 +76,8 @@ export type CommunityFormData = CreateCommunityDto;
 
 export class CommunityService {
   // Obtener todas las comunidades del usuario
-  async getCommunities(): Promise<Community[]> {
-    const response = await api.get<Community[]>('/communities');
+  async getCommunities(endpoint: string = '/communities'): Promise<Community | Community[]> {
+    const response = await api.get<Community | Community[]>(endpoint);
     return response.data;
   }
 
@@ -130,8 +130,8 @@ export class CommunityService {
   }
 
   // Métodos estáticos para compatibilidad
-  static async getCommunities(): Promise<Community[]> {
-    const response = await api.get<Community[]>('/communities');
+  static async getCommunities(endpoint: string = '/communities'): Promise<Community | Community[]> {
+    const response = await api.get<Community | Community[]>(endpoint);
     return response.data;
   }
 

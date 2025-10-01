@@ -44,13 +44,23 @@ export function ThemeProvider({
 
   // Obtener el tema resuelto (light o dark)
   const getResolvedTheme = (currentTheme: Theme): 'light' | 'dark' => {
+    if (typeof window === 'undefined') return 'light';
     if (currentTheme === 'system') {
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
     return currentTheme;
   };
 
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+  // Inicializar el tema resuelto desde el DOM
+  const getInitialResolvedTheme = (): 'light' | 'dark' => {
+    if (typeof window === 'undefined') return 'light';
+    const htmlClass = document.documentElement.classList;
+    if (htmlClass.contains('dark')) return 'dark';
+    if (htmlClass.contains('light')) return 'light';
+    return 'light';
+  };
+
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(getInitialResolvedTheme);
 
   // Cargar el tema desde localStorage al montar
   useEffect(() => {
@@ -58,6 +68,12 @@ export function ThemeProvider({
       const stored = localStorage.getItem(storageKey) as Theme | null;
       if (stored && ['light', 'dark', 'system'].includes(stored)) {
         setThemeState(stored);
+        const resolved = getResolvedTheme(stored);
+        setResolvedTheme(resolved);
+      } else {
+        // Si no hay tema guardado, sincronizar con el DOM
+        const currentResolved = getInitialResolvedTheme();
+        setResolvedTheme(currentResolved);
       }
     } catch (error) {
       console.error('Error loading theme from localStorage:', error);

@@ -26,9 +26,25 @@ export function useCommunities(): UseCommunitiesResult {
       setError(null);
 
       console.log('🔍 [useCommunities] Obteniendo comunidades para usuario:', user.email);
-      const data = await communityService.getCommunities();
+
+      // Para administradores, usar el endpoint completo de comunidades
+      // Para residentes/concierges, usar el endpoint específico
+      const isAdmin = user.roles?.some(
+        (role: any) => role.name === 'SUPER_ADMIN' || role.name === 'COMMUNITY_ADMIN',
+      );
+
+      const endpoint = isAdmin ? '/communities' : '/communities/my-community';
+      console.log('🔍 [useCommunities] Usando endpoint:', endpoint);
+
+      const data = await communityService.getCommunities(endpoint);
       console.log('🔍 [useCommunities] Comunidades obtenidas:', data);
-      setCommunities(data);
+
+      if (isAdmin) {
+        setCommunities(data);
+      } else {
+        // Para residentes, data es un objeto único o null
+        setCommunities(data ? [data] : []);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar las comunidades.');
       console.error('❌ [useCommunities] Error fetching communities:', err);

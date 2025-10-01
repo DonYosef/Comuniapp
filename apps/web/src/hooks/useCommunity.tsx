@@ -63,7 +63,17 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const token = AuthService.getToken();
-      const response = await fetch('http://localhost:3001/communities', {
+
+      // Para administradores, usar el endpoint completo de comunidades
+      // Para residentes/concierges, usar el endpoint específico
+      const isAdmin = user.roles?.some(
+        (role: any) => role.name === 'SUPER_ADMIN' || role.name === 'COMMUNITY_ADMIN',
+      );
+
+      const endpoint = isAdmin ? 'communities' : 'communities/my-community';
+      console.log('🔍 [useCommunity] Usando endpoint:', endpoint, 'para usuario:', user.email);
+
+      const response = await fetch(`http://localhost:3001/${endpoint}`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -72,12 +82,26 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         const data = await response.json();
-        setCommunities(data);
 
-        // Si no hay comunidad actual pero hay comunidades disponibles, seleccionar la primera
-        if (!currentCommunity && data.length > 0) {
-          setCurrentCommunity(data[0]);
-          await loadUnits(data[0].id);
+        if (isAdmin) {
+          // Para administradores, data es un array
+          setCommunities(data);
+          if (!currentCommunity && data.length > 0) {
+            setCurrentCommunity(data[0]);
+            await loadUnits(data[0].id);
+          }
+        } else {
+          // Para residentes, data es un objeto único o null
+          if (data) {
+            setCommunities([data]); // Convertir a array para consistencia
+            if (!currentCommunity) {
+              setCurrentCommunity(data);
+              // Cargar unidades en paralelo para mejor rendimiento
+              loadUnits(data.id);
+            }
+          } else {
+            setCommunities([]);
+          }
         }
       } else {
         const errorText = await response.text();
@@ -86,10 +110,13 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           statusText: response.statusText,
           error: errorText,
           url: response.url,
+          endpoint: endpoint,
         });
+        setCommunities([]);
       }
     } catch (error) {
       console.error('Error al cargar comunidades:', error);
+      setCommunities([]);
     } finally {
       setIsLoading(false);
     }
@@ -101,7 +128,20 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
 
     try {
       const token = AuthService.getToken();
-      const response = await fetch(`http://localhost:3001/communities/${communityId}/units`, {
+
+      // Para administradores, usar el endpoint completo de unidades
+      // Para residentes/concierges, usar el endpoint específico
+      const isAdmin = user.roles?.some(
+        (role: any) => role.name === 'SUPER_ADMIN' || role.name === 'COMMUNITY_ADMIN',
+      );
+
+      const endpoint = isAdmin
+        ? `http://localhost:3001/communities/${communityId}/units`
+        : 'http://localhost:3001/communities/my-units';
+
+      console.log('🔍 [useCommunity] loadUnits - usando endpoint:', endpoint);
+
+      const response = await fetch(endpoint, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -111,11 +151,14 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         setUnits(data);
+        console.log('✅ [useCommunity] Unidades cargadas:', data.length);
       } else {
         console.error('Error al cargar unidades:', response.statusText);
+        setUnits([]);
       }
     } catch (error) {
       console.error('Error al cargar unidades:', error);
+      setUnits([]);
     }
   };
 
@@ -150,9 +193,10 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated, user]);
 
-  // Cargar unidades cuando cambia la comunidad actual
+  // Cargar unidades cuando cambia la comunidad actual (sin bloquear)
   useEffect(() => {
     if (currentCommunity) {
+      // Cargar unidades en background sin bloquear la UI
       loadUnits(currentCommunity.id);
     }
   }, [currentCommunity]);
