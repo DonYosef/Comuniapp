@@ -76,6 +76,7 @@ export enum Permission {
   MANAGE_COMMUNITY = 'manage_community',
   MANAGE_COMMUNITY_USERS = 'manage_community_users',
   MANAGE_COMMUNITY_UNITS = 'manage_community_units',
+  MANAGE_COMMUNITY_EXPENSES = 'manage_community_expenses',
   VIEW_COMMUNITY_REPORTS = 'view_community_reports',
 
   // Concierge - Gestión de servicios
@@ -86,6 +87,7 @@ export enum Permission {
 
   // Usuarios de comunidad
   VIEW_OWN_UNIT = 'view_own_unit',
+  VIEW_OWN_EXPENSES = 'view_own_expenses',
   MANAGE_OWN_PROFILE = 'manage_own_profile',
   CREATE_INCIDENTS = 'create_incidents',
   VIEW_ANNOUNCEMENTS = 'view_announcements',

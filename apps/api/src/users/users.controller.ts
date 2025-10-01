@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Request, UseGuards, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Request, UseGuards, Param, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
@@ -29,6 +29,10 @@ export class UsersController {
   @ApiOperation({ summary: 'Crear un nuevo usuario' })
   @ApiResponse({ status: 201, description: 'Usuario creado exitosamente' })
   create(@Body() createUserDto: CreateUserDto, @Request() req) {
+    console.log('🚀 [UsersController] ===== PETICIÓN RECIBIDA =====');
+    console.log('🚀 [UsersController] Endpoint: POST /users');
+    console.log('🚀 [UsersController] Usuario autenticado:', req.user?.id);
+    console.log('🚀 [UsersController] Roles del usuario:', req.user?.roles);
     console.log(
       '🔍 [UsersController] Datos recibidos en controlador:',
       JSON.stringify(createUserDto, null, 2),
@@ -53,6 +57,13 @@ export class UsersController {
     );
     console.log('- unitId:', createUserDto.unitId, '(tipo:', typeof createUserDto.unitId, ')');
 
+    // Verificaciones específicas para roleName
+    console.log('🔍 [UsersController] Verificaciones específicas de roleName:');
+    console.log('- roleName === undefined:', createUserDto.roleName === undefined);
+    console.log('- roleName === null:', createUserDto.roleName === null);
+    console.log('- roleName === "COMMUNITY_ADMIN":', createUserDto.roleName === 'COMMUNITY_ADMIN');
+    console.log('- roleName === "RESIDENT":', createUserDto.roleName === 'RESIDENT');
+
     // Escribir logs a archivo para debug del controlador
     const fs = require('fs');
     const controllerLogData = `
@@ -61,6 +72,7 @@ Datos recibidos en controlador: ${JSON.stringify(createUserDto, null, 2)}
 User ID: ${req.user?.id}
 Phone: ${createUserDto.phone} (tipo: ${typeof createUserDto.phone})
 OrganizationId: ${createUserDto.organizationId} (tipo: ${typeof createUserDto.organizationId})
+RoleName: ${createUserDto.roleName} (tipo: ${typeof createUserDto.roleName})
 ===========================
 `;
     fs.appendFileSync('debug-controller.log', controllerLogData);
@@ -123,5 +135,37 @@ OrganizationId: ${createUserDto.organizationId} (tipo: ${typeof createUserDto.or
     } finally {
       await prisma.$disconnect();
     }
+  }
+
+  @Post('community-admin/:userId/assign/:communityId')
+  @RequirePermission(Permission.MANAGE_ALL_USERS)
+  @ApiOperation({ summary: 'Asignar administrador de comunidad' })
+  @ApiResponse({ status: 201, description: 'Administrador asignado exitosamente' })
+  assignCommunityAdmin(
+    @Param('userId') userId: string,
+    @Param('communityId') communityId: string,
+    @Request() req,
+  ) {
+    return this.usersService.assignCommunityAdmin(userId, communityId, req.user.id);
+  }
+
+  @Get('community-admin/:communityId')
+  @RequirePermission(Permission.MANAGE_COMMUNITY_USERS)
+  @ApiOperation({ summary: 'Obtener administradores de comunidad' })
+  @ApiResponse({ status: 200, description: 'Lista de administradores' })
+  getCommunityAdmins(@Param('communityId') communityId: string, @Request() req) {
+    return this.usersService.getCommunityAdmins(communityId, req.user.id);
+  }
+
+  @Delete('community-admin/:userId/:communityId')
+  @RequirePermission(Permission.MANAGE_COMMUNITY_USERS)
+  @ApiOperation({ summary: 'Remover administrador de comunidad' })
+  @ApiResponse({ status: 200, description: 'Administrador removido exitosamente' })
+  removeCommunityAdmin(
+    @Param('userId') userId: string,
+    @Param('communityId') communityId: string,
+    @Request() req,
+  ) {
+    return this.usersService.removeCommunityAdmin(userId, communityId, req.user.id);
   }
 }

@@ -42,19 +42,13 @@ export class UsersService {
     );
     console.log('🔍 [UsersService] create - createdByUserId:', createdByUserId);
 
-    // Escribir logs a archivo para debug
-    const fs = require('fs');
-    const logData = `
-=== DEBUG LOG ${new Date().toISOString()} ===
-Datos recibidos: ${JSON.stringify(createUserDto, null, 2)}
-CreatedByUserId: ${createdByUserId}
-Phone: ${createUserDto.phone} (tipo: ${typeof createUserDto.phone})
-OrganizationId: ${createUserDto.organizationId} (tipo: ${typeof createUserDto.organizationId})
-===========================
-`;
-    fs.appendFileSync('debug-user-creation.log', logData);
-
     const { password, roleName, unitId, ...userData } = createUserDto;
+
+    console.log('🔍 [UsersService] Después del destructuring:');
+    console.log('- password:', password ? '[PRESENTE]' : '[AUSENTE]');
+    console.log('- roleName:', roleName);
+    console.log('- unitId:', unitId);
+    console.log('- userData:', JSON.stringify(userData, null, 2));
 
     // Verificar permisos para crear usuario
     if (userData.organizationId) {
@@ -142,19 +136,41 @@ OrganizationId: ${createUserDto.organizationId} (tipo: ${typeof createUserDto.or
     );
     console.log('- status:', user.status);
 
-    // Asignar rol si se especifica
-    if (roleName) {
-      const role = await this.prisma.role.findUnique({
-        where: { name: roleName },
+    // Asignar rol si se especifica, o asignar rol por defecto
+    const roleToAssign = roleName || 'RESIDENT'; // Rol por defecto si no se especifica
+
+    console.log('🔍 [UsersService] Asignando rol:', roleToAssign, '(original:', roleName, ')');
+    const role = await this.prisma.role.findUnique({
+      where: { name: roleToAssign },
+    });
+
+    console.log('🔍 [UsersService] Rol encontrado:', role ? role.name : 'NO ENCONTRADO');
+
+    if (role) {
+      await this.prisma.userRole.create({
+        data: {
+          userId: user.id,
+          roleId: role.id,
+        },
+      });
+      console.log('✅ [UsersService] Rol asignado correctamente:', role.name);
+    } else {
+      console.log('❌ [UsersService] Rol no encontrado:', roleToAssign);
+      // Intentar con rol RESIDENT como fallback
+      const fallbackRole = await this.prisma.role.findUnique({
+        where: { name: 'RESIDENT' },
       });
 
-      if (role) {
+      if (fallbackRole) {
         await this.prisma.userRole.create({
           data: {
             userId: user.id,
-            roleId: role.id,
+            roleId: fallbackRole.id,
           },
         });
+        console.log('✅ [UsersService] Rol de fallback asignado: RESIDENT');
+      } else {
+        console.log('❌ [UsersService] No se pudo asignar ningún rol');
       }
     }
 
@@ -293,7 +309,59 @@ OrganizationId: ${createUserDto.organizationId} (tipo: ${typeof createUserDto.or
     });
   }
 
-  async getUsersByCommunity(communityId: string, requestingUserId: string) {
+  async assignCommunityAdmin(userId: string, communityId: string, assignedByUserId: string) {
+    // Verificar permisos del asignador
+    const canManage = await this.authorizationService.canCreateUserInOrganization(
+      assignedByUserId,
+      null, // Super admin puede asignar globalmente
+    );
+
+    if (!canManage) {
+      throw new ForbiddenException('No tienes permisos para asignar administradores de comunidad');
+    }
+
+    // Verificar que el usuario existe y tiene rol COMMUNITY_ADMIN
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        roles: {
+          include: { role: true },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Usuario no encontrado');
+    }
+
+    const hasCommunityAdminRole = user.roles.some((ur) => ur.role.name === 'COMMUNITY_ADMIN');
+    if (!hasCommunityAdminRole) {
+      throw new BadRequestException('El usuario debe tener rol COMMUNITY_ADMIN');
+    }
+
+    // Verificar que la comunidad existe
+    const community = await this.prisma.community.findUnique({
+      where: { id: communityId },
+    });
+
+    if (!community) {
+      throw new BadRequestException('Comunidad no encontrada');
+    }
+
+    // Crear la relación CommunityAdmin
+    return this.prisma.communityAdmin.create({
+      data: {
+        userId: userId,
+        communityId: communityId,
+      },
+      include: {
+        community: true,
+        user: true,
+      },
+    });
+  }
+
+  async getCommunityAdmins(communityId: string, requestingUserId: string) {
     // Verificar permisos
     const canManage = await this.authorizationService.canManageCommunityUsers(
       requestingUserId,
@@ -301,27 +369,42 @@ OrganizationId: ${createUserDto.organizationId} (tipo: ${typeof createUserDto.or
     );
 
     if (!canManage) {
-      throw new ForbiddenException('No tienes permisos para ver usuarios de esta comunidad');
+      throw new ForbiddenException('No tienes permisos para ver administradores de esta comunidad');
     }
 
-    return this.prisma.user.findMany({
-      where: {
-        userUnits: {
-          some: {
-            unit: {
-              communityId: communityId,
+    return this.prisma.communityAdmin.findMany({
+      where: { communityId },
+      include: {
+        user: {
+          include: {
+            roles: {
+              include: { role: true },
             },
           },
         },
+        community: true,
       },
-      include: {
-        roles: {
-          include: { role: true },
-        },
-        userUnits: {
-          include: {
-            unit: true,
-          },
+    });
+  }
+
+  async removeCommunityAdmin(userId: string, communityId: string, removedByUserId: string) {
+    // Verificar permisos
+    const canManage = await this.authorizationService.canManageCommunityUsers(
+      removedByUserId,
+      communityId,
+    );
+
+    if (!canManage) {
+      throw new ForbiddenException(
+        'No tienes permisos para remover administradores de esta comunidad',
+      );
+    }
+
+    return this.prisma.communityAdmin.delete({
+      where: {
+        communityId_userId: {
+          communityId: communityId,
+          userId: userId,
         },
       },
     });

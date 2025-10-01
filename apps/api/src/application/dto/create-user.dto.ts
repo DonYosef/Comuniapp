@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsString, IsNotEmpty, MinLength, IsOptional, IsEnum } from 'class-validator';
 
 import { UserStatus } from '../../domain/entities/user.entity';
+import { RoleName } from '../../domain/entities/role.entity';
 
 export class CreateUserDto {
   @ApiProperty({
@@ -58,4 +59,23 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @ApiProperty({
+    description: 'Rol del usuario',
+    enum: RoleName,
+    example: RoleName.RESIDENT,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(RoleName, { message: 'El rol debe ser uno de los valores válidos' })
+  roleName?: RoleName;
+
+  @ApiProperty({
+    description: 'ID de la unidad donde reside el usuario',
+    example: 'unit_123',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  unitId?: string;
 }

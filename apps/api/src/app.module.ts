@@ -4,6 +4,7 @@ import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { CommonExpensesModule } from './common-expenses/common-expenses.module';
 import { CommunitiesModule } from './communities/communities.module';
 import { ConciergeModule } from './concierge/concierge.module';
 import { ConfigModule } from './config/config.module';
@@ -27,6 +28,7 @@ import { UsersModule } from './users/users.module';
     AdminModule,
     PublicModule,
     CommunitiesModule,
+    CommonExpensesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

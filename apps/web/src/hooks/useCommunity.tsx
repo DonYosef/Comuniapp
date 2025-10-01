@@ -80,7 +80,13 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           await loadUnits(data[0].id);
         }
       } else {
-        console.error('Error al cargar comunidades:', response.statusText);
+        const errorText = await response.text();
+        console.error('Error al cargar comunidades:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText,
+          url: response.url,
+        });
       }
     } catch (error) {
       console.error('Error al cargar comunidades:', error);

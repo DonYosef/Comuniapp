@@ -25,7 +25,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Usuario no válido o inactivo');
     }
 
-    return {
+    const result = {
       id: user.id,
       email: user.email,
       name: user.name,
@@ -33,5 +33,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       roles: user.roles.map((ur) => ur.role),
       userUnits: user.userUnits,
     };
+    try {
+      const roleSummary = result.roles.map((r: any) => ({
+        name: r.name,
+        perms: (r.permissions || []).length,
+      }));
+      // eslint-disable-next-line no-console
+      console.log('🔎 [JwtStrategy.validate] roles:', roleSummary);
+    } catch {}
+    return result;
   }
 }

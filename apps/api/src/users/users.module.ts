@@ -18,9 +18,10 @@ import { UserRepository } from '../infrastructure/repositories/user.repository';
 
 // Controllers
 import { PrismaModule } from '../prisma/prisma.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, AuthModule],
   controllers: [UsersController, RolesController],
   providers: [
     // Use Cases

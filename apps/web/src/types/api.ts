@@ -7,8 +7,16 @@ export interface User {
   phone?: string;
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   isActive: boolean;
+  organizationId?: string;
+  roles?: UserRole[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UserRole {
+  id: string;
+  name: 'SUPER_ADMIN' | 'COMMUNITY_ADMIN' | 'OWNER' | 'TENANT' | 'RESIDENT' | 'CONCIERGE';
+  permissions: string[];
 }
 
 export interface CreateUserDto {
@@ -42,7 +50,7 @@ export interface UserResponseDto {
 
 export interface Role {
   id: string;
-  name: 'ADMIN' | 'RESIDENT' | 'CONCIERGE';
+  name: 'SUPER_ADMIN' | 'COMMUNITY_ADMIN' | 'OWNER' | 'TENANT' | 'RESIDENT' | 'CONCIERGE';
   description?: string;
   permissions: string[];
   createdAt: string;
@@ -50,14 +58,14 @@ export interface Role {
 }
 
 export interface CreateRoleDto {
-  name: 'ADMIN' | 'RESIDENT' | 'CONCIERGE';
+  name: 'SUPER_ADMIN' | 'COMMUNITY_ADMIN' | 'OWNER' | 'TENANT' | 'RESIDENT' | 'CONCIERGE';
   description?: string;
   permissions: string[];
 }
 
 export interface RoleResponseDto {
   id: string;
-  name: 'ADMIN' | 'RESIDENT' | 'CONCIERGE';
+  name: 'SUPER_ADMIN' | 'COMMUNITY_ADMIN' | 'OWNER' | 'TENANT' | 'RESIDENT' | 'CONCIERGE';
   description?: string;
   permissions: string[];
   createdAt: string;

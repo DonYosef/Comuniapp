@@ -25,11 +25,13 @@ export function useCommunities(): UseCommunitiesResult {
       setIsLoading(true);
       setError(null);
 
+      console.log('🔍 [useCommunities] Obteniendo comunidades para usuario:', user.email);
       const data = await communityService.getCommunities();
+      console.log('🔍 [useCommunities] Comunidades obtenidas:', data);
       setCommunities(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar las comunidades.');
-      console.error('Error fetching communities:', err);
+      console.error('❌ [useCommunities] Error fetching communities:', err);
       setCommunities([]); // En caso de error, mostrar lista vacía
     } finally {
       setIsLoading(false);

@@ -3,6 +3,7 @@ import './globals.css';
 import QueryProvider from '@/providers/QueryProvider';
 import { AuthProvider } from '@/hooks/useAuth';
 import { CommunityProvider } from '@/hooks/useCommunity';
+import { ThemeProvider } from '@/hooks/useTheme';
 
 export const metadata: Metadata = {
   title: 'Comuniapp',
@@ -11,13 +12,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
       <body>
-        <AuthProvider>
-          <CommunityProvider>
-            <QueryProvider>{children}</QueryProvider>
-          </CommunityProvider>
-        </AuthProvider>
+        <ThemeProvider defaultTheme="system" storageKey="comuniapp-theme">
+          <AuthProvider>
+            <CommunityProvider>
+              <QueryProvider>{children}</QueryProvider>
+            </CommunityProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

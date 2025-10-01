@@ -8,6 +8,17 @@ interface User {
   email: string;
   name: string;
   organizationId: string | null;
+  roles?: Array<{
+    id: string;
+    name: string;
+    permissions: string[];
+  }>;
+  communities?: Array<{
+    id: string;
+    name: string;
+    address: string;
+    status: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -19,6 +30,11 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  hasRole: (roleName: string) => boolean;
+  hasPermission: (permission: string) => boolean;
+  isAdmin: () => boolean;
+  getCommunities: () => Array<{ id: string; name: string; address: string; status: string }>;
+  hasCommunityAccess: (communityId: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,15 +49,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedToken = AuthService.getToken();
     if (storedToken && !AuthService.isTokenExpired()) {
       setToken(storedToken);
-      // Por ahora, usar datos del usuario administrador real
-      setUser({
-        id: 'cmfu76mie0003k48oj64ug2b9', // ID real del usuario admin
-        email: 'admin@comuniapp.com',
-        name: 'Administrador del Sistema',
-        organizationId: 'cmfub8plc0000pnod3jl14lo4', // ID real de la organización
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
+
+      // Decodificar el token para obtener información del usuario
+      try {
+        const payload = JSON.parse(atob(storedToken.split('.')[1]));
+        setUser({
+          id: payload.sub,
+          email: payload.email,
+          name: payload.name || 'Usuario',
+          organizationId: payload.organizationId,
+          roles: payload.roles || [],
+          communities: payload.communities || [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error('Error al decodificar el token:', error);
+        // Si hay error, limpiar el token
+        AuthService.logout();
+      }
     }
     setIsLoading(false);
   }, []);
@@ -67,6 +93,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   };
 
+  // Función para verificar si el usuario tiene un rol específico
+  const hasRole = (roleName: string): boolean => {
+    if (!user?.roles) return false;
+    return user.roles.some((role) => role.name === roleName);
+  };
+
+  // Función para verificar si el usuario tiene un permiso específico
+  const hasPermission = (permission: string): boolean => {
+    if (!user?.roles) return false;
+    return user.roles.some((role) => role.permissions.includes(permission));
+  };
+
+  // Función para verificar si el usuario es administrador
+  const isAdmin = (): boolean => {
+    return hasRole('SUPER_ADMIN') || hasRole('COMMUNITY_ADMIN');
+  };
+
+  // Función para obtener las comunidades del usuario
+  const getCommunities = (): Array<{
+    id: string;
+    name: string;
+    address: string;
+    status: string;
+  }> => {
+    if (!user?.communities) return [];
+    return user.communities.filter((community) => community.status === 'ACTIVE');
+  };
+
+  // Función para verificar si el usuario tiene acceso a una comunidad específica
+  const hasCommunityAccess = (communityId: string): boolean => {
+    if (!user?.communities) return false;
+    return user.communities.some(
+      (community) => community.id === communityId && community.status === 'ACTIVE',
+    );
+  };
+
   const value = {
     user,
     token,
@@ -74,6 +136,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading,
     login,
     logout,
+    hasRole,
+    hasPermission,
+    isAdmin,
+    getCommunities,
+    hasCommunityAccess,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

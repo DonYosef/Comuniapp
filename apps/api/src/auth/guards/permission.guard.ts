@@ -16,32 +16,59 @@ export class PermissionGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
+    console.log('🔒 [PermissionGuard] ===== VERIFICANDO PERMISOS =====');
+    console.log('🔒 [PermissionGuard] Endpoint:', request.method, request.url);
+    console.log('🔒 [PermissionGuard] Usuario:', user?.id);
+    console.log('🔒 [PermissionGuard] Roles del usuario:', user?.roles);
+
     if (!user) {
+      console.log('🔒 [PermissionGuard] ❌ Usuario no autenticado');
       throw new ForbiddenException('Usuario no autenticado');
     }
 
-    // Obtener el permiso requerido del decorador
-    const requiredPermission = this.reflector.getAllAndOverride<Permission>(PERMISSION_KEY, [
+    // Obtener los permisos requeridos del decorador
+    const requiredPermissions = this.reflector.getAllAndOverride<Permission[]>(PERMISSION_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
-    if (!requiredPermission) {
-      return true; // Si no hay permiso requerido, permitir acceso
+    console.log('🔒 [PermissionGuard] Permisos requeridos:', requiredPermissions);
+
+    if (!requiredPermissions || requiredPermissions.length === 0) {
+      console.log('🔒 [PermissionGuard] ✅ No hay permisos requeridos, permitiendo acceso');
+      return true; // Si no hay permisos requeridos, permitir acceso
     }
 
     // Super Admin tiene acceso total
     if (user.roles.some((role: any) => role.name === 'SUPER_ADMIN')) {
+      console.log('🔒 [PermissionGuard] ✅ Usuario es SUPER_ADMIN, permitiendo acceso');
       return true;
     }
 
-    // Verificar si el usuario tiene el permiso requerido
-    const hasPermission = user.roles.some(
-      (ur: any) => ur.role.permissions && ur.role.permissions.includes(requiredPermission),
+    // Normalizar permisos requeridos a minúsculas
+    const requiredPermissionsLower = requiredPermissions.map((p) => String(p).toLowerCase());
+
+    // Obtener todos los permisos del usuario (normalizados a minúsculas)
+    const userPermissionsLower = new Set<string>();
+
+    user.roles.forEach((ur: any) => {
+      const permissions = ur.role?.permissions || ur.permissions || [];
+      permissions.forEach((permission: string) => {
+        userPermissionsLower.add(permission.toLowerCase());
+      });
+    });
+
+    // Verificar si el usuario tiene al menos uno de los permisos requeridos
+    const hasPermission = requiredPermissionsLower.some((permission) =>
+      userPermissionsLower.has(permission),
     );
 
     if (!hasPermission) {
-      throw new ForbiddenException(`No tienes el permiso requerido: ${requiredPermission}`);
+      console.log('🔍 [PermissionGuard] Permisos requeridos:', requiredPermissionsLower);
+      console.log('🔍 [PermissionGuard] Permisos del usuario:', Array.from(userPermissionsLower));
+      throw new ForbiddenException(
+        `No tienes ninguno de los permisos requeridos: ${requiredPermissions.join(', ')}`,
+      );
     }
 
     return true;

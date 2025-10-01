@@ -11,6 +11,17 @@ export interface LoginResponse {
     email: string;
     name: string;
     organizationId: string | null;
+    roles?: Array<{
+      id: string;
+      name: string;
+      permissions: string[];
+    }>;
+    communities?: Array<{
+      id: string;
+      name: string;
+      address: string;
+      status: string;
+    }>;
     createdAt: string;
     updatedAt: string;
   };

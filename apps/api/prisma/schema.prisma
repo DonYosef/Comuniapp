@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -15,18 +12,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ===== ENTIDADES PRINCIPALES =====
-
 model Organization {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
-  plan        PlanType @default(BASIC)
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  deletedAt   DateTime? @map("deleted_at")
-
-  // Relaciones
+  plan        PlanType    @default(BASIC)
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  deletedAt   DateTime?   @map("deleted_at")
   communities Community[]
   users       User[]
 
@@ -34,86 +27,72 @@ model Organization {
 }
 
 model Community {
-  id             String   @id @default(cuid())
-  organizationId String   @map("organization_id")
-  name           String
-  address        String
-  description    String?
-  phone          String?
-  email          String?
-  website        String?
-  type           CommunityType @default(CONDOMINIO)
-  totalUnits     Int?
-  constructionYear Int?
-  floors         Int?
-  unitsPerFloor  Int?
+  id                String                 @id @default(cuid())
+  name              String
+  address           String
+  description       String?
+  isActive          Boolean                @default(true) @map("is_active")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+  deletedAt         DateTime?              @map("deleted_at")
+  createdById       String                 @map("created_by_id")
+  organizationId    String                 @map("organization_id")
   buildingStructure Json?
-  imageUrl       String?
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-  deletedAt      DateTime? @map("deleted_at")
-
-  // Relación con la organización
-  organization   Organization @relation(fields: [organizationId], references: [id])
-
-  // Relación con el creador
-  createdById String @map("created_by_id")
-  createdBy   User   @relation("CommunityCreator", fields: [createdById], references: [id])
-
-  // Relaciones
-  units         Unit[]
-  announcements Announcement[]
-  documents     Document[]
-  commonSpaces  CommunityCommonSpace[]
-
-  // Administradores de la comunidad (relación N:M)
-  communityAdmins CommunityAdmin[]
+  constructionYear  Int?
+  email             String?
+  floors            Int?
+  imageUrl          String?
+  phone             String?
+  totalUnits        Int?
+  type              CommunityType          @default(CONDOMINIO)
+  unitsPerFloor     Int?
+  website           String?
+  announcements     Announcement[]
+  createdBy         User                   @relation("CommunityCreator", fields: [createdById], references: [id])
+  organization      Organization           @relation(fields: [organizationId], references: [id])
+  communityAdmins   CommunityAdmin[]
+  commonSpaces      CommunityCommonSpace[]
+  communityExpenses CommunityExpense[]
+  documents         Document[]
+  units             Unit[]
 
   @@map("communities")
 }
 
 model CommunityCommonSpace {
-  id          String   @id @default(cuid())
-  name        String   // "Piscina", "Gimnasio", "Quincho", etc.
-  quantity    Int      @default(1)
-  description String?  // Descripción del espacio
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  deletedAt   DateTime? @map("deleted_at")
-  
-  // Relación con la comunidad
-  communityId String @map("community_id")
-  community   Community @relation(fields: [communityId], references: [id])
-  
-  // Relación con reservas
+  id           String             @id @default(cuid())
+  name         String
+  quantity     Int                @default(1)
+  description  String?
+  isActive     Boolean            @default(true) @map("is_active")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  deletedAt    DateTime?          @map("deleted_at")
+  communityId  String             @map("community_id")
+  community    Community          @relation(fields: [communityId], references: [id])
   reservations SpaceReservation[]
-  
+
   @@unique([communityId, name])
   @@map("community_common_spaces")
 }
 
 model Unit {
-  id          String   @id @default(cuid())
-  number      String
-  floor       String?
-  type        UnitType @default(APARTMENT)
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  deletedAt   DateTime? @map("deleted_at")
-
-  // Relación con la comunidad
-  communityId String @map("community_id")
-  community   Community @relation(fields: [communityId], references: [id])
-
-  // Relaciones
+  id           String             @id @default(cuid())
+  number       String
+  floor        String?
+  type         UnitType           @default(APARTMENT)
+  isActive     Boolean            @default(true) @map("is_active")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  deletedAt    DateTime?          @map("deleted_at")
+  communityId  String             @map("community_id")
+  coefficient  Decimal            @default(1.00) @db.Decimal(5, 2)
   expenses     Expense[]
   parcels      Parcel[]
-  visitors     Visitor[]
   reservations SpaceReservation[]
+  community    Community          @relation(fields: [communityId], references: [id])
   userUnits    UserUnit[]
+  visitors     Visitor[]
 
   @@unique([communityId, number])
   @@index([number])
@@ -121,32 +100,26 @@ model Unit {
 }
 
 model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
-  name           String
-  phone          String?
-  passwordHash   String   @map("password_hash")
-  status         UserStatus @default(ACTIVE)
-  isActive       Boolean  @default(true) @map("is_active")
-  organizationId String?  @map("organization_id")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-  deletedAt      DateTime? @map("deleted_at")
-
-  // Relación con la organización
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-
-  // Relaciones
-  roles              UserRole[]
-  payments           Payment[]
+  id                 String           @id @default(cuid())
+  email              String           @unique
+  name               String
+  passwordHash       String           @map("password_hash")
+  status             UserStatus       @default(ACTIVE)
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  deletedAt          DateTime?        @map("deleted_at")
+  isActive           Boolean          @default(true) @map("is_active")
+  phone              String?
+  organizationId     String?          @map("organization_id")
   communications     Communication[]
+  createdCommunities Community[]      @relation("CommunityCreator")
+  communityAdmins    CommunityAdmin[]
   incidents          Incident[]
-  hostedVisitors     Visitor[] @relation("HostedVisitors")
-  
-  // Relaciones con comunidades y unidades
-  createdCommunities Community[] @relation("CommunityCreator")
-  communityAdmins   CommunityAdmin[]
-  userUnits         UserUnit[]
+  payments           Payment[]
+  roles              UserRole[]
+  userUnits          UserUnit[]
+  organization       Organization?    @relation(fields: [organizationId], references: [id])
+  hostedVisitors     Visitor[]        @relation("HostedVisitors")
 
   @@index([email])
   @@index([organizationId])
@@ -154,14 +127,12 @@ model User {
 }
 
 model Role {
-  id          String   @id @default(cuid())
-  name        RoleName @unique
+  id          String     @id @default(cuid())
   description String?
-  permissions String[] // Array de permisos como strings
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  // Relaciones
+  permissions String[]
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  name        RoleName   @unique
   userRoles   UserRole[]
 
   @@map("roles")
@@ -171,24 +142,18 @@ model UserRole {
   id     String @id @default(cuid())
   userId String @map("user_id")
   roleId String @map("role_id")
-
-  // Relaciones
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, roleId])
   @@map("user_roles")
 }
 
-// ===== RELACIONES N:M =====
-
 model CommunityAdmin {
-  id          String   @id @default(cuid())
-  communityId String   @map("community_id")
-  userId      String   @map("user_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  // Relaciones
+  id          String    @id @default(cuid())
+  communityId String    @map("community_id")
+  userId      String    @map("user_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -197,61 +162,88 @@ model CommunityAdmin {
 }
 
 model UserUnit {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  unitId      String   @map("unit_id")
+  id          String         @id @default(cuid())
+  userId      String         @map("user_id")
+  unitId      String         @map("unit_id")
   status      UserUnitStatus @default(PENDING)
-  confirmedAt DateTime? @map("confirmed_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  // Relaciones
-  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  unit        Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  confirmedAt DateTime?      @map("confirmed_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  unit        Unit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, unitId])
   @@map("user_units")
 }
 
-// ===== ENTIDADES DE NEGOCIO =====
-
 model Expense {
-  id          String        @id @default(cuid())
-  unitId      String        @map("unit_id")
-  amount      Decimal       @db.Decimal(10, 2)
-  concept     String
-  description String?
-  dueDate     DateTime      @map("due_date")
-  status      ExpenseStatus @default(PENDING)
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-
-  // Relaciones
-  unit     Unit      @relation(fields: [unitId], references: [id])
-  payments Payment[]
+  id                 String            @id @default(cuid())
+  unitId             String            @map("unit_id")
+  amount             Decimal           @db.Decimal(10, 2)
+  concept            String
+  description        String?
+  dueDate            DateTime          @map("due_date")
+  status             ExpenseStatus     @default(PENDING)
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  communityExpenseId String?           @map("community_expense_id")
+  communityExpense   CommunityExpense? @relation(fields: [communityExpenseId], references: [id])
+  unit               Unit              @relation(fields: [unitId], references: [id])
+  payments           Payment[]
 
   @@index([status])
+  @@index([communityExpenseId])
   @@map("expenses")
 }
 
 model Payment {
   id          String        @id @default(cuid())
   userId      String        @map("user_id")
-  expenseId  String        @map("expense_id")
   amount      Decimal       @db.Decimal(10, 2)
-  method      PaymentMethod @default(BANK_TRANSFER)
   status      PaymentStatus @default(PENDING)
   paymentDate DateTime?     @map("payment_date")
-  reference   String?       // Referencia bancaria o número de transacción
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
-
-  // Relaciones
-  user    User    @relation(fields: [userId], references: [id])
-  expense Expense @relation(fields: [expenseId], references: [id])
+  expenseId   String        @map("expense_id")
+  method      PaymentMethod @default(BANK_TRANSFER)
+  reference   String?
+  expense     Expense       @relation(fields: [expenseId], references: [id])
+  user        User          @relation(fields: [userId], references: [id])
 
   @@index([status])
   @@map("payments")
+}
+
+model CommunityExpense {
+  id             String                 @id @default(cuid())
+  communityId    String                 @map("community_id")
+  period         String
+  totalAmount    Decimal                @map("total_amount") @db.Decimal(10, 2)
+  dueDate        DateTime               @map("due_date")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+  prorrateMethod ProrrateMethod         @default(EQUAL) @map("prorrate_method")
+  items          CommunityExpenseItem[]
+  community      Community              @relation(fields: [communityId], references: [id])
+  expenses       Expense[]
+
+  @@unique([communityId, period])
+  @@index([communityId])
+  @@index([period])
+  @@map("community_expenses")
+}
+
+model CommunityExpenseItem {
+  id                 String           @id @default(cuid())
+  communityExpenseId String           @map("community_expense_id")
+  name               String
+  amount             Decimal          @db.Decimal(10, 2)
+  description        String?
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  communityExpense   CommunityExpense @relation(fields: [communityExpenseId], references: [id], onDelete: Cascade)
+
+  @@map("community_expense_items")
 }
 
 model Parcel {
@@ -260,13 +252,11 @@ model Parcel {
   description String
   sender      String?
   receivedAt  DateTime     @default(now()) @map("received_at")
-  retrievedAt DateTime?     @map("retrieved_at")
+  retrievedAt DateTime?    @map("retrieved_at")
   status      ParcelStatus @default(RECEIVED)
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
-
-  // Relaciones
-  unit Unit @relation(fields: [unitId], references: [id])
+  unit        Unit         @relation(fields: [unitId], references: [id])
 
   @@map("parcels")
 }
@@ -283,101 +273,87 @@ model Visitor {
   status          VisitorStatus @default(REGISTERED)
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
-
-  // Relaciones
-  unit Unit @relation(fields: [unitId], references: [id])
-  host User @relation("HostedVisitors", fields: [hostUserId], references: [id])
+  host            User          @relation("HostedVisitors", fields: [hostUserId], references: [id])
+  unit            Unit          @relation(fields: [unitId], references: [id])
 
   @@map("visitors")
 }
 
 model Announcement {
-  id          String   @id @default(cuid())
-  communityId String   @map("community_id")
+  id          String           @id @default(cuid())
+  communityId String           @map("community_id")
   title       String
   content     String
   type        AnnouncementType @default(GENERAL)
-  isActive    Boolean  @default(true) @map("is_active")
-  publishedAt DateTime @default(now()) @map("published_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  // Relaciones
-  community Community @relation(fields: [communityId], references: [id])
+  isActive    Boolean          @default(true) @map("is_active")
+  publishedAt DateTime         @default(now()) @map("published_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  community   Community        @relation(fields: [communityId], references: [id])
 
   @@map("announcements")
 }
 
 model Document {
-  id          String   @id @default(cuid())
-  communityId String   @map("community_id")
+  id          String           @id @default(cuid())
+  communityId String           @map("community_id")
   name        String
   description String?
-  fileUrl     String   @map("file_url")
-  fileType    String   @map("file_type")
-  fileSize    Int      @map("file_size")
+  fileUrl     String           @map("file_url")
+  fileType    String           @map("file_type")
+  fileSize    Int              @map("file_size")
   category    DocumentCategory @default(GENERAL)
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  // Relaciones
-  community Community @relation(fields: [communityId], references: [id])
+  isActive    Boolean          @default(true) @map("is_active")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  community   Community        @relation(fields: [communityId], references: [id])
 
   @@map("documents")
 }
 
 model Communication {
-  id        String              @id @default(cuid())
-  userId    String              @map("user_id")
+  id        String            @id @default(cuid())
+  userId    String            @map("user_id")
   type      CommunicationType
   content   String
-  sentAt    DateTime            @default(now()) @map("sent_at")
-  read      Boolean             @default(false)
-  createdAt DateTime            @default(now()) @map("created_at")
-  updatedAt DateTime            @updatedAt @map("updated_at")
-
-  // Relaciones
-  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sentAt    DateTime          @default(now()) @map("sent_at")
+  read      Boolean           @default(false)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("communications")
 }
 
 model SpaceReservation {
-  id          String              @id @default(cuid())
-  unitId      String              @map("unit_id")
-  commonSpaceId String            @map("common_space_id")
-  reservationDate DateTime        @map("reservation_date")
-  startTime   String              @map("start_time")
-  endTime     String              @map("end_time")
-  status      ReservationStatus   @default(PENDING)
-  createdAt   DateTime            @default(now()) @map("created_at")
-  updatedAt   DateTime            @updatedAt @map("updated_at")
-
-  // Relaciones
-  unit        Unit @relation(fields: [unitId], references: [id])
-  commonSpace CommunityCommonSpace @relation(fields: [commonSpaceId], references: [id])
+  id              String               @id @default(cuid())
+  reservationDate DateTime             @map("reservation_date")
+  startTime       String               @map("start_time")
+  endTime         String               @map("end_time")
+  status          ReservationStatus    @default(PENDING)
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+  unitId          String               @map("unit_id")
+  commonSpaceId   String               @map("common_space_id")
+  commonSpace     CommunityCommonSpace @relation(fields: [commonSpaceId], references: [id])
+  unit            Unit                 @relation(fields: [unitId], references: [id])
 
   @@map("space_reservations")
 }
 
 model Incident {
-  id          String          @id @default(cuid())
-  userId      String          @map("user_id")
+  id          String         @id @default(cuid())
+  userId      String         @map("user_id")
   title       String
   description String
-  status      IncidentStatus  @default(OPEN)
-  createdAt   DateTime        @default(now()) @map("created_at")
-  closedAt    DateTime?       @map("closed_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
-
-  // Relaciones
-  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      IncidentStatus @default(OPEN)
+  createdAt   DateTime       @default(now()) @map("created_at")
+  closedAt    DateTime?      @map("closed_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("incidents")
 }
-
-// ===== ENUMS =====
 
 enum UserStatus {
   ACTIVE
@@ -487,4 +463,9 @@ enum IncidentStatus {
 enum CommunityType {
   CONDOMINIO
   EDIFICIO
+}
+
+enum ProrrateMethod {
+  EQUAL
+  COEFFICIENT
 }

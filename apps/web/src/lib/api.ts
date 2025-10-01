@@ -36,16 +36,29 @@ api.interceptors.response.use(
   (error) => {
     // Manejo global de errores
     if (error.response?.status === 401) {
-      // Limpiar token y redirigir al login si no está autenticado
-      localStorage.removeItem('token');
-      console.error('No autorizado - Token expirado o inválido');
+      // Solo cerrar sesión si es un error de autenticación real (no permisos)
+      const isAuthError =
+        error.config?.url?.includes('/auth/login') ||
+        error.config?.url?.includes('/auth/logout') ||
+        error.response?.data?.message?.includes('token') ||
+        error.response?.data?.message?.includes('authentication');
 
-      // Solo redirigir si no estamos ya en la página de login
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      if (isAuthError) {
+        localStorage.removeItem('token');
+        console.error('No autorizado - Token expirado o inválido');
+
+        // Solo redirigir si no estamos ya en la página de login
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+      } else {
+        // Para otros errores 401 (como permisos), solo logear
+        console.warn('Error 401 - Posible problema de permisos:', error.response?.data?.message);
       }
     } else if (error.response?.status >= 500) {
-      console.error('Error del servidor');
+      console.error('Error del servidor:', error.response?.data?.message);
+    } else if (error.response?.status === 404) {
+      console.warn('Recurso no encontrado:', error.config?.url);
     }
     return Promise.reject(error);
   },

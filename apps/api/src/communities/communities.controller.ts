@@ -11,31 +11,38 @@ import {
 } from '@nestjs/common';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionGuard } from '../auth/guards/permission.guard';
+import { RequirePermission } from '../auth/decorators/require-permission.decorator';
+import { Permission } from '../domain/entities/role.entity';
 
 import { CommunitiesService } from './communities.service';
 import { CreateCommunityDto, CreateCommonSpaceDto } from './dto/create-community.dto';
 
 @Controller('communities')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class CommunitiesController {
   constructor(private readonly communitiesService: CommunitiesService) {}
 
   @Post()
+  @RequirePermission(Permission.MANAGE_COMMUNITY)
   create(@Body() createCommunityDto: CreateCommunityDto, @Request() req) {
     return this.communitiesService.createCommunity(createCommunityDto, req.user.id);
   }
 
   @Get()
+  @RequirePermission(Permission.MANAGE_COMMUNITY)
   findAll(@Request() req) {
     return this.communitiesService.getCommunitiesByUser(req.user.id);
   }
 
   @Get(':id')
+  @RequirePermission(Permission.MANAGE_COMMUNITY)
   findOne(@Param('id') id: string, @Request() req) {
     return this.communitiesService.getCommunityById(id, req.user.id);
   }
 
   @Patch(':id')
+  @RequirePermission(Permission.MANAGE_COMMUNITY)
   update(
     @Param('id') id: string,
     @Body() updateCommunityDto: Partial<CreateCommunityDto>,
@@ -45,6 +52,7 @@ export class CommunitiesController {
   }
 
   @Delete(':id')
+  @RequirePermission(Permission.MANAGE_COMMUNITY)
   remove(@Param('id') id: string, @Request() req) {
     console.log('🎯 [CONTROLLER] DELETE /communities/:id recibido:', {
       communityId: id,
@@ -62,6 +70,7 @@ export class CommunitiesController {
 
   // Endpoints para gestión de espacios comunes
   @Post(':id/common-spaces')
+  @RequirePermission(Permission.MANAGE_COMMUNITY)
   addCommonSpace(
     @Param('id') communityId: string,
     @Body() spaceData: CreateCommonSpaceDto,
@@ -71,17 +80,20 @@ export class CommunitiesController {
   }
 
   @Delete('common-spaces/:spaceId')
+  @RequirePermission(Permission.MANAGE_COMMUNITY)
   removeCommonSpace(@Param('spaceId') spaceId: string, @Request() req) {
     return this.communitiesService.removeCommonSpace(spaceId, req.user.id);
   }
 
   // Endpoints para gestión de unidades
   @Get(':id/units')
+  @RequirePermission(Permission.MANAGE_COMMUNITY)
   getCommunityUnits(@Param('id') communityId: string, @Request() req) {
     return this.communitiesService.getCommunityUnits(communityId, req.user.id);
   }
 
   @Post(':id/units')
+  @RequirePermission(Permission.MANAGE_COMMUNITY)
   addUnit(
     @Param('id') communityId: string,
     @Body() unitData: { number: string; floor?: string; type?: string },
@@ -91,6 +103,7 @@ export class CommunitiesController {
   }
 
   @Delete('units/:unitId')
+  @RequirePermission(Permission.MANAGE_COMMUNITY)
   removeUnit(@Param('unitId') unitId: string, @Request() req) {
     return this.communitiesService.removeUnit(unitId, req.user.id);
   }

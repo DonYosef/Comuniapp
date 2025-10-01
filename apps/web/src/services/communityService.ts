@@ -71,27 +71,30 @@ export interface CreateUnitDto {
   type?: 'APARTMENT' | 'HOUSE' | 'OFFICE' | 'COMMERCIAL';
 }
 
+// Alias para compatibilidad con el componente
+export type CommunityFormData = CreateCommunityDto;
+
 export class CommunityService {
   // Obtener todas las comunidades del usuario
-  static async getCommunities(): Promise<Community[]> {
+  async getCommunities(): Promise<Community[]> {
     const response = await api.get<Community[]>('/communities');
     return response.data;
   }
 
   // Obtener una comunidad por ID
-  static async getCommunityById(id: string): Promise<Community> {
+  async getCommunityById(id: string): Promise<Community> {
     const response = await api.get<Community>(`/communities/${id}`);
     return response.data;
   }
 
   // Crear una nueva comunidad
-  static async createCommunity(communityData: CreateCommunityDto): Promise<Community> {
+  async createCommunity(communityData: CreateCommunityDto): Promise<Community> {
     const response = await api.post<Community>('/communities', communityData);
     return response.data;
   }
 
   // Actualizar una comunidad
-  static async updateCommunity(
+  async updateCommunity(
     id: string,
     communityData: Partial<CreateCommunityDto>,
   ): Promise<Community> {
@@ -100,31 +103,80 @@ export class CommunityService {
   }
 
   // Eliminar una comunidad
-  static async deleteCommunity(id: string): Promise<void> {
+  async deleteCommunity(id: string): Promise<void> {
     await api.delete(`/communities/${id}`);
   }
 
   // Obtener unidades de una comunidad
-  static async getCommunityUnits(communityId: string): Promise<Unit[]> {
+  async getCommunityUnits(communityId: string): Promise<Unit[]> {
     const response = await api.get<Unit[]>(`/communities/${communityId}/units`);
     return response.data;
   }
 
   // Agregar una unidad a una comunidad
-  static async addUnit(communityId: string, unitData: CreateUnitDto): Promise<Unit> {
+  async addUnit(communityId: string, unitData: CreateUnitDto): Promise<Unit> {
     const response = await api.post<Unit>(`/communities/${communityId}/units`, unitData);
     return response.data;
   }
 
   // Eliminar una unidad
-  static async removeUnit(unitId: string): Promise<void> {
+  async removeUnit(unitId: string): Promise<void> {
     await api.delete(`/communities/units/${unitId}`);
   }
 
   // Eliminar un espacio común
+  async removeCommonSpace(spaceId: string): Promise<void> {
+    await api.delete(`/communities/common-spaces/${spaceId}`);
+  }
+
+  // Métodos estáticos para compatibilidad
+  static async getCommunities(): Promise<Community[]> {
+    const response = await api.get<Community[]>('/communities');
+    return response.data;
+  }
+
+  static async getCommunityById(id: string): Promise<Community> {
+    const response = await api.get<Community>(`/communities/${id}`);
+    return response.data;
+  }
+
+  static async createCommunity(communityData: CreateCommunityDto): Promise<Community> {
+    const response = await api.post<Community>('/communities', communityData);
+    return response.data;
+  }
+
+  static async updateCommunity(
+    id: string,
+    communityData: Partial<CreateCommunityDto>,
+  ): Promise<Community> {
+    const response = await api.patch<Community>(`/communities/${id}`, communityData);
+    return response.data;
+  }
+
+  static async deleteCommunity(id: string): Promise<void> {
+    await api.delete(`/communities/${id}`);
+  }
+
+  static async getCommunityUnits(communityId: string): Promise<Unit[]> {
+    const response = await api.get<Unit[]>(`/communities/${communityId}/units`);
+    return response.data;
+  }
+
+  static async addUnit(communityId: string, unitData: CreateUnitDto): Promise<Unit> {
+    const response = await api.post<Unit>(`/communities/${communityId}/units`, unitData);
+    return response.data;
+  }
+
+  static async removeUnit(unitId: string): Promise<void> {
+    await api.delete(`/communities/units/${unitId}`);
+  }
+
   static async removeCommonSpace(spaceId: string): Promise<void> {
     await api.delete(`/communities/common-spaces/${spaceId}`);
   }
 }
+
+// Crear una instancia del servicio para usar directamente
+export const communityService = new CommunityService();
 
 export default CommunityService;

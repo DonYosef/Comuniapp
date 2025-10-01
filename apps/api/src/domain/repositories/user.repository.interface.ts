@@ -9,4 +9,10 @@ export interface UserRepository {
   delete(id: string): Promise<void>;
   findByStatus(status: UserStatus): Promise<User[]>;
   existsByEmail(email: string): Promise<boolean>;
+  assignRole(userId: string, roleId: string): Promise<void>;
+  assignUnit(userId: string, unitId: string): Promise<void>;
+
+  // Nuevos métodos para la lógica de negocio
+  findAllCommunityAdmins(): Promise<User[]>;
+  findAllUsersFromCreatedCommunities(createdByUserId: string): Promise<User[]>;
 }

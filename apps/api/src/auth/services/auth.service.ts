@@ -59,16 +59,57 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
+    // Obtener información completa del usuario con roles y permisos
+    const userWithRoles = await this.getUserWithRoles(user.id);
+
+    if (!userWithRoles) {
+      throw new UnauthorizedException('Usuario no encontrado');
+    }
+
+    // Crear payload con información de roles y permisos
     const payload = {
       sub: user.id,
       email: user.email,
       organizationId: user.organizationId,
+      roles: userWithRoles.roles.map((ur) => ({
+        id: ur.role.id,
+        name: ur.role.name,
+        permissions: ur.role.permissions,
+      })),
     };
 
     const accessToken = this.jwtService.sign(payload);
 
+    // Crear objeto de usuario con roles y permisos
+    const userWithPermissions = new User(
+      user.id,
+      user.email,
+      user.name,
+      user.passwordHash,
+      user.status as UserStatus,
+      user.organizationId,
+      user.phone,
+      user.createdAt,
+      user.updatedAt,
+    );
+
+    // Agregar roles y comunidades al objeto de usuario
+    (userWithPermissions as any).roles = userWithRoles.roles.map((ur) => ({
+      id: ur.role.id,
+      name: ur.role.name,
+      permissions: ur.role.permissions,
+    }));
+
+    (userWithPermissions as any).communities =
+      userWithRoles.communityAdmins?.map((ca) => ({
+        id: ca.community.id,
+        name: ca.community.name,
+        address: ca.community.address,
+        isActive: ca.community.isActive,
+      })) || [];
+
     return {
-      user,
+      user: userWithPermissions,
       accessToken,
       organizationId: user.organizationId || undefined,
     };
@@ -87,6 +128,11 @@ export class AuthService {
             unit: {
               include: { community: true },
             },
+          },
+        },
+        communityAdmins: {
+          include: {
+            community: true,
           },
         },
       },

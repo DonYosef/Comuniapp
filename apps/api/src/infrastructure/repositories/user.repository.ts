@@ -42,10 +42,21 @@ export class UserRepository implements IUserRepository {
   async findAll(organizationId?: string): Promise<User[]> {
     const where = organizationId ? { organizationId } : {};
 
+    console.log('🔍 [UserRepository] findAll - organizationId:', organizationId);
+    console.log('🔍 [UserRepository] findAll - where clause:', JSON.stringify(where, null, 2));
+
     const users = await this.prisma.user.findMany({
       where,
       orderBy: { createdAt: 'desc' },
     });
+
+    console.log(`🔍 [UserRepository] findAll - encontrados ${users.length} usuarios`);
+    if (organizationId) {
+      const usersWithOrg = users.filter((user) => user.organizationId === organizationId);
+      console.log(
+        `🔍 [UserRepository] findAll - usuarios con organizationId ${organizationId}: ${usersWithOrg.length}`,
+      );
+    }
 
     return users.map((user) => this.toDomainEntity(user));
   }
@@ -86,6 +97,104 @@ export class UserRepository implements IUserRepository {
     });
 
     return !!user;
+  }
+
+  async assignRole(userId: string, roleId: string): Promise<void> {
+    await this.prisma.userRole.create({
+      data: {
+        userId: userId,
+        roleId: roleId,
+      },
+    });
+  }
+
+  async assignUnit(userId: string, unitId: string): Promise<void> {
+    await this.prisma.userUnit.create({
+      data: {
+        userId: userId,
+        unitId: unitId,
+        status: 'PENDING',
+      },
+    });
+  }
+
+  async findAllCommunityAdmins(): Promise<User[]> {
+    console.log(
+      '🔍 [UserRepository] findAllCommunityAdmins - buscando todos los administradores de comunidad',
+    );
+
+    const communityAdmins = await this.prisma.user.findMany({
+      where: {
+        roles: {
+          some: {
+            role: {
+              name: 'COMMUNITY_ADMIN',
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    console.log(
+      `🔍 [UserRepository] findAllCommunityAdmins - encontrados ${communityAdmins.length} administradores de comunidad`,
+    );
+    return communityAdmins.map((user) => this.toDomainEntity(user));
+  }
+
+  async findAllUsersFromCreatedCommunities(createdByUserId: string): Promise<User[]> {
+    console.log(
+      '🔍 [UserRepository] findAllUsersFromCreatedCommunities - creador:',
+      createdByUserId,
+    );
+
+    // Primero, obtener todas las comunidades creadas por este usuario
+    const createdCommunities = await this.prisma.community.findMany({
+      where: {
+        createdById: createdByUserId,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    console.log(
+      `🔍 [UserRepository] findAllUsersFromCreatedCommunities - comunidades creadas: ${createdCommunities.length}`,
+    );
+    createdCommunities.forEach((community) => {
+      console.log(`   - ${community.name} (${community.id})`);
+    });
+
+    if (createdCommunities.length === 0) {
+      console.log(
+        '🔍 [UserRepository] findAllUsersFromCreatedCommunities - no hay comunidades creadas, devolviendo lista vacía',
+      );
+      return [];
+    }
+
+    const communityIds = createdCommunities.map((c) => c.id);
+
+    // Buscar todos los usuarios que están asociados a unidades de estas comunidades
+    const users = await this.prisma.user.findMany({
+      where: {
+        userUnits: {
+          some: {
+            unit: {
+              communityId: {
+                in: communityIds,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    console.log(
+      `🔍 [UserRepository] findAllUsersFromCreatedCommunities - encontrados ${users.length} usuarios en las comunidades creadas`,
+    );
+    return users.map((user) => this.toDomainEntity(user));
   }
 
   private toDomainEntity(prismaUser: any): User {

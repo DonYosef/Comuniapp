@@ -80,6 +80,7 @@ export class CommunitiesService {
             floor: floor,
             type: 'APARTMENT',
             communityId: communityId,
+            coefficient: 1.0, // Valor por defecto
           });
         }
       }
@@ -90,6 +91,7 @@ export class CommunitiesService {
           number: i.toString().padStart(3, '0'),
           type: dto.type === CommunityType.CONDOMINIO ? UnitType.HOUSE : UnitType.APARTMENT,
           communityId: communityId,
+          coefficient: 1.0, // Valor por defecto
         });
       }
     }
@@ -114,25 +116,143 @@ export class CommunitiesService {
   }
 
   async getCommunitiesByUser(userId: string) {
-    // Obtener comunidades donde el usuario es administrador
-    const communityAdmins = await this.prisma.communityAdmin.findMany({
-      where: { userId },
+    console.log('🔍 [CommunitiesService] getCommunitiesByUser - userId:', userId);
+
+    // Obtener el usuario con sus roles para determinar qué comunidades puede ver
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
       include: {
-        community: {
+        roles: {
+          include: { role: true },
+        },
+      },
+    });
+
+    if (!user) {
+      console.log('❌ [CommunitiesService] Usuario no encontrado');
+      return [];
+    }
+
+    const isSuperAdmin = user.roles.some((ur) => ur.role.name === 'SUPER_ADMIN');
+    const isCommunityAdmin = user.roles.some((ur) => ur.role.name === 'COMMUNITY_ADMIN');
+
+    console.log('🔍 [CommunitiesService] Análisis de roles:');
+    console.log('   - isSuperAdmin:', isSuperAdmin);
+    console.log('   - isCommunityAdmin:', isCommunityAdmin);
+
+    let communities = [];
+
+    if (isSuperAdmin) {
+      console.log('🔍 [CommunitiesService] Usuario es SUPER_ADMIN - viendo todas las comunidades');
+
+      // SUPER_ADMIN puede ver todas las comunidades
+      communities = await this.prisma.community.findMany({
+        where: {
+          isActive: true,
+          deletedAt: null,
+        },
+        include: {
+          organization: true,
+          commonSpaces: true,
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          _count: {
+            select: {
+              units: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    } else if (isCommunityAdmin) {
+      console.log(
+        '🔍 [CommunitiesService] Usuario es COMMUNITY_ADMIN - viendo comunidades creadas y donde es admin',
+      );
+
+      // COMMUNITY_ADMIN puede ver:
+      // 1. Comunidades que creó
+      // 2. Comunidades donde es administrador
+
+      const [createdCommunities, adminCommunities] = await Promise.all([
+        // Comunidades creadas por el usuario
+        this.prisma.community.findMany({
+          where: {
+            createdById: userId,
+            isActive: true,
+            deletedAt: null,
+          },
           include: {
             organization: true,
             commonSpaces: true,
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
             _count: {
               select: {
                 units: true,
               },
             },
           },
-        },
-      },
-    });
+          orderBy: { createdAt: 'desc' },
+        }),
 
-    return communityAdmins.map((ca) => ca.community);
+        // Comunidades donde el usuario es administrador
+        this.prisma.communityAdmin.findMany({
+          where: { userId },
+          include: {
+            community: {
+              include: {
+                organization: true,
+                commonSpaces: true,
+                createdBy: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                  },
+                },
+                _count: {
+                  select: {
+                    units: true,
+                  },
+                },
+              },
+            },
+          },
+        }),
+      ]);
+
+      // Combinar y eliminar duplicados
+      const createdCommIds = createdCommunities.map((c) => c.id);
+      const adminCommIds = adminCommunities.map((ca) => ca.community.id);
+      const uniqueCommIds = [...new Set([...createdCommIds, ...adminCommIds])];
+
+      communities = [
+        ...createdCommunities,
+        ...adminCommunities.map((ca) => ca.community).filter((c) => !createdCommIds.includes(c.id)),
+      ];
+
+      console.log(`🔍 [CommunitiesService] Comunidades creadas: ${createdCommunities.length}`);
+      console.log(`🔍 [CommunitiesService] Comunidades como admin: ${adminCommunities.length}`);
+      console.log(`🔍 [CommunitiesService] Total únicas: ${communities.length}`);
+    } else {
+      console.log(
+        '🔍 [CommunitiesService] Usuario no es SUPER_ADMIN ni COMMUNITY_ADMIN - sin acceso',
+      );
+      communities = [];
+    }
+
+    console.log(`✅ [CommunitiesService] Devolviendo ${communities.length} comunidades`);
+    return communities;
   }
 
   async getCommunityById(id: string, userId: string) {

@@ -81,7 +81,8 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
   }, []);
 
   // Determinar si el usuario es administrador (puede cambiar de comunidad)
-  const isAdmin = user?.email === 'admin@comuniapp.com'; // Por ahora, lógica simple
+  const { hasRole } = useAuth();
+  const isAdmin = hasRole('SUPER_ADMIN') || hasRole('COMMUNITY_ADMIN');
 
   return (
     <header className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
@@ -132,14 +133,14 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
         {/* Controles del usuario */}
         <div className="flex items-center space-x-4">
           {/* Selector de comunidad (solo para administradores) */}
-          {isAdmin && communities.length > 0 && (
+          {isAdmin && (
             <div className="relative community-menu-container">
               <button
                 onClick={() => setIsCommunityMenuOpen(!isCommunityMenuOpen)}
                 className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 border border-gray-200 dark:border-gray-600"
               >
                 <svg
-                  className="w-4 h-4 text-gray-500"
+                  className="w-4 h-4 text-blue-600 dark:text-blue-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -148,25 +149,27 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
                   />
                 </svg>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Comunidades
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  {currentCommunity ? currentCommunity.name : 'Comunidades'}
                 </span>
-                <svg
-                  className="w-4 h-4 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
+                {communities.length > 0 && (
+                  <svg
+                    className="w-4 h-4 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                )}
               </button>
 
               {/* Menú desplegable de comunidades */}
@@ -174,32 +177,44 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
                 <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
                   <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Seleccionar Comunidad
+                      {communities.length > 0 ? 'Comunidades' : 'Gestión de Comunidades'}
                     </p>
                   </div>
-                  {communities.map((community) => (
-                    <button
-                      key={community.id}
-                      onClick={() => handleCommunityChange(community.id)}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 ${
-                        currentCommunity?.id === community.id
-                          ? 'bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                          : 'text-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      <div className="font-medium">{community.name}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {community.address}
-                      </div>
-                    </button>
-                  ))}
-                  <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+
+                  {/* Lista de comunidades existentes */}
+                  {communities.length > 0 ? (
+                    <>
+                      {communities.map((community) => (
+                        <button
+                          key={community.id}
+                          onClick={() => handleCommunityChange(community.id)}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 ${
+                            currentCommunity?.id === community.id
+                              ? 'bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                              : 'text-gray-700 dark:text-gray-300'
+                          }`}
+                        >
+                          <div className="font-medium">{community.name}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {community.address}
+                          </div>
+                        </button>
+                      ))}
+                      <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                    </>
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                      No tienes comunidades asignadas
+                    </div>
+                  )}
+
+                  {/* Opción Nueva Comunidad */}
                   <button
                     onClick={() => {
                       router.push('/dashboard/comunidad/nueva');
                       setIsCommunityMenuOpen(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                    className="w-full text-left px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors duration-200"
                   >
                     <svg
                       className="w-4 h-4 mr-2 inline"

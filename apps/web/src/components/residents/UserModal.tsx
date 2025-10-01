@@ -54,15 +54,18 @@ export default function UserModal({
         unitId: '', // TODO: Obtener unidad del usuario si existe
       });
     } else if (mode === 'create') {
-      setFormData({
+      const initialFormData = {
         name: '',
         email: '',
         password: '',
         phone: '',
         status: 'ACTIVE',
-        roleName: 'RESIDENT',
+        roleName: 'COMMUNITY_ADMIN', // Cambiar valor por defecto a COMMUNITY_ADMIN
         unitId: '',
-      });
+      };
+      console.log('🔍 [UserModal] Inicializando formulario para crear usuario:');
+      console.log('   - roleName inicial:', initialFormData.roleName);
+      setFormData(initialFormData);
     }
     setErrors({});
   }, [user, mode, isOpen]);
@@ -96,7 +99,7 @@ export default function UserModal({
     const userData = {
       email: formData.email,
       status: formData.status,
-      roleName: formData.roleName,
+      roleName: formData.roleName, // Asegurar que el rol se envíe siempre
       ...(mode === 'create' && { password: formData.password }),
       ...(formData.name && { name: formData.name }),
       phone: formData.phone || undefined, // Enviar undefined si está vacío
@@ -104,11 +107,33 @@ export default function UserModal({
       ...(formData.unitId && { unitId: formData.unitId }),
     };
 
+    // Log para debugging
+    console.log(
+      '🔍 [UserModal] Datos que se envían al backend:',
+      JSON.stringify(userData, null, 2),
+    );
+    console.log(
+      '🔍 [UserModal] roleName específico:',
+      userData.roleName,
+      '(tipo:',
+      typeof userData.roleName,
+      ')',
+    );
+
     onSave(userData);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+
+    // Log específico para roleName
+    if (name === 'roleName') {
+      console.log('🔍 [UserModal] Cambio de rol detectado:');
+      console.log('   - Campo:', name);
+      console.log('   - Valor anterior:', formData.roleName);
+      console.log('   - Valor nuevo:', value);
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
 
     // Limpiar error cuando el usuario empiece a escribir

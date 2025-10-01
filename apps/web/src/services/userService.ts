@@ -31,13 +31,25 @@ export class UserService {
     console.log('- roleName:', userData.roleName, '(tipo:', typeof userData.roleName, ')');
     console.log('- unitId:', userData.unitId, '(tipo:', typeof userData.unitId, ')');
 
-    const response = await api.post<UserResponseDto>('/users', userData);
-
-    console.log(
-      '✅ [UserService] Usuario creado - respuesta:',
-      JSON.stringify(response.data, null, 2),
-    );
-    return response.data;
+    try {
+      console.log('🚀 [UserService] Enviando petición POST a /users...');
+      const response = await api.post<UserResponseDto>('/users', userData);
+      console.log('✅ [UserService] Petición exitosa - Status:', response.status);
+      console.log(
+        '✅ [UserService] Usuario creado - respuesta:',
+        JSON.stringify(response.data, null, 2),
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ [UserService] Error en la petición:');
+      console.error('   - Status:', error.response?.status);
+      console.error('   - StatusText:', error.response?.statusText);
+      console.error('   - Data:', error.response?.data);
+      console.error('   - URL:', error.config?.url);
+      console.error('   - Method:', error.config?.method);
+      console.error('   - Headers:', error.config?.headers);
+      throw error;
+    }
   }
 
   // Actualizar un usuario
