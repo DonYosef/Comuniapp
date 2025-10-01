@@ -15,7 +15,7 @@ export class UsersService {
     private authorizationService: AuthorizationService,
   ) {}
 
-  async findAll(organizationId?: string) {
+  async findAll(organizationId?: string): Promise<any[]> {
     const where = organizationId ? { organizationId } : {};
 
     return this.prisma.user.findMany({
@@ -35,13 +35,12 @@ export class UsersService {
     });
   }
 
-  async create(createUserDto: CreateUserDto, createdByUserId: string) {
+  async create(createUserDto: CreateUserDto, createdByUserId: string): Promise<any> {
     console.log(
       '🔍 [UsersService] create - Datos recibidos:',
       JSON.stringify(createUserDto, null, 2),
     );
     console.log('🔍 [UsersService] create - createdByUserId:', createdByUserId);
-
     const { password, roleName, unitId, ...userData } = createUserDto;
 
     console.log('🔍 [UsersService] Después del destructuring:');
@@ -52,71 +51,23 @@ export class UsersService {
 
     // Verificar permisos para crear usuario
     if (userData.organizationId) {
-      console.log(
-        '🔍 [UsersService] Verificando permisos para organizationId:',
-        userData.organizationId,
-      );
       const canCreate = await this.authorizationService.canCreateUserInOrganization(
         createdByUserId,
         userData.organizationId,
       );
 
       if (!canCreate) {
-        console.log('❌ [UsersService] Sin permisos para crear usuario en organización');
         throw new ForbiddenException('No tienes permisos para crear usuarios en esta organización');
       }
-      console.log('✅ [UsersService] Permisos verificados correctamente');
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    console.log('✅ [UsersService] Password hasheado correctamente');
 
     // Crear usuario
     const userDataToCreate: any = {
       ...userData,
       passwordHash,
     };
-
-    console.log(
-      '🔍 [UsersService] Datos para crear usuario:',
-      JSON.stringify(userDataToCreate, null, 2),
-    );
-
-    // Logging detallado de cada campo antes de crear
-    console.log('📊 [UsersService] Análisis detallado de campos:');
-    console.log('- email:', userDataToCreate.email, '(tipo:', typeof userDataToCreate.email, ')');
-    console.log('- name:', userDataToCreate.name, '(tipo:', typeof userDataToCreate.name, ')');
-    console.log('- phone:', userDataToCreate.phone, '(tipo:', typeof userDataToCreate.phone, ')');
-    console.log(
-      '- organizationId:',
-      userDataToCreate.organizationId,
-      '(tipo:',
-      typeof userDataToCreate.organizationId,
-      ')',
-    );
-    console.log(
-      '- passwordHash:',
-      userDataToCreate.passwordHash ? '[PRESENTE]' : '[AUSENTE]',
-      '(tipo:',
-      typeof userDataToCreate.passwordHash,
-      ')',
-    );
-    console.log(
-      '- status:',
-      userDataToCreate.status,
-      '(tipo:',
-      typeof userDataToCreate.status,
-      ')',
-    );
-
-    // Verificar valores nulos/undefined específicamente
-    console.log('🔍 [UsersService] Verificación de valores null/undefined:');
-    console.log('- phone === null:', userDataToCreate.phone === null);
-    console.log('- phone === undefined:', userDataToCreate.phone === undefined);
-    console.log('- phone === "":', userDataToCreate.phone === '');
-    console.log('- organizationId === null:', userDataToCreate.organizationId === null);
-    console.log('- organizationId === undefined:', userDataToCreate.organizationId === undefined);
-    console.log('- organizationId === "":', userDataToCreate.organizationId === '');
 
     const user = await this.prisma.user.create({
       data: userDataToCreate,
@@ -137,79 +88,42 @@ export class UsersService {
     console.log('- status:', user.status);
 
     // Asignar rol si se especifica, o asignar rol por defecto
-    const roleToAssign = roleName || 'RESIDENT'; // Rol por defecto si no se especifica
-
+    const roleToAssign = roleName ?? 'RESIDENT';
     console.log('🔍 [UsersService] Asignando rol:', roleToAssign, '(original:', roleName, ')');
-    const role = await this.prisma.role.findUnique({
-      where: { name: roleToAssign },
-    });
-
-    console.log('🔍 [UsersService] Rol encontrado:', role ? role.name : 'NO ENCONTRADO');
-
+    let role = await this.prisma.role.findUnique({ where: { name: roleToAssign } });
+    if (!role && roleToAssign !== 'RESIDENT') {
+      console.log('❌ [UsersService] Rol no encontrado:', roleToAssign, '→ intentando RESIDENT');
+      role = await this.prisma.role.findUnique({ where: { name: 'RESIDENT' } });
+    }
     if (role) {
-      await this.prisma.userRole.create({
-        data: {
-          userId: user.id,
-          roleId: role.id,
-        },
-      });
-      console.log('✅ [UsersService] Rol asignado correctamente:', role.name);
+      await this.prisma.userRole.create({ data: { userId: user.id, roleId: role.id } });
+      console.log('✅ [UsersService] Rol asignado:', role.name);
     } else {
-      console.log('❌ [UsersService] Rol no encontrado:', roleToAssign);
-      // Intentar con rol RESIDENT como fallback
-      const fallbackRole = await this.prisma.role.findUnique({
-        where: { name: 'RESIDENT' },
-      });
-
-      if (fallbackRole) {
-        await this.prisma.userRole.create({
-          data: {
-            userId: user.id,
-            roleId: fallbackRole.id,
-          },
-        });
-        console.log('✅ [UsersService] Rol de fallback asignado: RESIDENT');
-      } else {
-        console.log('❌ [UsersService] No se pudo asignar ningún rol');
-      }
+      console.log('❌ [UsersService] No se pudo asignar ningún rol');
     }
 
     // Asociar usuario con unidad si se especifica
     if (unitId) {
-      console.log('🔍 [UsersService] Asociando usuario con unidad:', unitId);
       // Verificar que la unidad existe y pertenece a la organización del usuario
       const unit = await this.prisma.unit.findUnique({
         where: { id: unitId },
         include: { community: true },
       });
 
-      console.log('🔍 [UsersService] Unidad encontrada:', JSON.stringify(unit, null, 2));
-
       if (!unit) {
-        console.log('❌ [UsersService] Unidad no encontrada');
         throw new BadRequestException('La unidad especificada no existe');
       }
 
-      console.log(
-        '🔍 [UsersService] Verificando organización - organizationId:',
-        userData.organizationId,
-        'unit.community.organizationId:',
-        unit.community.organizationId,
-      );
-
       if (userData.organizationId && unit.community.organizationId !== userData.organizationId) {
-        console.log('❌ [UsersService] Unidad no pertenece a la organización');
         throw new ForbiddenException('La unidad no pertenece a la organización especificada');
       }
 
-      console.log('🔍 [UsersService] Creando asociación usuario-unidad');
       await this.prisma.userUnit.create({
         data: {
           userId: user.id,
           unitId: unitId,
         },
       });
-      console.log('✅ [UsersService] Asociación usuario-unidad creada');
     }
 
     return this.prisma.user.findUnique({
@@ -234,7 +148,7 @@ export class UsersService {
     communityId: string,
     unitId: string,
     createdByUserId: string,
-  ) {
+  ): Promise<any> {
     // Verificar que el creador puede gestionar usuarios de esta comunidad
     const canManage = await this.authorizationService.canManageCommunityUsers(
       createdByUserId,
