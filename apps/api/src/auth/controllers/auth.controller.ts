@@ -3,6 +3,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 
 import { LoginResponseDto } from '../dto/login-response.dto';
 import { LoginDto } from '../dto/login.dto';
+import { RegisterDto } from '../dto/register.dto';
+import { RegisterResponseDto } from '../dto/register-response.dto';
 import { AuthService } from '../services/auth.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
@@ -25,6 +27,26 @@ export class AuthController {
   })
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto.email, loginDto.password);
+  }
+
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Registrar nuevo usuario' })
+  @ApiResponse({
+    status: 201,
+    description: 'Usuario registrado exitosamente',
+    type: RegisterResponseDto,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'El usuario con este email ya existe',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos de registro inválidos',
+  })
+  async register(@Body() registerDto: RegisterDto) {
+    return this.authService.register(registerDto);
   }
 
   @Post('logout')

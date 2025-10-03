@@ -29,6 +29,23 @@ export interface LoginResponse {
   organizationId?: string;
 }
 
+export interface RegisterRequest {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  phone?: string;
+  organizationId?: string;
+  acceptTerms: boolean;
+}
+
+export interface RegisterResponse {
+  message: string;
+  userId: string;
+  email: string;
+  name: string;
+}
+
 export class AuthService {
   // Login
   static async login(credentials: LoginRequest): Promise<LoginResponse> {
@@ -42,6 +59,12 @@ export class AuthService {
       document.cookie = `token=${response.data.accessToken}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
     }
 
+    return response.data;
+  }
+
+  // Register
+  static async register(userData: RegisterRequest): Promise<RegisterResponse> {
+    const response = await api.post<RegisterResponse>('/auth/register', userData);
     return response.data;
   }
 

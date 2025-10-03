@@ -1,10 +1,17 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 
 import { User } from '../../domain/entities/user.entity';
 import { UserStatus } from '../../domain/entities/user.entity';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RegisterDto } from '../dto/register.dto';
+import { RegisterResponseDto } from '../dto/register-response.dto';
 
 export interface LoginResponse {
   user: User;
@@ -147,5 +154,61 @@ export class AuthService {
   async hasRole(userId: string, roleName: string): Promise<boolean> {
     const user = await this.getUserWithRoles(userId);
     return user?.roles.some((ur) => ur.role.name === roleName) || false;
+  }
+
+  async register(registerDto: RegisterDto): Promise<RegisterResponseDto> {
+    // Validar que las contraseñas coincidan
+    if (registerDto.password !== registerDto.confirmPassword) {
+      throw new BadRequestException('Las contraseñas no coinciden');
+    }
+
+    // Verificar si el usuario ya existe
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: registerDto.email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('El usuario con este email ya existe');
+    }
+
+    // Hash de la contraseña
+    const saltRounds = 12;
+    const passwordHash = await bcrypt.hash(registerDto.password, saltRounds);
+
+    // Crear el usuario
+    const newUser = await this.prisma.user.create({
+      data: {
+        email: registerDto.email,
+        name: registerDto.name,
+        passwordHash,
+        status: UserStatus.ACTIVE,
+        organizationId: registerDto.organizationId,
+        phone: registerDto.phone,
+        isActive: true,
+      },
+    });
+
+    // Asignar rol por defecto (RESIDENT) si no se especifica organización
+    if (!registerDto.organizationId) {
+      const residentRole = await this.prisma.role.findFirst({
+        where: { name: 'RESIDENT' },
+      });
+
+      if (residentRole) {
+        await this.prisma.userRole.create({
+          data: {
+            userId: newUser.id,
+            roleId: residentRole.id,
+          },
+        });
+      }
+    }
+
+    return {
+      message: 'Usuario registrado exitosamente',
+      userId: newUser.id,
+      email: newUser.email,
+      name: newUser.name,
+    };
   }
 }
