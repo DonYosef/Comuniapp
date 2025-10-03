@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/lib/router';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function LoginPage() {
@@ -94,7 +94,9 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="text-red-600 dark:text-red-400 text-sm text-center">{error}</div>
+            <div className="text-red-600 dark:text-red-400 text-sm text-center">
+              {error instanceof Error ? error.message : String(error)}
+            </div>
           )}
 
           <div>

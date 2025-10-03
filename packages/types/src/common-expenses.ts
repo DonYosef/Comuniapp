@@ -102,5 +102,8 @@ export interface CommonExpenseStats {
   paidAmount: number;
   pendingAmount: number;
   overdueAmount: number;
+  paidUnits: number;
+  pendingUnits: number;
+  overdueUnits: number;
   paymentPercentage: number;
 }

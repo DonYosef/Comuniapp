@@ -253,7 +253,9 @@ export default function GastosComunesPage() {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                   Error al cargar
                 </h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-6">{error}</p>
+                <p className="text-gray-500 dark:text-gray-400 mb-6">
+                  {error instanceof Error ? error.message : String(error)}
+                </p>
                 <button
                   onClick={refetch}
                   className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"

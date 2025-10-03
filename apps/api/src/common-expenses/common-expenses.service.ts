@@ -12,7 +12,7 @@ import {
   UnitExpenseResponseDto,
 } from './dto/common-expense-response.dto';
 import { Permission } from '../domain/entities/role.entity';
-import { ProrrateMethod } from '@prisma/client';
+import { ProrrateMethod } from '../types/prisma.types';
 import { UserPayload } from '../auth/interfaces/user-payload.interface';
 
 @Injectable()

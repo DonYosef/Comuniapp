@@ -13,7 +13,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ProrrateMethod } from '@prisma/client';
+import { ProrrateMethod } from '../../types/prisma.types';
 
 export class CreateCommonExpenseItemDto {
   @IsString()

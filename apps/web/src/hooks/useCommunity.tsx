@@ -58,11 +58,19 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
 
   // Cargar comunidades del usuario
   const loadCommunities = async () => {
-    if (!isAuthenticated || !user) return;
+    if (!isAuthenticated || !user) {
+      console.warn('⚠️ [useCommunity] loadCommunities - Usuario no autenticado');
+      return;
+    }
 
     setIsLoading(true);
     try {
       const token = AuthService.getToken();
+      if (!token) {
+        console.error('❌ [useCommunity] loadCommunities - Token no disponible');
+        setCommunities([]);
+        return;
+      }
 
       // Para administradores, usar el endpoint completo de comunidades
       // Para residentes/concierges, usar el endpoint específico
@@ -85,10 +93,24 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
 
         if (isAdmin) {
           // Para administradores, data es un array
-          setCommunities(data);
-          if (!currentCommunity && data.length > 0) {
-            setCurrentCommunity(data[0]);
-            await loadUnits(data[0].id);
+          if (Array.isArray(data)) {
+            setCommunities(data);
+            if (!currentCommunity && data.length > 0) {
+              setCurrentCommunity(data[0]);
+              // Cargar unidades de forma asíncrona para no bloquear
+              loadUnits(data[0].id).catch((error) => {
+                console.error(
+                  '❌ [useCommunity] Error al cargar unidades después de cargar comunidades:',
+                  error,
+                );
+              });
+            }
+          } else {
+            console.warn(
+              '⚠️ [useCommunity] loadCommunities - Respuesta de admin no es un array:',
+              data,
+            );
+            setCommunities([]);
           }
         } else {
           // Para residentes, data es un objeto único o null
@@ -97,25 +119,42 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
             if (!currentCommunity) {
               setCurrentCommunity(data);
               // Cargar unidades en paralelo para mejor rendimiento
-              loadUnits(data.id);
+              loadUnits(data.id).catch((error) => {
+                console.error(
+                  '❌ [useCommunity] Error al cargar unidades después de cargar comunidades:',
+                  error,
+                );
+              });
             }
           } else {
+            console.log('ℹ️ [useCommunity] loadCommunities - Usuario no tiene comunidad asignada');
             setCommunities([]);
           }
         }
       } else {
-        const errorText = await response.text();
-        console.error('Error al cargar comunidades:', {
+        let errorText = '';
+        try {
+          errorText = await response.text();
+        } catch (textError) {
+          console.warn('⚠️ [useCommunity] No se pudo leer el texto de error:', textError);
+          errorText = 'No se pudo leer el mensaje de error';
+        }
+
+        console.error('❌ [useCommunity] Error al cargar comunidades:', {
           status: response.status,
           statusText: response.statusText,
-          error: errorText,
+          error: errorText || 'Sin mensaje de error',
           url: response.url,
           endpoint: endpoint,
+          headers: Object.fromEntries(response.headers.entries()),
         });
         setCommunities([]);
       }
     } catch (error) {
-      console.error('Error al cargar comunidades:', error);
+      console.error('❌ [useCommunity] Error al cargar comunidades:', {
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       setCommunities([]);
     } finally {
       setIsLoading(false);
@@ -124,10 +163,24 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
 
   // Cargar unidades de una comunidad
   const loadUnits = async (communityId: string) => {
-    if (!isAuthenticated || !user) return;
+    if (!isAuthenticated || !user) {
+      console.warn('⚠️ [useCommunity] loadUnits - Usuario no autenticado');
+      return;
+    }
+
+    if (!communityId || communityId.trim() === '') {
+      console.warn('⚠️ [useCommunity] loadUnits - ID de comunidad inválido:', communityId);
+      setUnits([]);
+      return;
+    }
 
     try {
       const token = AuthService.getToken();
+      if (!token) {
+        console.error('❌ [useCommunity] loadUnits - Token no disponible');
+        setUnits([]);
+        return;
+      }
 
       // Para administradores, usar el endpoint completo de unidades
       // Para residentes/concierges, usar el endpoint específico
@@ -139,7 +192,12 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         ? `http://localhost:3001/communities/${communityId}/units`
         : 'http://localhost:3001/communities/my-units';
 
-      console.log('🔍 [useCommunity] loadUnits - usando endpoint:', endpoint);
+      console.log(
+        '🔍 [useCommunity] loadUnits - usando endpoint:',
+        endpoint,
+        'para comunidad:',
+        communityId,
+      );
 
       const response = await fetch(endpoint, {
         headers: {
@@ -150,24 +208,64 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         const data = await response.json();
-        setUnits(data);
-        console.log('✅ [useCommunity] Unidades cargadas:', data.length);
+        if (Array.isArray(data)) {
+          setUnits(data);
+          console.log('✅ [useCommunity] Unidades cargadas:', data.length);
+        } else {
+          console.warn('⚠️ [useCommunity] loadUnits - Respuesta no es un array:', data);
+          setUnits([]);
+        }
       } else {
-        console.error('Error al cargar unidades:', response.statusText);
+        let errorText = '';
+        try {
+          errorText = await response.text();
+        } catch (textError) {
+          console.warn('⚠️ [useCommunity] No se pudo leer el texto de error:', textError);
+          errorText = 'No se pudo leer el mensaje de error';
+        }
+
+        console.error('❌ [useCommunity] Error al cargar unidades:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText || 'Sin mensaje de error',
+          endpoint,
+          communityId,
+          url: response.url,
+          headers: Object.fromEntries(response.headers.entries()),
+        });
         setUnits([]);
       }
     } catch (error) {
-      console.error('Error al cargar unidades:', error);
+      console.error('❌ [useCommunity] Error al cargar unidades:', {
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        communityId,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       setUnits([]);
     }
   };
 
   // Refrescar comunidad actual
   const refreshCurrentCommunity = async () => {
-    if (!currentCommunity) return;
+    if (!currentCommunity) {
+      console.warn('⚠️ [useCommunity] refreshCurrentCommunity - No hay comunidad actual');
+      return;
+    }
+
+    if (!isAuthenticated || !user) {
+      console.warn('⚠️ [useCommunity] refreshCurrentCommunity - Usuario no autenticado');
+      return;
+    }
 
     try {
       const token = AuthService.getToken();
+      if (!token) {
+        console.error('❌ [useCommunity] refreshCurrentCommunity - Token no disponible');
+        return;
+      }
+
+      console.log('🔄 [useCommunity] Refrescando comunidad:', currentCommunity.id);
+
       const response = await fetch(`http://localhost:3001/communities/${currentCommunity.id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -178,26 +276,59 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         setCurrentCommunity(data);
+        console.log('✅ [useCommunity] Comunidad refrescada exitosamente');
       } else {
-        console.error('Error al refrescar comunidad:', response.statusText);
+        let errorText = '';
+        try {
+          errorText = await response.text();
+        } catch (textError) {
+          console.warn('⚠️ [useCommunity] No se pudo leer el texto de error:', textError);
+          errorText = 'No se pudo leer el mensaje de error';
+        }
+
+        console.error('❌ [useCommunity] Error al refrescar comunidad:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText || 'Sin mensaje de error',
+          communityId: currentCommunity.id,
+          url: response.url,
+          headers: Object.fromEntries(response.headers.entries()),
+        });
       }
     } catch (error) {
-      console.error('Error al refrescar comunidad:', error);
+      console.error('❌ [useCommunity] Error al refrescar comunidad:', {
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        communityId: currentCommunity.id,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
     }
   };
 
   // Cargar comunidades cuando el usuario se autentica
   useEffect(() => {
     if (isAuthenticated && user) {
-      loadCommunities();
+      loadCommunities().catch((error) => {
+        console.error('❌ [useCommunity] Error en useEffect loadCommunities:', error);
+      });
     }
   }, [isAuthenticated, user]);
 
   // Cargar unidades cuando cambia la comunidad actual (sin bloquear)
   useEffect(() => {
-    if (currentCommunity) {
+    if (currentCommunity && currentCommunity.id && currentCommunity.id.trim() !== '') {
+      console.log(
+        '🔄 [useCommunity] useEffect - Cargando unidades para comunidad:',
+        currentCommunity.id,
+      );
       // Cargar unidades en background sin bloquear la UI
-      loadUnits(currentCommunity.id);
+      loadUnits(currentCommunity.id).catch((error) => {
+        console.error('❌ [useCommunity] Error en useEffect loadUnits:', error);
+      });
+    } else if (currentCommunity) {
+      console.warn(
+        '⚠️ [useCommunity] useEffect - Comunidad actual sin ID válido:',
+        currentCommunity,
+      );
     }
   }, [currentCommunity]);
 

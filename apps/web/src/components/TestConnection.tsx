@@ -74,7 +74,8 @@ export default function TestConnection() {
           ) : (
             <div>
               <p>
-                <strong>Error:</strong> {result.error}
+                <strong>Error:</strong>{' '}
+                {result.error instanceof Error ? result.error.message : String(result.error)}
               </p>
               {result.status && (
                 <p>

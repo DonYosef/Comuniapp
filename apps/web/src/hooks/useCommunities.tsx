@@ -13,10 +13,21 @@ export function useCommunities() {
     error,
   } = useQuery({
     queryKey: ['communities'],
-    queryFn: CommunityService.getCommunities,
+    queryFn: async () => {
+      try {
+        const result = await CommunityService.getCommunities();
+        // Asegurar que siempre devolvemos un array
+        return Array.isArray(result) ? result : [];
+      } catch (err) {
+        console.error('Error al cargar comunidades:', err);
+        // Devolver array vacío en caso de error
+        return [];
+      }
+    },
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutos
     refetchOnWindowFocus: false,
+    retry: 1, // Solo reintentar una vez
   });
 
   return {

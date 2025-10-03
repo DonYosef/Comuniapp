@@ -199,7 +199,7 @@ export default function ExpenseDetailModal({
             <EmptyState
               icon={<ExclamationTriangleIcon />}
               title="Error al cargar"
-              description={error}
+              description={error instanceof Error ? error.message : String(error)}
             />
           ) : expense ? (
             <div className="space-y-6">

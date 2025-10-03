@@ -1,4 +1,4 @@
-import { ProrrateMethod, ExpenseStatus } from '@prisma/client';
+import { ProrrateMethod, ExpenseStatus } from '../../types/prisma.types';
 
 export class CommonExpenseItemResponseDto {
   id: string;

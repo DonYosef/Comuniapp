@@ -214,7 +214,9 @@ export default function CommonExpensesDashboard({ communityId }: CommonExpensesD
         <div className="flex">
           <div className="ml-3">
             <h3 className="text-sm font-medium text-red-800">Error</h3>
-            <div className="mt-2 text-sm text-red-700">{error}</div>
+            <div className="mt-2 text-sm text-red-700">
+              {error instanceof Error ? error.message : String(error)}
+            </div>
             <div className="mt-4">
               <button
                 onClick={fetchDashboardData}
