@@ -10,11 +10,16 @@ export class DeleteUserUseCase {
   ) {}
 
   async execute(id: string): Promise<void> {
-    const existingUser = await this.userRepository.findById(id);
-    if (!existingUser) {
-      throw new NotFoundException('Usuario no encontrado');
+    // Eliminar directamente - Prisma manejará el error si no existe
+    // Esto elimina una query innecesaria y mejora el rendimiento
+    try {
+      await this.userRepository.delete(id);
+    } catch (error) {
+      // Si el error es porque el usuario no existe, lanzar NotFoundException
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
+        throw new NotFoundException('Usuario no encontrado');
+      }
+      throw error;
     }
-
-    await this.userRepository.delete(id);
   }
 }

@@ -45,9 +45,35 @@ export class UserRepository implements IUserRepository {
     console.log('🔍 [UserRepository] findAll - organizationId:', organizationId);
     console.log('🔍 [UserRepository] findAll - where clause:', JSON.stringify(where, null, 2));
 
+    // Optimización: Usar select específico para reducir transferencia de datos
     const users = await this.prisma.user.findMany({
       where,
       orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        status: true,
+        organizationId: true,
+        createdAt: true,
+        updatedAt: true,
+        roles: {
+          include: { role: true },
+        },
+        userUnits: {
+          include: {
+            unit: {
+              include: { community: true },
+            },
+          },
+        },
+        communityAdmins: {
+          include: {
+            community: true,
+          },
+        },
+      },
     });
 
     console.log(`🔍 [UserRepository] findAll - encontrados ${users.length} usuarios`);
@@ -59,6 +85,87 @@ export class UserRepository implements IUserRepository {
     }
 
     return users.map((user) => this.toDomainEntity(user));
+  }
+
+  async findAllPaginated(filters: {
+    page: number;
+    limit: number;
+    search?: string;
+    status?: string;
+    role?: string;
+  }): Promise<{ users: any[]; total: number }> {
+    const { page, limit, search, status, role } = filters;
+    const skip = (page - 1) * limit;
+
+    // Asegurar que limit sea un número entero
+    const limitNumber = parseInt(limit.toString(), 10);
+
+    // Construir filtros dinámicos
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (role) {
+      where.roles = {
+        some: {
+          role: {
+            name: role,
+          },
+        },
+      };
+    }
+
+    console.log('🔍 [UserRepository] findAllPaginated - filtros:', JSON.stringify(where, null, 2));
+
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: limitNumber,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          status: true,
+          organizationId: true,
+          createdAt: true,
+          updatedAt: true,
+          roles: {
+            include: { role: true },
+          },
+          userUnits: {
+            include: {
+              unit: {
+                include: { community: true },
+              },
+            },
+          },
+          communityAdmins: {
+            include: {
+              community: true,
+            },
+          },
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    console.log(
+      `✅ [UserRepository] findAllPaginated - página ${page}/${Math.ceil(total / limit)}: ${users.length} usuarios de ${total} totales`,
+    );
+
+    return { users, total };
   }
 
   async update(user: User): Promise<User> {
@@ -135,6 +242,23 @@ export class UserRepository implements IUserRepository {
         },
       },
       orderBy: { createdAt: 'desc' },
+      include: {
+        roles: {
+          include: { role: true },
+        },
+        userUnits: {
+          include: {
+            unit: {
+              include: { community: true },
+            },
+          },
+        },
+        communityAdmins: {
+          include: {
+            community: true,
+          },
+        },
+      },
     });
 
     console.log(
@@ -190,6 +314,23 @@ export class UserRepository implements IUserRepository {
         },
       },
       orderBy: { createdAt: 'desc' },
+      include: {
+        roles: {
+          include: { role: true },
+        },
+        userUnits: {
+          include: {
+            unit: {
+              include: { community: true },
+            },
+          },
+        },
+        communityAdmins: {
+          include: {
+            community: true,
+          },
+        },
+      },
     });
 
     console.log(
@@ -198,8 +339,132 @@ export class UserRepository implements IUserRepository {
     return users.map((user) => this.toDomainEntity(user));
   }
 
+  async findAllUsersFromCreatedCommunitiesPaginated(
+    createdByUserId: string,
+    filters: {
+      page: number;
+      limit: number;
+      search?: string;
+      status?: string;
+      role?: string;
+    },
+  ): Promise<{ users: any[]; total: number }> {
+    const { page, limit, search, status, role } = filters;
+    const skip = (page - 1) * limit;
+
+    // Asegurar que limit sea un número entero
+    const limitNumber = parseInt(limit.toString(), 10);
+
+    console.log(
+      '🔍 [UserRepository] findAllUsersFromCreatedCommunitiesPaginated - creador:',
+      createdByUserId,
+      'filtros:',
+      filters,
+    );
+
+    // Primero, obtener todas las comunidades creadas por este usuario
+    const createdCommunities = await this.prisma.community.findMany({
+      where: {
+        createdById: createdByUserId,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (createdCommunities.length === 0) {
+      console.log(
+        '🔍 [UserRepository] findAllUsersFromCreatedCommunitiesPaginated - no hay comunidades creadas',
+      );
+      return { users: [], total: 0 };
+    }
+
+    const communityIds = createdCommunities.map((c) => c.id);
+
+    // Construir filtros dinámicos
+    const where: any = {
+      userUnits: {
+        some: {
+          unit: {
+            communityId: {
+              in: communityIds,
+            },
+          },
+        },
+      },
+    };
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (role) {
+      where.roles = {
+        some: {
+          role: {
+            name: role,
+          },
+        },
+      };
+    }
+
+    console.log(
+      '🔍 [UserRepository] findAllUsersFromCreatedCommunitiesPaginated - filtros:',
+      JSON.stringify(where, null, 2),
+    );
+
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: limitNumber,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          status: true,
+          organizationId: true,
+          createdAt: true,
+          updatedAt: true,
+          roles: {
+            include: { role: true },
+          },
+          userUnits: {
+            include: {
+              unit: {
+                include: { community: true },
+              },
+            },
+          },
+          communityAdmins: {
+            include: {
+              community: true,
+            },
+          },
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    console.log(
+      `✅ [UserRepository] findAllUsersFromCreatedCommunitiesPaginated - página ${page}/${Math.ceil(total / limit)}: ${users.length} usuarios de ${total} totales`,
+    );
+
+    return { users, total };
+  }
+
   private toDomainEntity(prismaUser: any): User {
-    return new User(
+    const user = new User(
       prismaUser.id,
       prismaUser.email,
       prismaUser.name,
@@ -210,5 +475,18 @@ export class UserRepository implements IUserRepository {
       prismaUser.createdAt,
       prismaUser.updatedAt,
     );
+
+    // Preservar las relaciones que vienen de Prisma
+    if (prismaUser.roles) {
+      (user as any).roles = prismaUser.roles;
+    }
+    if (prismaUser.userUnits) {
+      (user as any).userUnits = prismaUser.userUnits;
+    }
+    if (prismaUser.communityAdmins) {
+      (user as any).communityAdmins = prismaUser.communityAdmins;
+    }
+
+    return user;
   }
 }

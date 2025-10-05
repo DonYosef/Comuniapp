@@ -123,6 +123,10 @@ model User {
 
   @@index([email])
   @@index([organizationId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
   @@map("users")
 }
 
@@ -146,6 +150,8 @@ model UserRole {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
   @@map("user_roles")
 }
 
@@ -158,6 +164,8 @@ model CommunityAdmin {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([communityId, userId])
+  @@index([userId])
+  @@index([communityId])
   @@map("community_admins")
 }
 
@@ -173,6 +181,9 @@ model UserUnit {
   user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, unitId])
+  @@index([userId])
+  @@index([unitId])
+  @@index([status])
   @@map("user_units")
 }
 

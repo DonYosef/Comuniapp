@@ -2,9 +2,59 @@ import { api } from '@/lib/api';
 import { User, CreateUserDto, UpdateUserDto, UserResponseDto, ApiResponse } from '@/types/api';
 
 export class UserService {
-  // Obtener todos los usuarios
+  // Obtener todos los usuarios (método legacy - mantener para compatibilidad)
   static async getAllUsers(): Promise<UserResponseDto[]> {
     const response = await api.get<UserResponseDto[]>('/users');
+    console.log('🔍 [UserService] getAllUsers - Respuesta completa del backend:');
+    console.log('- Total usuarios:', response.data.length);
+    if (response.data.length > 0) {
+      console.log('- Primer usuario:', JSON.stringify(response.data[0], null, 2));
+      console.log('- Roles del primer usuario:', response.data[0].roles);
+      console.log('- UserUnits del primer usuario:', response.data[0].userUnits);
+      console.log('- CommunityAdmins del primer usuario:', response.data[0].communityAdmins);
+    }
+    return response.data;
+  }
+
+  // Obtener usuarios con paginación
+  static async getUsersPaginated(
+    params: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      status?: string;
+      role?: string;
+    } = {},
+  ): Promise<{
+    users: UserResponseDto[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.search) queryParams.append('search', params.search);
+    if (params.status) queryParams.append('status', params.status);
+    if (params.role) queryParams.append('role', params.role);
+
+    const response = await api.get<{
+      users: UserResponseDto[];
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    }>(`/users?${queryParams.toString()}`);
+
+    console.log('🔍 [UserService] getUsersPaginated - Respuesta:', {
+      total: response.data.total,
+      page: response.data.page,
+      limit: response.data.limit,
+      totalPages: response.data.totalPages,
+      usersCount: response.data.users.length,
+    });
+
     return response.data;
   }
 

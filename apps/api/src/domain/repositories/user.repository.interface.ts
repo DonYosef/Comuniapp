@@ -15,4 +15,23 @@ export interface UserRepository {
   // Nuevos métodos para la lógica de negocio
   findAllCommunityAdmins(): Promise<User[]>;
   findAllUsersFromCreatedCommunities(createdByUserId: string): Promise<User[]>;
+
+  // Métodos paginados para optimización
+  findAllPaginated(filters: {
+    page: number;
+    limit: number;
+    search?: string;
+    status?: string;
+    role?: string;
+  }): Promise<{ users: any[]; total: number }>;
+  findAllUsersFromCreatedCommunitiesPaginated(
+    createdByUserId: string,
+    filters: {
+      page: number;
+      limit: number;
+      search?: string;
+      status?: string;
+      role?: string;
+    },
+  ): Promise<{ users: any[]; total: number }>;
 }

@@ -182,13 +182,22 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Para administradores, usar el endpoint completo de unidades
-      // Para residentes/concierges, usar el endpoint específico
-      const isAdmin = user.roles?.some(
-        (role: any) => role.name === 'SUPER_ADMIN' || role.name === 'COMMUNITY_ADMIN',
-      );
+      // Verificar si el usuario es SUPER_ADMIN
+      const isSuperAdmin = user.roles?.some((role: any) => role.name === 'SUPER_ADMIN');
+      const isCommunityAdmin = user.roles?.some((role: any) => role.name === 'COMMUNITY_ADMIN');
 
-      const endpoint = isAdmin
+      // Para SUPER_ADMIN, no cargar unidades específicas de comunidad
+      if (isSuperAdmin) {
+        console.log(
+          '🔍 [useCommunity] loadUnits - SUPER_ADMIN detectado, no cargando unidades específicas',
+        );
+        setUnits([]);
+        return;
+      }
+
+      // Para COMMUNITY_ADMIN, usar el endpoint de unidades de la comunidad
+      // Para residentes/concierges, usar el endpoint específico
+      const endpoint = isCommunityAdmin
         ? `http://localhost:3001/communities/${communityId}/units`
         : 'http://localhost:3001/communities/my-units';
 

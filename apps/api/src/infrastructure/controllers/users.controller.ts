@@ -10,6 +10,7 @@ import {
   HttpStatus,
   UseGuards,
   Request,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 
@@ -73,24 +74,35 @@ export class UsersController {
 
   @Get()
   @RequirePermission(Permission.MANAGE_ALL_USERS, Permission.MANAGE_COMMUNITY_USERS)
-  @ApiOperation({ summary: 'Obtener usuarios' })
+  @ApiOperation({ summary: 'Obtener usuarios con paginación' })
   @ApiResponse({
     status: 200,
     description: 'Lista de usuarios obtenida exitosamente',
     type: [UserResponseDto],
   })
-  async findAll(@Request() req): Promise<UserResponseDto[]> {
-    console.log('🔍 [InfrastructureUsersController] Obteniendo usuarios...');
-    console.log(
-      '🔍 [InfrastructureUsersController] Usuario completo:',
-      JSON.stringify(req.user, null, 2),
-    );
+  async findAll(
+    @Request() req,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('role') role?: string,
+  ): Promise<{
+    users: UserResponseDto[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    console.log('🔍 [InfrastructureUsersController] Obteniendo usuarios con paginación...');
+    console.log('🔍 [InfrastructureUsersController] Parámetros:', {
+      page,
+      limit,
+      search,
+      status,
+      role,
+    });
     console.log('🔍 [InfrastructureUsersController] Usuario:', req.user?.id);
-    console.log(
-      '🔍 [InfrastructureUsersController] Roles:',
-      req.user?.roles?.map((r: any) => r.name),
-    );
-    console.log('🔍 [InfrastructureUsersController] OrganizationId:', req.user?.organizationId);
 
     // Determinar qué usuarios puede ver basado en sus permisos según nueva lógica
     const isSuperAdmin = req.user?.roles?.some((role: any) => role.name === 'SUPER_ADMIN');
@@ -98,64 +110,51 @@ export class UsersController {
     const isResident = req.user?.roles?.some((role: any) => role.name === 'RESIDENT');
     const isConcierge = req.user?.roles?.some((role: any) => role.name === 'CONCIERGE');
 
-    console.log('🔍 [InfrastructureUsersController] Análisis de roles:');
-    console.log('   - isSuperAdmin:', isSuperAdmin);
-    console.log('   - isCommunityAdmin:', isCommunityAdmin);
-    console.log('   - isResident:', isResident);
-    console.log('   - isConcierge:', isConcierge);
-
-    let users: any[] = [];
+    let result: { users: any[]; total: number };
 
     if (isSuperAdmin) {
       console.log(
-        '🔍 [InfrastructureUsersController] Usuario es SUPER_ADMIN - viendo todos los COMMUNITY_ADMIN y usuarios de organizaciones',
+        '🔍 [InfrastructureUsersController] Usuario es SUPER_ADMIN - obteniendo usuarios paginados',
       );
-
-      // SUPER_ADMIN puede ver:
-      // 1. Todos los administradores de comunidad
-      // 2. Todos los usuarios de organizaciones
-      const [communityAdmins, allOrgUsers] = await Promise.all([
-        this.userRepository.findAllCommunityAdmins(),
-        this.userRepository.findAll(), // Todos los usuarios
-      ]);
-
-      // Combinar y eliminar duplicados
-      const allUsers = [...communityAdmins, ...allOrgUsers];
-      const uniqueUsers = allUsers.filter(
-        (user, index, self) => index === self.findIndex((u) => u.id === user.id),
-      );
-
-      users = uniqueUsers;
-      console.log(
-        `✅ [InfrastructureUsersController] SUPER_ADMIN ve ${users.length} usuarios totales`,
-      );
+      result = await this.userRepository.findAllPaginated({
+        page,
+        limit,
+        search,
+        status,
+        role,
+      });
     } else if (isCommunityAdmin) {
       console.log(
-        '🔍 [InfrastructureUsersController] Usuario es COMMUNITY_ADMIN - viendo solo usuarios de comunidades que haya creado',
+        '🔍 [InfrastructureUsersController] Usuario es COMMUNITY_ADMIN - obteniendo usuarios de comunidades creadas',
       );
-
-      // COMMUNITY_ADMIN solo puede ver usuarios de las comunidades que haya creado
-      users = await this.userRepository.findAllUsersFromCreatedCommunities(req.user.id);
-      console.log(
-        `✅ [InfrastructureUsersController] COMMUNITY_ADMIN ve ${users.length} usuarios de sus comunidades creadas`,
-      );
+      result = await this.userRepository.findAllUsersFromCreatedCommunitiesPaginated(req.user.id, {
+        page,
+        limit,
+        search,
+        status,
+        role,
+      });
     } else if (isResident || isConcierge) {
-      console.log(
-        '🔍 [InfrastructureUsersController] Usuario es RESIDENT/CONCIERGE - sin acceso a ver usuarios',
-      );
-
-      // RESIDENT y CONCIERGE no pueden ver ningún usuario
-      users = [];
-      console.log(
-        '✅ [InfrastructureUsersController] RESIDENT/CONCIERGE - lista vacía de usuarios',
-      );
+      console.log('🔍 [InfrastructureUsersController] Usuario es RESIDENT/CONCIERGE - sin acceso');
+      result = { users: [], total: 0 };
     } else {
       console.log('🔍 [InfrastructureUsersController] Usuario sin rol reconocido - sin acceso');
-      users = [];
+      result = { users: [], total: 0 };
     }
-    console.log(`✅ [InfrastructureUsersController] Obtenidos ${users.length} usuarios`);
 
-    return users.map((user) => this.toResponseDto(user));
+    console.log(
+      `✅ [InfrastructureUsersController] Obtenidos ${result.users.length} usuarios de ${result.total} totales`,
+    );
+
+    const totalPages = Math.ceil(result.total / limit);
+
+    return {
+      users: result.users.map((user) => this.toResponseDto(user)),
+      total: result.total,
+      page,
+      limit,
+      totalPages,
+    };
   }
 
   @Get(':id')
@@ -221,6 +220,9 @@ export class UsersController {
       organizationId: user.organizationId,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      roles: (user as any).roles,
+      userUnits: (user as any).userUnits,
+      communityAdmins: (user as any).communityAdmins,
     };
   }
 }

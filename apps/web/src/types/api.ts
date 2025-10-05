@@ -46,6 +46,38 @@ export interface UserResponseDto {
   organizationId?: string;
   createdAt: string;
   updatedAt: string;
+  roles?: Array<{
+    id: string;
+    role: {
+      id: string;
+      name: 'SUPER_ADMIN' | 'COMMUNITY_ADMIN' | 'OWNER' | 'TENANT' | 'RESIDENT' | 'CONCIERGE';
+      description?: string;
+      permissions: string[];
+      createdAt: string;
+      updatedAt: string;
+    };
+  }>;
+  userUnits?: Array<{
+    id: string;
+    unit: {
+      id: string;
+      number: string;
+      floor?: string;
+      community: {
+        id: string;
+        name: string;
+        address: string;
+      };
+    };
+  }>;
+  communityAdmins?: Array<{
+    id: string;
+    community: {
+      id: string;
+      name: string;
+      address: string;
+    };
+  }>;
 }
 
 export interface Role {

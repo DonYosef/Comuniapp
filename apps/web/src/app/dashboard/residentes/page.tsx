@@ -1,12 +1,21 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/useUsers';
+import {
+  useUsers,
+  useCreateUser,
+  useUpdateUser,
+  useDeleteUser,
+  useUsersPaginated,
+} from '@/hooks/useUsers';
 import { UserResponseDto } from '@/types/api';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import UserModal from '@/components/residents/UserModal';
 import ExportButton from '@/components/residents/ExportButton';
+import ConfirmDeleteModal from '@/components/ui/ConfirmDeleteModal';
+import Pagination from '@/components/ui/Pagination';
+import UsersTableSkeleton from '@/components/ui/SkeletonLoader';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import RoleGuard from '@/components/RoleGuard';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -20,27 +29,73 @@ interface ResidentFilters {
 }
 
 export default function ResidentsPage() {
-  // Hooks para manejo de datos
-  const { data: users, isLoading, error, refetch } = useUsers();
-  const createUserMutation = useCreateUser();
-  const updateUserMutation = useUpdateUser();
-  const deleteUserMutation = useDeleteUser();
+  // Estado para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
+  // Estado para filtros
   const [filters, setFilters] = useState<ResidentFilters>({
     search: '',
     status: 'all',
     role: 'all',
     building: 'all',
   });
+
+  // Hooks para manejo de datos
+  const { data: users, isLoading, error, refetch } = useUsers();
+  const createUserMutation = useCreateUser();
+  const updateUserMutation = useUpdateUser();
+  const deleteUserMutation = useDeleteUser();
+
+  // Hook para paginación
+  const paginatedUsersQuery = useUsersPaginated({
+    page: currentPage,
+    limit: pageSize,
+    search: filters.search || undefined,
+    status: filters.status !== 'all' ? filters.status : undefined,
+    role: filters.role !== 'all' ? filters.role : undefined,
+  });
   const [selectedResident, setSelectedResident] = useState<UserResponseDto | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'view' | 'edit' | 'create'>('view');
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [residentToDelete, setResidentToDelete] = useState<UserResponseDto | null>(null);
 
-  // Convertir usuarios a residentes para mantener compatibilidad con el UI existente
-  const residents = users || [];
+  // Usar datos paginados si están disponibles, sino usar datos completos
+  const residents = useMemo(() => {
+    if (paginatedUsersQuery.data?.users) {
+      return Array.isArray(paginatedUsersQuery.data.users) ? paginatedUsersQuery.data.users : [];
+    }
+    if (!users) return [];
+    return Array.isArray(users) ? users : [];
+  }, [paginatedUsersQuery.data?.users, users]);
 
-  // Filtrar residentes
+  // Datos de paginación
+  const paginationData = paginatedUsersQuery.data || {
+    total: users?.length || 0,
+    page: 1,
+    limit: pageSize,
+    totalPages: 1,
+  };
+
+  // Debug: Mostrar estructura de datos recibida
+  console.log('🔍 [ResidentsPage] Debug de datos recibidos:');
+  console.log('- Total usuarios:', residents.length);
+  if (residents.length > 0) {
+    console.log('- Primer usuario completo:', JSON.stringify(residents[0], null, 2));
+    console.log('- Estructura de roles:', residents[0]?.roles);
+    console.log('- Estructura de userUnits:', residents[0]?.userUnits);
+    console.log('- Estructura de communityAdmins:', residents[0]?.communityAdmins);
+  }
+
+  // Filtrar residentes (solo si no estamos usando paginación)
   const filteredResidents = useMemo(() => {
+    // Si estamos usando paginación, los filtros se aplican en el backend
+    if (paginatedUsersQuery.data?.users) {
+      return residents;
+    }
+
+    // Si no hay paginación, aplicar filtros localmente
     return residents.filter((resident) => {
       const matchesSearch =
         resident.name.toLowerCase().includes(filters.search.toLowerCase()) ||
@@ -53,7 +108,7 @@ export default function ResidentsPage() {
 
       return matchesSearch && matchesStatus && matchesRole && matchesBuilding;
     });
-  }, [residents, filters]);
+  }, [residents, filters, paginatedUsersQuery.data?.users]);
 
   // Estadísticas
   const stats = useMemo(() => {
@@ -83,10 +138,42 @@ export default function ResidentsPage() {
     setIsModalOpen(true);
   };
 
-  const handleDeleteResident = (residentId: string) => {
-    if (confirm('¿Estás seguro de que quieres eliminar este residente?')) {
-      deleteUserMutation.mutate(residentId);
+  const handleDeleteResident = (resident: UserResponseDto) => {
+    setResidentToDelete(resident);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (residentToDelete) {
+      deleteUserMutation.mutate(residentToDelete.id);
+      setIsDeleteModalOpen(false);
+      setResidentToDelete(null);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setResidentToDelete(null);
+  };
+
+  // Funciones de paginación
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleSearchChange = (search: string) => {
+    setFilters((prev) => ({ ...prev, search }));
+    setCurrentPage(1); // Reset a la primera página al buscar
+  };
+
+  const handleStatusChange = (status: string) => {
+    setFilters((prev) => ({ ...prev, status: status as any }));
+    setCurrentPage(1); // Reset a la primera página al filtrar
+  };
+
+  const handleRoleChange = (role: string) => {
+    setFilters((prev) => ({ ...prev, role: role as any }));
+    setCurrentPage(1); // Reset a la primera página al filtrar
   };
 
   const handleSaveResident = async (residentData: any) => {
@@ -197,11 +284,55 @@ export default function ResidentsPage() {
     }
   };
 
+  const getRoleColor = (roleName: string) => {
+    switch (roleName) {
+      case 'SUPER_ADMIN':
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300';
+      case 'COMMUNITY_ADMIN':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+      case 'RESIDENT':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+      case 'CONCIERGE':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
+      case 'OWNER':
+        return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300';
+      case 'TENANT':
+        return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+    }
+  };
+
+  const getRoleText = (roleName: string) => {
+    switch (roleName) {
+      case 'SUPER_ADMIN':
+        return 'Super Admin';
+      case 'COMMUNITY_ADMIN':
+        return 'Admin Comunidad';
+      case 'RESIDENT':
+        return 'Residente';
+      case 'CONCIERGE':
+        return 'Portero';
+      case 'OWNER':
+        return 'Propietario';
+      case 'TENANT':
+        return 'Inquilino';
+      default:
+        return 'Usuario';
+    }
+  };
+
   // Manejo de estados de carga y error
-  if (isLoading) {
+  if (isLoading || paginatedUsersQuery.isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-96">
-        <LoadingSpinner size="lg" text="Cargando residentes..." />
+      <div className="space-y-6">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/4 dark:bg-gray-600 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2 dark:bg-gray-600"></div>
+          </div>
+        </div>
+        <UsersTableSkeleton />
       </div>
     );
   }
@@ -447,9 +578,7 @@ export default function ResidentsPage() {
                         type="text"
                         placeholder="Nombre, email, apartamento..."
                         value={filters.search}
-                        onChange={(e) =>
-                          setFilters((prev) => ({ ...prev, search: e.target.value }))
-                        }
+                        onChange={(e) => handleSearchChange(e.target.value)}
                         className="block w-full pl-12 pr-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-500"
                       />
                     </div>
@@ -463,9 +592,7 @@ export default function ResidentsPage() {
                     <div className="relative">
                       <select
                         value={filters.status}
-                        onChange={(e) =>
-                          setFilters((prev) => ({ ...prev, status: e.target.value as any }))
-                        }
+                        onChange={(e) => handleStatusChange(e.target.value)}
                         className="block w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-500 appearance-none cursor-pointer"
                       >
                         <option value="all">Todos los estados</option>
@@ -499,9 +626,7 @@ export default function ResidentsPage() {
                     <div className="relative">
                       <select
                         value={filters.role}
-                        onChange={(e) =>
-                          setFilters((prev) => ({ ...prev, role: e.target.value as any }))
-                        }
+                        onChange={(e) => handleRoleChange(e.target.value)}
                         className="block w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-500 appearance-none cursor-pointer"
                       >
                         <option value="all">Todos los roles</option>
@@ -593,7 +718,9 @@ export default function ResidentsPage() {
                         Residentes
                       </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {filteredResidents.length} de {residents.length} residentes
+                        {paginationData.total > 0
+                          ? `Mostrando ${residents.length} de ${paginationData.total} residentes`
+                          : `${filteredResidents.length} de ${residents.length} residentes`}
                       </p>
                     </div>
                   </div>
@@ -676,12 +803,47 @@ export default function ResidentsPage() {
                               </svg>
                             </div>
                             <div>
-                              <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                Sin unidad
-                              </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                Sin asignar
-                              </div>
+                              {/* Mostrar unidades para residentes */}
+                              {resident.userUnits && resident.userUnits.length > 0 ? (
+                                <>
+                                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                    {resident.userUnits
+                                      .map((userUnit) => userUnit.unit?.number)
+                                      .filter(Boolean)
+                                      .join(', ')}
+                                  </div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    {resident.userUnits
+                                      .map((userUnit) => userUnit.unit?.community?.name)
+                                      .filter(Boolean)
+                                      .join(', ')}
+                                  </div>
+                                </>
+                              ) : resident.communityAdmins &&
+                                resident.communityAdmins.length > 0 ? (
+                                /* Mostrar comunidades para administradores de comunidad */
+                                <>
+                                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                    Administrador
+                                  </div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    {resident.communityAdmins
+                                      .map((ca) => ca.community?.name)
+                                      .filter(Boolean)
+                                      .join(', ')}
+                                  </div>
+                                </>
+                              ) : (
+                                /* Sin asignación */
+                                <>
+                                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                    Sin asignar
+                                  </div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    N/A
+                                  </div>
+                                </>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -696,7 +858,9 @@ export default function ResidentsPage() {
                           </span>
                         </td>
                         <td className="px-6 py-6 whitespace-nowrap">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                          <span
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getRoleColor(resident.roles?.[0]?.role?.name)}`}
+                          >
                             <svg
                               className="w-3 h-3 mr-1.5"
                               fill="none"
@@ -710,7 +874,7 @@ export default function ResidentsPage() {
                                 d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                               />
                             </svg>
-                            Usuario
+                            {getRoleText(resident.roles?.[0]?.role?.name)}
                           </span>
                         </td>
                         <td className="px-6 py-6 whitespace-nowrap">
@@ -783,7 +947,7 @@ export default function ResidentsPage() {
                               </svg>
                             </button>
                             <button
-                              onClick={() => handleDeleteResident(resident.id)}
+                              onClick={() => handleDeleteResident(resident)}
                               className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200 group"
                               title="Eliminar"
                             >
@@ -808,6 +972,18 @@ export default function ResidentsPage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Paginación */}
+              {paginationData.totalPages > 1 && (
+                <Pagination
+                  currentPage={paginationData.page}
+                  totalPages={paginationData.totalPages}
+                  totalItems={paginationData.total}
+                  itemsPerPage={paginationData.limit}
+                  onPageChange={handlePageChange}
+                  isLoading={paginatedUsersQuery.isLoading}
+                />
+              )}
 
               {/* Vista Mobile - Cards */}
               <div className="lg:hidden space-y-4">
@@ -866,17 +1042,33 @@ export default function ResidentsPage() {
                     <div className="grid grid-cols-2 gap-3 mb-4">
                       <div>
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                          Unidad
+                          {resident.userUnits && resident.userUnits.length > 0
+                            ? 'Unidad'
+                            : 'Comunidad'}
                         </p>
-                        <p className="text-sm text-gray-900 dark:text-white">Sin asignar</p>
+                        <p className="text-sm text-gray-900 dark:text-white">
+                          {resident.userUnits && resident.userUnits.length > 0
+                            ? resident.userUnits
+                                .map((userUnit) => userUnit.unit?.number)
+                                .filter(Boolean)
+                                .join(', ')
+                            : resident.communityAdmins && resident.communityAdmins.length > 0
+                              ? resident.communityAdmins
+                                  .map((ca) => ca.community?.name)
+                                  .filter(Boolean)
+                                  .join(', ')
+                              : 'Sin asignar'}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                          Ingreso
+                          Rol
                         </p>
-                        <p className="text-sm text-gray-900 dark:text-white">
-                          {new Date(resident.createdAt).toLocaleDateString('es-ES')}
-                        </p>
+                        <span
+                          className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(resident.roles?.[0]?.role?.name)}`}
+                        >
+                          {getRoleText(resident.roles?.[0]?.role?.name)}
+                        </span>
                       </div>
                     </div>
 
@@ -927,7 +1119,7 @@ export default function ResidentsPage() {
                         </svg>
                       </button>
                       <button
-                        onClick={() => handleDeleteResident(resident.id)}
+                        onClick={() => handleDeleteResident(resident)}
                         className="p-3 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
                         title="Eliminar"
                       >
@@ -1004,6 +1196,21 @@ export default function ResidentsPage() {
               user={selectedResident}
               onSave={handleSaveResident}
               isLoading={createUserMutation.isPending || updateUserMutation.isPending}
+            />
+
+            {/* Modal de confirmación de eliminación */}
+            <ConfirmDeleteModal
+              isOpen={isDeleteModalOpen}
+              onClose={handleCancelDelete}
+              onConfirm={handleConfirmDelete}
+              title="Eliminar Residente"
+              message="Se eliminará permanentemente este residente y toda su información asociada."
+              itemName={
+                residentToDelete
+                  ? `${residentToDelete.name} (${residentToDelete.email})`
+                  : undefined
+              }
+              isLoading={deleteUserMutation.isPending}
             />
           </div>
         </DashboardLayout>

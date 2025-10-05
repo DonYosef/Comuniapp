@@ -53,4 +53,22 @@ export class UserResponseDto {
     example: '2024-01-01T00:00:00.000Z',
   })
   updatedAt: Date;
+
+  @ApiProperty({
+    description: 'Roles del usuario',
+    required: false,
+  })
+  roles?: any[];
+
+  @ApiProperty({
+    description: 'Unidades asociadas al usuario',
+    required: false,
+  })
+  userUnits?: any[];
+
+  @ApiProperty({
+    description: 'Comunidades administradas por el usuario',
+    required: false,
+  })
+  communityAdmins?: any[];
 }

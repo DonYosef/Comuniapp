@@ -1,0 +1,145 @@
+---
+# Comuniapp - Cursor Rules
+
+## 🏗️ Arquitectura y Estructura
+
+### Clean Architecture
+- **Domain**: Entidades puras e interfaces de repositorios
+- **Application**: Use Cases y DTOs
+- **Infrastructure**: Controladores y repositorios concretos
+- **NO duplicar** controladores, servicios o DTOs
+- **Un solo controlador por recurso** en `infrastructure/controllers/`
+
+### Monorepo Structure
+- **apps/**: web (Next.js), mobile (Expo), api (NestJS)
+- **packages/**: ui, utils, types, config compartidos
+- **infra/**: docker-compose.yml con PostgreSQL y Redis
+
+## 🎨 Diseño y UI
+
+### Consistencia Visual
+- **Tailwind CSS** para estilos
+- **Componentes reutilizables** en `packages/ui`
+- **Dark/Light mode** soportado
+- **Responsive design** mobile-first
+- **Animaciones suaves** con transiciones CSS
+
+### Componentes
+- **Naming**: PascalCase para componentes
+- **Props**: TypeScript interfaces
+- **Hooks**: Custom hooks para lógica reutilizable
+- **Testing**: React Testing Library
+
+## 🚀 Optimización de Rendimiento
+
+### Frontend - Optimistic Updates
+- **Eliminación optimista**: Actualizar UI inmediatamente, rollback en error
+- **Cache inteligente**: React Query con staleTime/cacheTime optimizados
+- **No refetch innecesario**: refetchOnMount: false, refetchOnWindowFocus: false
+- **Retry limitado**: retry: 1, retryDelay: 1000ms
+
+### Backend - Query Optimization
+- **Eliminar queries innecesarias**: No verificar existencia antes de eliminar
+- **Select específico**: Solo campos necesarios en Prisma queries
+- **Manejo de errores**: Usar códigos específicos de Prisma (P2025, etc.)
+- **Índices de BD**: Índices compuestos para consultas frecuentes
+
+### Base de Datos
+- **Índices optimizados**: organizationId + status, createdAt, etc.
+- **Relaciones indexadas**: user_roles, community_admins, user_units
+- **Select específico**: Reducir transferencia de datos en ~30%
+
+## 🔧 Desarrollo
+
+### TypeScript
+- **Tipado fuerte**: Interfaces, generics, mapped types
+- **NO any**: Usar tipos específicos siempre
+- **DTOs tipados**: Para requests/responses
+- **Enums**: Para valores constantes
+
+### NestJS Backend
+- **Use Cases**: Lógica de negocio en application layer
+- **Repositories**: Implementaciones en infrastructure
+- **Guards**: Para autenticación y autorización
+- **Decorators**: Para validación y documentación
+
+### React Frontend
+- **Hooks**: Custom hooks para lógica reutilizable
+- **Context**: Para estado global (auth, theme)
+- **Error Boundaries**: Para manejo de errores
+- **Lazy Loading**: Para componentes pesados
+
+## 📊 Rendimiento
+
+### Métricas Objetivo
+- **Eliminación UI**: < 50ms (optimistic)
+- **Carga inicial**: < 400ms
+- **Queries por operación**: Mínimo necesario
+- **Cache hit ratio**: > 80%
+
+### Optimizaciones Aplicadas
+- **Eliminación optimista**: UI inmediata con rollback
+- **Cache inteligente**: staleTime 10min, cacheTime 15min
+- **Índices de BD**: 8 índices nuevos para consultas frecuentes
+- **Select específico**: Reducir transferencia de datos
+
+## 🧪 Testing
+
+### Estrategia
+- **Unit Tests**: Use Cases y utilidades
+- **Integration Tests**: Controladores y repositorios
+- **E2E Tests**: Flujos completos de usuario
+- **Performance Tests**: Métricas de rendimiento
+
+### Herramientas
+- **Jest**: Para unit tests
+- **React Testing Library**: Para componentes
+- **Supertest**: Para API tests
+- **Playwright**: Para E2E tests
+
+## 📚 Documentación
+
+### Código
+- **Comentarios**: Solo donde sea necesario
+- **README**: Por módulo/feature
+- **API Docs**: Swagger/OpenAPI
+- **Arquitectura**: ARQUITECTURA.md
+
+### Reglas de Código
+- **Clean Code**: Código limpio y legible
+- **SOLID**: Principios de diseño
+- **DRY**: Don't Repeat Yourself
+- **KISS**: Keep It Simple, Stupid
+
+## 🔒 Seguridad
+
+### Autenticación
+- **JWT**: Para tokens de sesión
+- **Guards**: Para proteger rutas
+- **Roles**: SUPER_ADMIN, COMMUNITY_ADMIN, RESIDENT, etc.
+- **Permisos**: Granular por operación
+
+### Validación
+- **DTOs**: Validación de entrada
+- **Sanitización**: Limpiar datos de usuario
+- **Rate Limiting**: Para prevenir abuso
+- **CORS**: Configurado apropiadamente
+
+## 🚀 Deployment
+
+### Entornos
+- **Development**: Local con hot reload
+- **Staging**: Pre-producción para testing
+- **Production**: Optimizado y monitoreado
+
+### Herramientas
+- **Docker**: Para containerización
+- **Railway**: Para deployment
+- **GitHub Actions**: Para CI/CD
+- **Monitoring**: Logs y métricas
+
+---
+
+**Última actualización**: 2025-01-05
+**Versión**: 1.0.0
+---

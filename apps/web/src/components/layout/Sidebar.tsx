@@ -29,7 +29,7 @@ interface SubmenuItem {
 export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }: SidebarProps) {
   const pathname = usePathname();
   const { communities, hasCommunities } = useCommunities();
-  const { isAdmin, hasPermission, hasRole } = useAuth();
+  const { user, isAdmin, hasPermission, hasRole } = useAuth();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -53,6 +53,19 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
 
   // Generar elementos de navegación dinámicamente
   const getNavItems = (): NavItem[] => {
+    // Debug: Verificar roles y permisos del usuario
+    console.log('🔍 [Sidebar] Debug de permisos:');
+    console.log('- isAdmin():', isAdmin());
+    console.log('- hasRole("SUPER_ADMIN"):', hasRole('SUPER_ADMIN'));
+    console.log('- hasRole("COMMUNITY_ADMIN"):', hasRole('COMMUNITY_ADMIN'));
+    console.log('- hasRole("RESIDENT"):', hasRole('RESIDENT'));
+    console.log(
+      '- hasPermission("manage_community_users"):',
+      hasPermission('manage_community_users'),
+    );
+    console.log('- user.roles:', user?.roles);
+    console.log('- user.name:', user?.name);
+
     const baseItems: NavItem[] = [
       {
         name: 'Dashboard',
@@ -76,8 +89,22 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
       },
     ];
 
-    // Solo mostrar Residentes si el usuario tiene permisos de administración
-    if (isAdmin() || hasPermission('manage_community_users')) {
+    // Solo mostrar Residentes si el usuario NO es residente y tiene permisos de administración
+    const isResident = hasRole('RESIDENT');
+    const canManageUsers = isAdmin() || hasPermission('manage_community_users');
+
+    console.log('🔍 [Sidebar] Verificando módulo Residentes:');
+    console.log('- isResident:', isResident);
+    console.log('- isAdmin():', isAdmin());
+    console.log(
+      '- hasPermission("manage_community_users"):',
+      hasPermission('manage_community_users'),
+    );
+    console.log('- canManageUsers:', canManageUsers);
+    console.log('- Condición final:', !isResident && canManageUsers);
+
+    if (!isResident && canManageUsers) {
+      console.log('✅ [Sidebar] Agregando módulo Residentes');
       baseItems.push({
         name: 'Residentes',
         href: '/dashboard/residentes',
@@ -92,10 +119,24 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
           </svg>
         ),
       });
+    } else {
+      console.log('❌ [Sidebar] NO agregando módulo Residentes - Es residente o sin permisos');
     }
 
-    // Solo mostrar Gastos Comunes si el usuario tiene permisos de administración
-    if (isAdmin() || hasPermission('manage_community_expenses')) {
+    // Mostrar Gastos Comunes para administradores y residentes
+    const canAccessExpenses = isAdmin() || hasPermission('manage_community_expenses') || isResident;
+
+    console.log('🔍 [Sidebar] Verificando módulo Gastos Comunes:');
+    console.log('- isAdmin():', isAdmin());
+    console.log(
+      '- hasPermission("manage_community_expenses"):',
+      hasPermission('manage_community_expenses'),
+    );
+    console.log('- isResident:', isResident);
+    console.log('- canAccessExpenses:', canAccessExpenses);
+
+    if (canAccessExpenses) {
+      console.log('✅ [Sidebar] Agregando módulo Gastos Comunes');
       baseItems.push({
         name: 'Gastos Comunes',
         href: '/dashboard/gastos-comunes',
@@ -112,26 +153,17 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
       });
     }
 
-    // Solo mostrar Finanzas si el usuario tiene permisos de administración
-    if (isAdmin()) {
-      baseItems.push({
-        name: 'Finanzas',
-        href: '/dashboard/finanzas',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-            />
-          </svg>
-        ),
-      });
-    }
+    // Mostrar Encomiendas para administradores y residentes
+    const canAccessParcels = isAdmin() || hasPermission('manage_parcels') || isResident;
 
-    // Solo mostrar Encomiendas si el usuario tiene permisos de administración
-    if (isAdmin() || hasPermission('manage_parcels')) {
+    console.log('🔍 [Sidebar] Verificando módulo Encomiendas:');
+    console.log('- isAdmin():', isAdmin());
+    console.log('- hasPermission("manage_parcels"):', hasPermission('manage_parcels'));
+    console.log('- isResident:', isResident);
+    console.log('- canAccessParcels:', canAccessParcels);
+
+    if (canAccessParcels) {
+      console.log('✅ [Sidebar] Agregando módulo Encomiendas');
       baseItems.push({
         name: 'Encomiendas',
         href: '/dashboard/encomiendas',
@@ -148,8 +180,16 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
       });
     }
 
-    // Solo mostrar Visitas si el usuario es administrador
-    if (isAdmin()) {
+    // Mostrar Visitas para administradores y residentes
+    const canAccessVisits = isAdmin() || isResident;
+
+    console.log('🔍 [Sidebar] Verificando módulo Visitas:');
+    console.log('- isAdmin():', isAdmin());
+    console.log('- isResident:', isResident);
+    console.log('- canAccessVisits:', canAccessVisits);
+
+    if (canAccessVisits) {
+      console.log('✅ [Sidebar] Agregando módulo Visitas');
       baseItems.push({
         name: 'Visitas',
         href: '/dashboard/visitas',
@@ -160,24 +200,6 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
               strokeLinejoin="round"
               strokeWidth={2}
               d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-            />
-          </svg>
-        ),
-      });
-    }
-
-    // Solo mostrar Eventos si el usuario tiene permisos de administración
-    if (isAdmin()) {
-      baseItems.push({
-        name: 'Eventos',
-        href: '/dashboard/eventos',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
             />
           </svg>
         ),
@@ -243,8 +265,18 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
       );
     }
 
-    // Solo mostrar Comunidades si el usuario es administrador y tiene comunidades
-    if (isAdmin() && communitySubmenuItems.length > 0) {
+    // Solo mostrar Comunidades si el usuario NO es residente, es administrador y tiene comunidades
+    console.log('🔍 [Sidebar] Verificando módulo Comunidades:');
+    console.log('- isResident:', isResident);
+    console.log('- isAdmin():', isAdmin());
+    console.log('- communitySubmenuItems.length:', communitySubmenuItems.length);
+    console.log(
+      '- Condición completa:',
+      !isResident && isAdmin() && communitySubmenuItems.length > 0,
+    );
+
+    if (!isResident && isAdmin() && communitySubmenuItems.length > 0) {
+      console.log('✅ [Sidebar] Agregando módulo Comunidades');
       const ajustesItem: NavItem = {
         name: 'Comunidades',
         icon: (
@@ -262,6 +294,10 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
       };
 
       return [...baseItems, ajustesItem];
+    } else {
+      console.log(
+        '❌ [Sidebar] NO agregando módulo Comunidades - Es residente, sin permisos o sin comunidades',
+      );
     }
 
     return baseItems;

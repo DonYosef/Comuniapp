@@ -18,6 +18,12 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
     useCommunity();
   const router = useRouter();
 
+  // Debug: Mostrar información del usuario
+  console.log('🔍 [Topbar] Información del usuario:');
+  console.log('- user:', user);
+  console.log('- user.roles:', user?.roles);
+  console.log('- user.name:', user?.name);
+
   // Cargar tema desde localStorage al montar el componente
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -97,69 +103,11 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
           </div>
         )}
 
-        {/* Título de comunidad actual */}
-        {!isSidebarCollapsed && currentCommunity && (
-          <div className="flex items-center ml-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                <svg
-                  className="w-5 h-5 text-blue-600 dark:text-blue-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {currentCommunity.name}
-                </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {currentCommunity.address}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Espaciador cuando sidebar no está colapsado y no hay comunidad */}
-        {!isSidebarCollapsed && !currentCommunity && <div className="flex-1"></div>}
+        {/* Espaciador cuando sidebar no está colapsado */}
+        {!isSidebarCollapsed && <div className="flex-1"></div>}
 
         {/* Controles del usuario */}
         <div className="flex items-center space-x-4">
-          {/* Información de comunidad (visible para todos los usuarios) */}
-          {currentCommunity && (
-            <div className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
-              <svg
-                className="w-4 h-4 text-blue-600 dark:text-blue-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                />
-              </svg>
-              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                {currentCommunity.name}
-                {units.length > 0 && (
-                  <span className="ml-1 text-xs text-blue-500 dark:text-blue-400">
-                    - Unidad {units.map((unit) => unit.number).join(', ')}
-                  </span>
-                )}
-              </span>
-            </div>
-          )}
-
           {/* Selector de comunidad (solo para administradores) */}
           {isAdmin && (
             <div className="relative community-menu-container">
@@ -181,7 +129,9 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
                   />
                 </svg>
                 <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                  {currentCommunity ? currentCommunity.name : 'Comunidades'}
+                  {currentCommunity
+                    ? `${currentCommunity.name} - ${currentCommunity.address}`
+                    : 'Comunidades'}
                 </span>
                 {communities.length > 0 && (
                   <svg
@@ -324,7 +274,9 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
                   {user?.name || 'Usuario'}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Administrador</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {user?.roles?.[0]?.name || 'Usuario'}
+                </p>
               </div>
               <svg
                 className="w-4 h-4 text-gray-400"

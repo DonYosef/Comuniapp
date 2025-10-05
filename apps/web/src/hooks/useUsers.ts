@@ -6,7 +6,7 @@ import { useAuth } from './useAuth';
 // Clave para el cache de usuarios
 const USERS_QUERY_KEY = 'users';
 
-// Hook para obtener todos los usuarios
+// Hook para obtener todos los usuarios con optimizaciones de caché
 export const useUsers = () => {
   const { isAuthenticated } = useAuth();
 
@@ -14,8 +14,12 @@ export const useUsers = () => {
     queryKey: [USERS_QUERY_KEY],
     queryFn: UserService.getAllUsers,
     enabled: isAuthenticated, // Solo ejecutar si está autenticado
-    staleTime: 5 * 60 * 1000, // 5 minutos
+    staleTime: 10 * 60 * 1000, // 10 minutos (aumentado para mejor rendimiento)
+    cacheTime: 15 * 60 * 1000, // 15 minutos en caché
     refetchOnWindowFocus: false,
+    refetchOnMount: false, // No refetch si ya tenemos datos frescos
+    retry: 1, // Solo reintentar una vez en caso de error
+    retryDelay: 1000, // 1 segundo entre reintentos
   });
 };
 
@@ -65,20 +69,57 @@ export const useUpdateUser = () => {
   });
 };
 
-// Hook para eliminar un usuario
+// Hook para eliminar un usuario con eliminación optimista
 export const useDeleteUser = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id: string) => UserService.deleteUser(id),
-    onSuccess: (_, deletedId) => {
-      // Remover el usuario del cache
-      queryClient.removeQueries({ queryKey: [USERS_QUERY_KEY, deletedId] });
-      // Invalidar la lista de usuarios para refetch
-      queryClient.invalidateQueries({ queryKey: [USERS_QUERY_KEY] });
+    onMutate: async (deletedId) => {
+      // Cancelar cualquier refetch en progreso para evitar conflictos
+      await queryClient.cancelQueries({ queryKey: [USERS_QUERY_KEY] });
+
+      // Obtener snapshot del cache actual
+      const previousUsers = queryClient.getQueryData([USERS_QUERY_KEY]);
+
+      // Actualizar optimistamente el cache (eliminar usuario inmediatamente)
+      queryClient.setQueryData([USERS_QUERY_KEY], (old: any) => {
+        if (!old) return old;
+
+        // Si es un array simple (datos no paginados)
+        if (Array.isArray(old)) {
+          return old.filter((user: any) => user.id !== deletedId);
+        }
+
+        // Si es un objeto con paginación
+        if (old && typeof old === 'object' && old.users && Array.isArray(old.users)) {
+          return {
+            ...old,
+            users: old.users.filter((user: any) => user.id !== deletedId),
+            total: old.total - 1,
+          };
+        }
+
+        return old;
+      });
+
+      // Retornar contexto para rollback en caso de error
+      return { previousUsers };
     },
-    onError: (error) => {
+    onError: (error, deletedId, context) => {
+      // Rollback en caso de error
+      if (context?.previousUsers) {
+        queryClient.setQueryData([USERS_QUERY_KEY], context.previousUsers);
+      }
       console.error('Error al eliminar usuario:', error);
+    },
+    onSettled: (_, __, deletedId) => {
+      // Limpiar cache específico del usuario eliminado
+      queryClient.removeQueries({ queryKey: [USERS_QUERY_KEY, deletedId] });
+      // Invalidar todas las queries relacionadas con usuarios
+      queryClient.invalidateQueries({ queryKey: [USERS_QUERY_KEY] });
+      // También invalidar queries paginadas
+      queryClient.invalidateQueries({ queryKey: [USERS_QUERY_KEY, 'paginated'] });
     },
   });
 };
@@ -104,5 +145,30 @@ export const useUsersByStatus = (status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED') =>
     queryFn: () => UserService.getUsersByStatus(status),
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutos
+  });
+};
+
+// Hook para obtener usuarios con paginación
+export const useUsersPaginated = (
+  params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    role?: string;
+  } = {},
+) => {
+  const { isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: [USERS_QUERY_KEY, 'paginated', params],
+    queryFn: () => UserService.getUsersPaginated(params),
+    enabled: isAuthenticated,
+    staleTime: 2 * 60 * 1000, // 2 minutos
+    cacheTime: 5 * 60 * 1000, // 5 minutos
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    retry: 1,
+    retryDelay: 1000,
   });
 };
