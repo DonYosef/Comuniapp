@@ -304,15 +304,24 @@ export default function EditarComunidadPage() {
 
     try {
       console.log('📡 [FRONTEND] Llamando a CommunityService.deleteCommunity...');
+
+      // Ejecutar eliminación
       await CommunityService.deleteCommunity(communityId);
 
       console.log('✅ [FRONTEND] Comunidad eliminada exitosamente');
-      setToast({ message: 'Comunidad eliminada exitosamente ✅', type: 'success' });
 
+      // Mostrar toast de éxito inmediatamente
+      showSuccessToast('Comunidad eliminada exitosamente ✅');
+
+      // Redirigir al dashboard después del toast
       setTimeout(() => {
         console.log('🔄 [FRONTEND] Redirigiendo al dashboard...');
         router.push('/dashboard');
-      }, 1500);
+        // Recargar la página para actualizar los datos
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
+      }, 1000);
     } catch (error) {
       console.error('❌ [FRONTEND] Error al eliminar la comunidad:', {
         error: error instanceof Error ? error.message : error,
@@ -320,15 +329,83 @@ export default function EditarComunidadPage() {
         stack: error instanceof Error ? error.stack : undefined,
       });
 
-      setToast({
-        message: error instanceof Error ? error.message : 'Hubo un error al eliminar la comunidad.',
-        type: 'error',
-      });
+      // Mostrar toast de error inmediatamente
+      showErrorToast(
+        error instanceof Error ? error.message : 'Hubo un error al eliminar la comunidad.',
+      );
     }
   };
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
+  };
+
+  const showSuccessToast = (message: string) => {
+    // Crear elemento toast
+    const toast = document.createElement('div');
+    toast.className =
+      'fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-xl shadow-lg transform transition-all duration-300 translate-x-full opacity-0';
+    toast.innerHTML = `
+      <div class="flex items-center space-x-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <span class="font-medium">${message}</span>
+      </div>
+    `;
+
+    document.body.appendChild(toast);
+
+    // Animar entrada
+    setTimeout(() => {
+      toast.classList.remove('translate-x-full', 'opacity-0');
+      toast.classList.add('translate-x-0', 'opacity-100');
+    }, 100);
+
+    // Remover después de 3 segundos
+    setTimeout(() => {
+      toast.classList.remove('translate-x-0', 'opacity-100');
+      toast.classList.add('translate-x-full', 'opacity-0');
+      setTimeout(() => {
+        if (document.body.contains(toast)) {
+          document.body.removeChild(toast);
+        }
+      }, 300);
+    }, 3000);
+  };
+
+  const showErrorToast = (message: string) => {
+    // Crear elemento toast
+    const toast = document.createElement('div');
+    toast.className =
+      'fixed top-4 right-4 z-50 bg-red-500 text-white px-6 py-3 rounded-xl shadow-lg transform transition-all duration-300 translate-x-full opacity-0';
+    toast.innerHTML = `
+      <div class="flex items-center space-x-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+        <span class="font-medium">${message}</span>
+      </div>
+    `;
+
+    document.body.appendChild(toast);
+
+    // Animar entrada
+    setTimeout(() => {
+      toast.classList.remove('translate-x-full', 'opacity-0');
+      toast.classList.add('translate-x-0', 'opacity-100');
+    }, 100);
+
+    // Remover después de 4 segundos
+    setTimeout(() => {
+      toast.classList.remove('translate-x-0', 'opacity-100');
+      toast.classList.add('translate-x-full', 'opacity-0');
+      setTimeout(() => {
+        if (document.body.contains(toast)) {
+          document.body.removeChild(toast);
+        }
+      }, 300);
+    }, 4000);
   };
 
   const handleDeleteUnit = async () => {

@@ -59,8 +59,14 @@ export default function UserModal({
         email: '',
         password: '',
         phone: '',
-        status: 'ACTIVE',
-        roleName: 'COMMUNITY_ADMIN', // Cambiar valor por defecto a COMMUNITY_ADMIN
+        status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE' | 'SUSPENDED',
+        roleName: 'RESIDENT' as
+          | 'SUPER_ADMIN'
+          | 'COMMUNITY_ADMIN'
+          | 'OWNER'
+          | 'TENANT'
+          | 'RESIDENT'
+          | 'CONCIERGE',
         unitId: '',
       };
       console.log('🔍 [UserModal] Inicializando formulario para crear usuario:');

@@ -145,7 +145,15 @@ export default function ResidentsPage() {
 
   const handleConfirmDelete = () => {
     if (residentToDelete) {
-      deleteUserMutation.mutate(residentToDelete.id);
+      deleteUserMutation.mutate(residentToDelete.id, {
+        onSuccess: () => {
+          showSuccessToast('Residente eliminado con éxito ✅');
+        },
+        onError: (error) => {
+          console.error('Error al eliminar residente:', error);
+          showErrorToast('Error al eliminar el residente');
+        },
+      });
       setIsDeleteModalOpen(false);
       setResidentToDelete(null);
     }
@@ -179,9 +187,17 @@ export default function ResidentsPage() {
   const handleSaveResident = async (residentData: any) => {
     try {
       if (modalMode === 'create') {
-        await createUserMutation.mutateAsync(residentData);
-        // Mostrar toast de éxito
+        // Cerrar modal inmediatamente con optimistic update
+        setIsModalOpen(false);
+        // Mostrar toast de éxito inmediatamente
         showSuccessToast('Residente creado con éxito ✅');
+        // Ejecutar mutación en segundo plano
+        createUserMutation.mutate(residentData, {
+          onError: (error) => {
+            console.error('Error al crear residente:', error);
+            showErrorToast('Error al crear el residente');
+          },
+        });
       } else if (modalMode === 'edit' && selectedResident) {
         await updateUserMutation.mutateAsync({
           id: selectedResident.id,
@@ -189,8 +205,8 @@ export default function ResidentsPage() {
         });
         // Mostrar toast de éxito
         showSuccessToast('Usuario actualizado con éxito ✅');
+        setIsModalOpen(false);
       }
-      setIsModalOpen(false);
     } catch (error) {
       console.error('Error al guardar residente:', error);
       // Mostrar toast de error

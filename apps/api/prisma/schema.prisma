@@ -56,6 +56,14 @@ model Community {
   documents         Document[]
   units             Unit[]
 
+  @@index([createdById])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@index([createdById, isActive])
+  @@index([createdById, deletedAt])
+  @@index([isActive, deletedAt])
+  @@index([type])
+  @@index([createdAt])
   @@map("communities")
 }
 

@@ -36,7 +36,7 @@ const initialFormData: CommunityFormData = {
   phone: '',
   email: '',
   website: '',
-  type: 'CONDOMINIO',
+  type: 'EDIFICIO', // Cambiar valor por defecto a EDIFICIO
   totalUnits: '',
   constructionYear: '',
   floors: '',
@@ -77,6 +77,7 @@ export default function NuevaComunidadPage() {
   const [errors, setErrors] = useState<Partial<CommunityFormData>>({});
   const [isDragOver, setIsDragOver] = useState(false);
   const [isStructureModalOpen, setIsStructureModalOpen] = useState(false);
+  const [showAllCommonSpaces, setShowAllCommonSpaces] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleInputChange = (
@@ -157,6 +158,74 @@ export default function NuevaComunidadPage() {
         imagePreview: null,
       }));
     }
+  };
+
+  const showSuccessToast = (message: string) => {
+    // Crear elemento toast
+    const toast = document.createElement('div');
+    toast.className =
+      'fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-xl shadow-lg transform transition-all duration-300 translate-x-full opacity-0';
+    toast.innerHTML = `
+      <div class="flex items-center space-x-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <span class="font-medium">${message}</span>
+      </div>
+    `;
+
+    document.body.appendChild(toast);
+
+    // Animar entrada
+    setTimeout(() => {
+      toast.classList.remove('translate-x-full', 'opacity-0');
+      toast.classList.add('translate-x-0', 'opacity-100');
+    }, 100);
+
+    // Remover después de 3 segundos
+    setTimeout(() => {
+      toast.classList.remove('translate-x-0', 'opacity-100');
+      toast.classList.add('translate-x-full', 'opacity-0');
+      setTimeout(() => {
+        if (document.body.contains(toast)) {
+          document.body.removeChild(toast);
+        }
+      }, 300);
+    }, 3000);
+  };
+
+  const showErrorToast = (message: string) => {
+    // Crear elemento toast
+    const toast = document.createElement('div');
+    toast.className =
+      'fixed top-4 right-4 z-50 bg-red-500 text-white px-6 py-3 rounded-xl shadow-lg transform transition-all duration-300 translate-x-full opacity-0';
+    toast.innerHTML = `
+      <div class="flex items-center space-x-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+        <span class="font-medium">${message}</span>
+      </div>
+    `;
+
+    document.body.appendChild(toast);
+
+    // Animar entrada
+    setTimeout(() => {
+      toast.classList.remove('translate-x-full', 'opacity-0');
+      toast.classList.add('translate-x-0', 'opacity-100');
+    }, 100);
+
+    // Remover después de 4 segundos
+    setTimeout(() => {
+      toast.classList.remove('translate-x-0', 'opacity-100');
+      toast.classList.add('translate-x-full', 'opacity-0');
+      setTimeout(() => {
+        if (document.body.contains(toast)) {
+          document.body.removeChild(toast);
+        }
+      }, 300);
+    }, 4000);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -263,25 +332,45 @@ export default function NuevaComunidadPage() {
       const nextUnitNumber = currentUnits.length + 1;
       const newUnit = `${floor}${nextUnitNumber.toString().padStart(2, '0')}`;
 
+      const newBuildingStructure = {
+        ...prev.buildingStructure,
+        [floor]: [...currentUnits, newUnit],
+      };
+
+      // Calcular nuevo total de unidades
+      const totalUnits = Object.values(newBuildingStructure).reduce(
+        (total, units) => total + units.length,
+        0,
+      );
+
       return {
         ...prev,
-        buildingStructure: {
-          ...prev.buildingStructure,
-          [floor]: [...currentUnits, newUnit],
-        },
+        buildingStructure: newBuildingStructure,
+        totalUnits: totalUnits.toString(),
       };
     });
   };
 
   // Función para eliminar unidad de un piso
   const removeUnitFromFloor = (floor: number, unitIndex: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      buildingStructure: {
+    setFormData((prev) => {
+      const newBuildingStructure = {
         ...prev.buildingStructure,
         [floor]: prev.buildingStructure?.[floor]?.filter((_, index) => index !== unitIndex) || [],
-      },
-    }));
+      };
+
+      // Calcular nuevo total de unidades
+      const totalUnits = Object.values(newBuildingStructure).reduce(
+        (total, units) => total + units.length,
+        0,
+      );
+
+      return {
+        ...prev,
+        buildingStructure: newBuildingStructure,
+        totalUnits: totalUnits.toString(),
+      };
+    });
   };
 
   const validateForm = (): boolean => {
@@ -368,16 +457,24 @@ export default function NuevaComunidadPage() {
       const newCommunity = await communityService.createCommunity(communityData);
 
       console.log('Comunidad creada exitosamente:', newCommunity);
-      alert('Comunidad creada exitosamente!');
 
-      // Refrescar la lista de comunidades
-      await refetch();
+      // Mostrar toast de éxito inmediatamente
+      showSuccessToast('Comunidad creada exitosamente ✅');
 
-      // Redirigir al dashboard
-      router.push('/dashboard');
+      // Redirigir al dashboard después del toast
+      setTimeout(() => {
+        console.log('🔄 [FRONTEND] Redirigiendo al dashboard...');
+        router.push('/dashboard');
+        // Recargar la página para actualizar los datos
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
+      }, 1000);
     } catch (error) {
       console.error('Error al crear la comunidad:', error);
-      alert(error instanceof Error ? error.message : 'Hubo un error al crear la comunidad.');
+      showErrorToast(
+        error instanceof Error ? error.message : 'Hubo un error al crear la comunidad.',
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -1328,7 +1425,10 @@ export default function NuevaComunidadPage() {
               <div className="p-6 space-y-5">
                 {/* Grid de espacios comunes */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {availableCommonSpaces.map((space) => {
+                  {(showAllCommonSpaces
+                    ? availableCommonSpaces
+                    : availableCommonSpaces.slice(0, 9)
+                  ).map((space) => {
                     const selectedSpace = formData.commonSpaces.find((s) => s.name === space.name);
                     const isSelected = selectedSpace !== undefined;
                     const quantity = selectedSpace?.quantity || 0;
@@ -1457,6 +1557,19 @@ export default function NuevaComunidadPage() {
                     );
                   })}
                 </div>
+
+                {/* Botón Mostrar más/Mostrar menos */}
+                {availableCommonSpaces.length > 9 && (
+                  <div className="flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllCommonSpaces(!showAllCommonSpaces)}
+                      className="inline-flex items-center px-6 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-xl transition-all duration-200 border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
+                    >
+                      {showAllCommonSpaces ? 'Mostrar menos' : 'Mostrar más...'}
+                    </button>
+                  </div>
+                )}
 
                 {/* Resumen de espacios seleccionados */}
                 {Object.keys(formData.commonSpaces).length > 0 && (

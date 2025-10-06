@@ -1,6 +1,20 @@
+'use client';
+
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { useCommunities } from '@/hooks/useCommunities';
+import CommunitiesSkeleton from '@/components/ui/CommunitiesSkeleton';
 
 export default function DashboardPage() {
+  const { communities, isLoading, hasCommunities } = useCommunities();
+
+  if (isLoading) {
+    return (
+      <ProtectedRoute>
+        <CommunitiesSkeleton />
+      </ProtectedRoute>
+    );
+  }
+
   return (
     <ProtectedRoute>
       <div className="space-y-6">
@@ -11,6 +25,60 @@ export default function DashboardPage() {
             Bienvenido a la administración de Comuniapp
           </p>
         </div>
+
+        {/* Comunidades del usuario */}
+        {hasCommunities && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Tus Comunidades ({communities.length})
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {communities.map((community) => (
+                <div
+                  key={community.id}
+                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                      <svg
+                        className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                        />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {community.name}
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {community.address}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex justify-between items-center">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {community.totalUnits} unidades
+                    </span>
+                    <a
+                      href={`/dashboard/comunidad/${community.id}`}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                    >
+                      Ver detalles →
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Tarjetas de estadísticas */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

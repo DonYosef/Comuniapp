@@ -86,6 +86,8 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        // Agregar timeout para evitar cuelgues
+        signal: AbortSignal.timeout(10000), // 10 segundos timeout
       });
 
       if (response.ok) {
@@ -98,12 +100,15 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
             if (!currentCommunity && data.length > 0) {
               setCurrentCommunity(data[0]);
               // Cargar unidades de forma asíncrona para no bloquear
-              loadUnits(data[0].id).catch((error) => {
-                console.error(
-                  '❌ [useCommunity] Error al cargar unidades después de cargar comunidades:',
-                  error,
-                );
-              });
+              // Delay de 100ms para no bloquear la UI
+              setTimeout(() => {
+                loadUnits(data[0].id).catch((error) => {
+                  console.error(
+                    '❌ [useCommunity] Error al cargar unidades después de cargar comunidades:',
+                    error,
+                  );
+                });
+              }, 100);
             }
           } else {
             console.warn(
@@ -119,12 +124,15 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
             if (!currentCommunity) {
               setCurrentCommunity(data);
               // Cargar unidades en paralelo para mejor rendimiento
-              loadUnits(data.id).catch((error) => {
-                console.error(
-                  '❌ [useCommunity] Error al cargar unidades después de cargar comunidades:',
-                  error,
-                );
-              });
+              // Delay de 100ms para no bloquear la UI
+              setTimeout(() => {
+                loadUnits(data.id).catch((error) => {
+                  console.error(
+                    '❌ [useCommunity] Error al cargar unidades después de cargar comunidades:',
+                    error,
+                  );
+                });
+              }, 100);
             }
           } else {
             console.log('ℹ️ [useCommunity] loadCommunities - Usuario no tiene comunidad asignada');

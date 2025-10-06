@@ -21,10 +21,24 @@ export class CommunityContextMiddleware implements NestMiddleware {
       return next();
     }
 
-    // Obtener comunidades del usuario
+    // Obtener comunidades del usuario - consulta ultra-optimizada
     const userCommunities = await this.prisma.communityAdmin.findMany({
-      where: { userId: user.id },
-      include: { community: true },
+      where: {
+        userId: user.id,
+        community: {
+          isActive: true,
+          deletedAt: null,
+        },
+      },
+      select: {
+        community: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+          },
+        },
+      },
     });
 
     if (userCommunities.length === 0) {
@@ -42,7 +56,7 @@ export class CommunityContextMiddleware implements NestMiddleware {
       (req.headers['x-community-id'] as string) || (req.query.communityId as string);
 
     if (communityId) {
-      const community = userCommunities.find((uc) => uc.communityId === communityId);
+      const community = userCommunities.find((uc) => uc.community.id === communityId);
 
       if (!community) {
         throw new ForbiddenException('No tienes acceso a esta comunidad');

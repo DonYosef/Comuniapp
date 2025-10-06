@@ -40,12 +40,96 @@ export const useCreateUser = () => {
 
   return useMutation({
     mutationFn: (userData: CreateUserDto) => UserService.createUser(userData),
-    onSuccess: () => {
-      // Invalidar y refetch la lista de usuarios
-      queryClient.invalidateQueries({ queryKey: [USERS_QUERY_KEY] });
+    onMutate: async (newUserData) => {
+      // Cancelar cualquier refetch en progreso para evitar conflictos
+      await queryClient.cancelQueries({ queryKey: [USERS_QUERY_KEY] });
+
+      // Obtener snapshot del cache actual
+      const previousUsers = queryClient.getQueryData([USERS_QUERY_KEY]);
+
+      // Crear un usuario temporal con datos optimistas
+      const tempUser = {
+        id: `temp-${Date.now()}`, // ID temporal
+        ...newUserData,
+        status: 'ACTIVE' as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        roles: [],
+        userUnits: [],
+        communityAdmins: [],
+      };
+
+      // Función para agregar usuario optimistamente
+      const addOptimistically = (old: any) => {
+        if (!old) return old;
+
+        // Si es un array simple (datos no paginados)
+        if (Array.isArray(old)) {
+          return [tempUser, ...old];
+        }
+
+        // Si es un objeto con paginación
+        if (old && typeof old === 'object' && old.users && Array.isArray(old.users)) {
+          return {
+            ...old,
+            users: [tempUser, ...old.users],
+            total: old.total + 1,
+          };
+        }
+
+        return old;
+      };
+
+      // Actualizar todas las queries relacionadas con usuarios
+      queryClient.setQueryData([USERS_QUERY_KEY], addOptimistically);
+
+      // También actualizar queries paginadas específicas
+      queryClient.setQueriesData({ queryKey: [USERS_QUERY_KEY, 'paginated'] }, addOptimistically);
+
+      // Retornar contexto para rollback en caso de error
+      return { previousUsers };
     },
-    onError: (error) => {
+    onSuccess: (createdUser) => {
+      // Reemplazar el usuario temporal con el usuario real del servidor
+      const replaceTempUser = (old: any) => {
+        if (!old) return old;
+
+        // Si es un array simple (datos no paginados)
+        if (Array.isArray(old)) {
+          return old.map((user: any) => (user.id.startsWith('temp-') ? createdUser : user));
+        }
+
+        // Si es un objeto con paginación
+        if (old && typeof old === 'object' && old.users && Array.isArray(old.users)) {
+          return {
+            ...old,
+            users: old.users.map((user: any) => (user.id.startsWith('temp-') ? createdUser : user)),
+          };
+        }
+
+        return old;
+      };
+
+      // Actualizar con el usuario real
+      queryClient.setQueryData([USERS_QUERY_KEY], replaceTempUser);
+      queryClient.setQueriesData({ queryKey: [USERS_QUERY_KEY, 'paginated'] }, replaceTempUser);
+    },
+    onError: (error, newUserData, context) => {
+      // Rollback en caso de error
+      if (context?.previousUsers) {
+        queryClient.setQueryData([USERS_QUERY_KEY], context.previousUsers);
+        // También hacer rollback de queries paginadas
+        queryClient.setQueriesData(
+          { queryKey: [USERS_QUERY_KEY, 'paginated'] },
+          context.previousUsers,
+        );
+      }
       console.error('Error al crear usuario:', error);
+    },
+    onSettled: () => {
+      // Invalidar para sincronizar con el servidor
+      queryClient.invalidateQueries({ queryKey: [USERS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [USERS_QUERY_KEY, 'paginated'] });
     },
   });
 };
@@ -82,8 +166,8 @@ export const useDeleteUser = () => {
       // Obtener snapshot del cache actual
       const previousUsers = queryClient.getQueryData([USERS_QUERY_KEY]);
 
-      // Actualizar optimistamente el cache (eliminar usuario inmediatamente)
-      queryClient.setQueryData([USERS_QUERY_KEY], (old: any) => {
+      // Función para actualizar datos optimistamente
+      const updateOptimistically = (old: any) => {
         if (!old) return old;
 
         // Si es un array simple (datos no paginados)
@@ -101,7 +185,16 @@ export const useDeleteUser = () => {
         }
 
         return old;
-      });
+      };
+
+      // Actualizar todas las queries relacionadas con usuarios
+      queryClient.setQueryData([USERS_QUERY_KEY], updateOptimistically);
+
+      // También actualizar queries paginadas específicas
+      queryClient.setQueriesData(
+        { queryKey: [USERS_QUERY_KEY, 'paginated'] },
+        updateOptimistically,
+      );
 
       // Retornar contexto para rollback en caso de error
       return { previousUsers };
@@ -110,6 +203,11 @@ export const useDeleteUser = () => {
       // Rollback en caso de error
       if (context?.previousUsers) {
         queryClient.setQueryData([USERS_QUERY_KEY], context.previousUsers);
+        // También hacer rollback de queries paginadas
+        queryClient.setQueriesData(
+          { queryKey: [USERS_QUERY_KEY, 'paginated'] },
+          context.previousUsers,
+        );
       }
       console.error('Error al eliminar usuario:', error);
     },

@@ -118,23 +118,25 @@ export class CommunitiesService {
   async getCommunitiesByUser(userId: string) {
     console.log('🔍 [CommunitiesService] getCommunitiesByUser - userId:', userId);
 
-    // Obtener el usuario con sus roles para determinar qué comunidades puede ver
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        roles: {
-          include: { role: true },
+    // Consulta ultra-optimizada - solo roles necesarios
+    const userRoles = await this.prisma.userRole.findMany({
+      where: { userId },
+      select: {
+        role: {
+          select: {
+            name: true,
+          },
         },
       },
     });
 
-    if (!user) {
-      console.log('❌ [CommunitiesService] Usuario no encontrado');
+    if (!userRoles.length) {
+      console.log('❌ [CommunitiesService] Usuario sin roles');
       return [];
     }
 
-    const isSuperAdmin = user.roles.some((ur) => ur.role.name === 'SUPER_ADMIN');
-    const isCommunityAdmin = user.roles.some((ur) => ur.role.name === 'COMMUNITY_ADMIN');
+    const isSuperAdmin = userRoles.some((ur) => ur.role.name === 'SUPER_ADMIN');
+    const isCommunityAdmin = userRoles.some((ur) => ur.role.name === 'COMMUNITY_ADMIN');
 
     console.log('🔍 [CommunitiesService] Análisis de roles:');
     console.log('   - isSuperAdmin:', isSuperAdmin);
@@ -143,27 +145,25 @@ export class CommunitiesService {
     let communities = [];
 
     if (isSuperAdmin) {
-      console.log('🔍 [CommunitiesService] Usuario es SUPER_ADMIN - viendo todas las comunidades');
+      console.log('🔍 [CommunitiesService] Usuario es SUPER_ADMIN - consulta ultra-optimizada');
 
-      // SUPER_ADMIN puede ver todas las comunidades
+      // SUPER_ADMIN - consulta mínima ultra-rápida
       communities = await this.prisma.community.findMany({
         where: {
           isActive: true,
           deletedAt: null,
         },
-        include: {
-          organization: true,
-          commonSpaces: true,
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          type: true,
+          totalUnits: true,
+          imageUrl: true,
+          createdAt: true,
           createdBy: {
             select: {
-              id: true,
               name: true,
-              email: true,
-            },
-          },
-          _count: {
-            select: {
-              units: true,
             },
           },
         },
@@ -178,51 +178,54 @@ export class CommunitiesService {
       // 1. Comunidades que creó
       // 2. Comunidades donde es administrador
 
+      // Consulta única ultra-optimizada para COMMUNITY_ADMIN
       const [createdCommunities, adminCommunities] = await Promise.all([
-        // Comunidades creadas por el usuario
+        // Comunidades creadas - datos mínimos
         this.prisma.community.findMany({
           where: {
             createdById: userId,
             isActive: true,
             deletedAt: null,
           },
-          include: {
-            organization: true,
-            commonSpaces: true,
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            type: true,
+            totalUnits: true,
+            imageUrl: true,
+            createdAt: true,
             createdBy: {
               select: {
-                id: true,
                 name: true,
-                email: true,
-              },
-            },
-            _count: {
-              select: {
-                units: true,
               },
             },
           },
           orderBy: { createdAt: 'desc' },
         }),
 
-        // Comunidades donde el usuario es administrador
+        // Comunidades donde es admin - datos mínimos
         this.prisma.communityAdmin.findMany({
-          where: { userId },
-          include: {
+          where: {
+            userId,
             community: {
-              include: {
-                organization: true,
-                commonSpaces: true,
+              isActive: true,
+              deletedAt: null,
+            },
+          },
+          select: {
+            community: {
+              select: {
+                id: true,
+                name: true,
+                address: true,
+                type: true,
+                totalUnits: true,
+                imageUrl: true,
+                createdAt: true,
                 createdBy: {
                   select: {
-                    id: true,
                     name: true,
-                    email: true,
-                  },
-                },
-                _count: {
-                  select: {
-                    units: true,
                   },
                 },
               },
