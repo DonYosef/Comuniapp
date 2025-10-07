@@ -1,4 +1,4 @@
-import { api } from '@/lib/api';
+import { apiClient } from '@/services/api/api-client';
 
 export interface Community {
   id: string;
@@ -77,19 +77,19 @@ export type CommunityFormData = CreateCommunityDto;
 export class CommunityService {
   // Obtener todas las comunidades del usuario
   async getCommunities(endpoint: string = '/communities'): Promise<Community | Community[]> {
-    const response = await api.get<Community | Community[]>(endpoint);
+    const response = await apiClient.get<Community | Community[]>(endpoint);
     return response.data;
   }
 
   // Obtener una comunidad por ID
   async getCommunityById(id: string): Promise<Community> {
-    const response = await api.get<Community>(`/communities/${id}`);
+    const response = await apiClient.get<Community>(`/communities/${id}`);
     return response.data;
   }
 
   // Crear una nueva comunidad
   async createCommunity(communityData: CreateCommunityDto): Promise<Community> {
-    const response = await api.post<Community>('/communities', communityData);
+    const response = await apiClient.post<Community>('/communities', communityData);
     return response.data;
   }
 
@@ -98,50 +98,50 @@ export class CommunityService {
     id: string,
     communityData: Partial<CreateCommunityDto>,
   ): Promise<Community> {
-    const response = await api.patch<Community>(`/communities/${id}`, communityData);
+    const response = await apiClient.patch<Community>(`/communities/${id}`, communityData);
     return response.data;
   }
 
   // Eliminar una comunidad
   async deleteCommunity(id: string): Promise<void> {
-    await api.delete(`/communities/${id}`);
+    await apiClient.delete(`/communities/${id}`);
   }
 
   // Obtener unidades de una comunidad
   async getCommunityUnits(communityId: string): Promise<Unit[]> {
-    const response = await api.get<Unit[]>(`/communities/${communityId}/units`);
+    const response = await apiClient.get<Unit[]>(`/communities/${communityId}/units`);
     return response.data;
   }
 
   // Agregar una unidad a una comunidad
   async addUnit(communityId: string, unitData: CreateUnitDto): Promise<Unit> {
-    const response = await api.post<Unit>(`/communities/${communityId}/units`, unitData);
+    const response = await apiClient.post<Unit>(`/communities/${communityId}/units`, unitData);
     return response.data;
   }
 
   // Eliminar una unidad
   async removeUnit(unitId: string): Promise<void> {
-    await api.delete(`/communities/units/${unitId}`);
+    await apiClient.delete(`/communities/units/${unitId}`);
   }
 
   // Eliminar un espacio común
   async removeCommonSpace(spaceId: string): Promise<void> {
-    await api.delete(`/communities/common-spaces/${spaceId}`);
+    await apiClient.delete(`/communities/common-spaces/${spaceId}`);
   }
 
   // Métodos estáticos para compatibilidad
   static async getCommunities(endpoint: string = '/communities'): Promise<Community | Community[]> {
-    const response = await api.get<Community | Community[]>(endpoint);
+    const response = await apiClient.get<Community | Community[]>(endpoint);
     return response.data;
   }
 
   static async getCommunityById(id: string): Promise<Community> {
-    const response = await api.get<Community>(`/communities/${id}`);
+    const response = await apiClient.get<Community>(`/communities/${id}`);
     return response.data;
   }
 
   static async createCommunity(communityData: CreateCommunityDto): Promise<Community> {
-    const response = await api.post<Community>('/communities', communityData);
+    const response = await apiClient.post<Community>('/communities', communityData);
     return response.data;
   }
 
@@ -149,30 +149,30 @@ export class CommunityService {
     id: string,
     communityData: Partial<CreateCommunityDto>,
   ): Promise<Community> {
-    const response = await api.patch<Community>(`/communities/${id}`, communityData);
+    const response = await apiClient.patch<Community>(`/communities/${id}`, communityData);
     return response.data;
   }
 
   static async deleteCommunity(id: string): Promise<void> {
-    await api.delete(`/communities/${id}`);
+    await apiClient.delete(`/communities/${id}`);
   }
 
   static async getCommunityUnits(communityId: string): Promise<Unit[]> {
-    const response = await api.get<Unit[]>(`/communities/${communityId}/units`);
+    const response = await apiClient.get<Unit[]>(`/communities/${communityId}/units`);
     return response.data;
   }
 
   static async addUnit(communityId: string, unitData: CreateUnitDto): Promise<Unit> {
-    const response = await api.post<Unit>(`/communities/${communityId}/units`, unitData);
+    const response = await apiClient.post<Unit>(`/communities/${communityId}/units`, unitData);
     return response.data;
   }
 
   static async removeUnit(unitId: string): Promise<void> {
-    await api.delete(`/communities/units/${unitId}`);
+    await apiClient.delete(`/communities/units/${unitId}`);
   }
 
   static async removeCommonSpace(spaceId: string): Promise<void> {
-    await api.delete(`/communities/common-spaces/${spaceId}`);
+    await apiClient.delete(`/communities/common-spaces/${spaceId}`);
   }
 }
 

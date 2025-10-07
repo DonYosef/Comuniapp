@@ -48,4 +48,5 @@ export class CommonExpenseSummaryDto {
   pendingUnits: number;
   overdueUnits: number;
   createdAt: Date;
+  items: CommonExpenseItemResponseDto[]; // ← AGREGAR ITEMS
 }

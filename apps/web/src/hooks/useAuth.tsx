@@ -45,15 +45,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    console.log('🔐 [useAuth] Verificando autenticación...');
     // Verificar si hay un token válido al cargar la app
     const storedToken = AuthService.getToken();
+    console.log('🔐 [useAuth] Token almacenado:', storedToken ? 'Sí' : 'No');
+
     if (storedToken && !AuthService.isTokenExpired()) {
+      console.log('🔐 [useAuth] Token válido encontrado, decodificando...');
       setToken(storedToken);
 
       // Decodificar el token para obtener información del usuario
       try {
         const payload = JSON.parse(atob(storedToken.split('.')[1]));
-        setUser({
+        const userData = {
           id: payload.sub,
           email: payload.email,
           name: payload.name || 'Usuario',
@@ -62,12 +66,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           communities: payload.communities || [],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        });
+        };
+        console.log('🔐 [useAuth] Usuario decodificado:', userData);
+        setUser(userData);
       } catch (error) {
-        console.error('Error al decodificar el token:', error);
+        console.error('❌ [useAuth] Error al decodificar el token:', error);
         // Si hay error, limpiar el token
         AuthService.logout();
       }
+    } else {
+      console.log('❌ [useAuth] No hay token válido o está expirado');
     }
     setIsLoading(false);
   }, []);

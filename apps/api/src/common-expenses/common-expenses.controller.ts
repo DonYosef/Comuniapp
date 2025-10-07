@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { CommonExpensesService } from './common-expenses.service';
 import { CreateCommonExpenseDto } from './dto/create-common-expense.dto';
 import {
@@ -41,5 +41,15 @@ export class CommonExpensesController {
     @Param('id') id: string,
   ): Promise<CommonExpenseResponseDto> {
     return this.commonExpensesService.getCommonExpenseById(user, id);
+  }
+
+  @Put(':id')
+  @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES)
+  async update(
+    @CurrentUser() user: UserPayload,
+    @Param('id') id: string,
+    @Body() updateCommonExpenseDto: Partial<CreateCommonExpenseDto>,
+  ): Promise<CommonExpenseResponseDto> {
+    return this.commonExpensesService.updateCommonExpense(user, id, updateCommonExpenseDto);
   }
 }

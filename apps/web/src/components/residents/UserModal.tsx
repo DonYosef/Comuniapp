@@ -22,7 +22,7 @@ export default function UserModal({
   onSave,
   isLoading = false,
 }: UserModalProps) {
-  const { user: authUser } = useAuth();
+  const { user: authUser, hasRole } = useAuth();
   const { currentCommunity, units } = useCommunity();
   const [formData, setFormData] = useState({
     name: '',
@@ -54,13 +54,16 @@ export default function UserModal({
         unitId: '', // TODO: Obtener unidad del usuario si existe
       });
     } else if (mode === 'create') {
+      // Determinar el rol por defecto basado en el usuario autenticado
+      const defaultRole = hasRole('SUPER_ADMIN') ? 'RESIDENT' : 'RESIDENT';
+
       const initialFormData = {
         name: '',
         email: '',
         password: '',
         phone: '',
         status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE' | 'SUSPENDED',
-        roleName: 'RESIDENT' as
+        roleName: defaultRole as
           | 'SUPER_ADMIN'
           | 'COMMUNITY_ADMIN'
           | 'OWNER'
@@ -71,6 +74,7 @@ export default function UserModal({
       };
       console.log('🔍 [UserModal] Inicializando formulario para crear usuario:');
       console.log('   - roleName inicial:', initialFormData.roleName);
+      console.log('   - Usuario autenticado es SUPER_ADMIN:', hasRole('SUPER_ADMIN'));
       setFormData(initialFormData);
     }
     setErrors({});
@@ -89,6 +93,11 @@ export default function UserModal({
       newErrors.password = 'La contraseña es requerida';
     } else if (mode === 'create' && formData.password.length < 6) {
       newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
+    }
+
+    // Validar que los COMMUNITY_ADMIN no puedan crear otros COMMUNITY_ADMIN
+    if (!hasRole('SUPER_ADMIN') && formData.roleName === 'COMMUNITY_ADMIN') {
+      newErrors.roleName = 'No tienes permisos para crear administradores de comunidad';
     }
 
     setErrors(newErrors);
@@ -368,8 +377,28 @@ export default function UserModal({
                         <option value="OWNER">Propietario</option>
                         <option value="TENANT">Inquilino</option>
                         <option value="CONCIERGE">Conserje</option>
-                        <option value="COMMUNITY_ADMIN">Administrador de Comunidad</option>
+                        {hasRole('SUPER_ADMIN') && (
+                          <option value="COMMUNITY_ADMIN">Administrador de Comunidad</option>
+                        )}
                       </select>
+                      {errors.roleName && (
+                        <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center">
+                          <svg
+                            className="w-4 h-4 mr-1"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          {errors.roleName}
+                        </p>
+                      )}
                     </div>
 
                     <div>

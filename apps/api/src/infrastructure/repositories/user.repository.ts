@@ -69,6 +69,12 @@ export class UserRepository implements IUserRepository {
           },
         },
         communityAdmins: {
+          where: {
+            community: {
+              isActive: true,
+              deletedAt: null,
+            },
+          },
           include: {
             community: true,
           },
@@ -254,6 +260,12 @@ export class UserRepository implements IUserRepository {
           },
         },
         communityAdmins: {
+          where: {
+            community: {
+              isActive: true,
+              deletedAt: null,
+            },
+          },
           include: {
             community: true,
           },
@@ -326,6 +338,12 @@ export class UserRepository implements IUserRepository {
           },
         },
         communityAdmins: {
+          where: {
+            community: {
+              isActive: true,
+              deletedAt: null,
+            },
+          },
           include: {
             community: true,
           },

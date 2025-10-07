@@ -1,4 +1,4 @@
-import { api } from '@/lib/api';
+import { apiClient } from '@/services/api/api-client';
 import {
   CreateCommonExpenseDto,
   CommonExpenseResponseDto,
@@ -11,7 +11,10 @@ export class CommonExpenseService {
   static async createCommonExpense(
     expenseData: CreateCommonExpenseDto,
   ): Promise<CommonExpenseResponseDto> {
-    const response = await api.post<CommonExpenseResponseDto>('/common-expenses', expenseData);
+    const response = await apiClient.post<CommonExpenseResponseDto>(
+      '/common-expenses',
+      expenseData,
+    );
     return response.data;
   }
 
@@ -19,7 +22,7 @@ export class CommonExpenseService {
   static async getCommonExpensesByCommunity(
     communityId: string,
   ): Promise<CommonExpenseSummaryDto[]> {
-    const response = await api.get<CommonExpenseSummaryDto[]>(
+    const response = await apiClient.get<CommonExpenseSummaryDto[]>(
       `/common-expenses?communityId=${communityId}`,
     );
     return response.data;
@@ -27,7 +30,7 @@ export class CommonExpenseService {
 
   // Obtener detalles de un gasto común específico
   static async getCommonExpenseById(id: string): Promise<CommonExpenseResponseDto> {
-    const response = await api.get<CommonExpenseResponseDto>(`/common-expenses/${id}`);
+    const response = await apiClient.get<CommonExpenseResponseDto>(`/common-expenses/${id}`);
     return response.data;
   }
 

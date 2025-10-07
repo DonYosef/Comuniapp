@@ -15,11 +15,15 @@ import {
 import { Type } from 'class-transformer';
 import { ProrrateMethod } from '../../types/prisma.types';
 
-export class CreateCommonExpenseItemDto {
+export class CreateCommunityIncomeItemDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
   name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  categoryId: string;
 
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
@@ -29,13 +33,9 @@ export class CreateCommonExpenseItemDto {
   @IsString()
   @MaxLength(500)
   description?: string;
-
-  @IsOptional()
-  @IsString()
-  categoryId?: string;
 }
 
-export class CreateCommonExpenseDto {
+export class CreateCommunityIncomeDto {
   @IsString()
   @IsNotEmpty()
   communityId: string;
@@ -54,8 +54,8 @@ export class CreateCommonExpenseDto {
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
-  @Type(() => CreateCommonExpenseItemDto)
-  items: CreateCommonExpenseItemDto[];
+  @Type(() => CreateCommunityIncomeItemDto)
+  items: CreateCommunityIncomeItemDto[];
 
   @IsEnum(ProrrateMethod)
   @IsNotEmpty()

@@ -113,19 +113,30 @@ export class AuthService {
 
   // Obtener token
   static getToken(): string | null {
-    return localStorage.getItem('token');
+    const token = localStorage.getItem('token');
+    console.log('🔐 [AuthService] getToken():', token ? 'Token encontrado' : 'No hay token');
+    return token;
   }
 
   // Verificar si el token está expirado (básico)
   static isTokenExpired(): boolean {
     const token = this.getToken();
-    if (!token) return true;
+    if (!token) {
+      console.log('🔐 [AuthService] isTokenExpired(): No hay token');
+      return true;
+    }
 
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const currentTime = Date.now() / 1000;
-      return payload.exp < currentTime;
-    } catch {
+      const isExpired = payload.exp < currentTime;
+      console.log(
+        '🔐 [AuthService] isTokenExpired():',
+        isExpired ? 'Token expirado' : 'Token válido',
+      );
+      return isExpired;
+    } catch (error) {
+      console.log('🔐 [AuthService] isTokenExpired(): Error decodificando token');
       return true;
     }
   }

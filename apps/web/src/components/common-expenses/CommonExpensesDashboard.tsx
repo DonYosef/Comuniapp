@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { CommunityService } from '@/services/communityService';
 import { CommonExpenseService } from '@/services/commonExpenseService';
 import { StatCard, LoadingSpinner } from '@/components/common-expenses/CommonExpenseComponents';
+import MonthlyExpensesTable from '@/components/common-expenses/MonthlyExpensesTableConnected';
 
 // Iconos SVG como componentes
 const CurrencyDollarIcon = () => (
@@ -82,6 +83,7 @@ interface ExpenseSummary {
 
 interface CommonExpensesDashboardProps {
   communityId?: string;
+  key?: number; // Para forzar re-render
 }
 
 export default function CommonExpensesDashboard({ communityId }: CommonExpensesDashboardProps) {
@@ -331,88 +333,16 @@ export default function CommonExpensesDashboard({ communityId }: CommonExpensesD
         </div>
       </div>
 
-      {/* Gastos Recientes */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-900 dark:to-blue-900/20">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg mr-3">
-                <CalendarIcon />
-              </div>
-              Gastos Recientes
-            </h3>
-            <button
-              onClick={() => router.push('/dashboard/comunidad')}
-              className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center"
-            >
-              Ver todos
-              <ArrowRightIcon />
-            </button>
-          </div>
-        </div>
-
-        {recentExpenses.length === 0 ? (
-          <div className="text-center py-12">
-            <CalendarIcon />
-            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-              No hay gastos recientes
-            </h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Los gastos comunes aparecerán aquí una vez que se creen.
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {recentExpenses.map((expense) => {
-              const expenseStats = CommonExpenseService.calculateStats(expense);
-              return (
-                <div
-                  key={expense.id}
-                  className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
-                        <span className="text-sm font-bold text-white">
-                          {expense.period.split('-')[1]}
-                        </span>
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                          {expense.communityName} - {expense.period}
-                        </h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Vence: {new Date(expense.dueDate).toLocaleDateString('es-ES')} |
-                          {expense.totalUnits} unidades |{expenseStats.paymentPercentage.toFixed(1)}
-                          % pagado
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                          ${expense.totalAmount.toFixed(2)}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          ${expenseStats.paidAmount.toFixed(2)} recaudado
-                        </p>
-                      </div>
-                      <button
-                        onClick={() =>
-                          router.push(`/dashboard/comunidad/${expense.communityId}/gastos`)
-                        }
-                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
-                      >
-                        Ver detalles
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      {/* Tabla de Gastos Mensuales */}
+      {communityId && (
+        <MonthlyExpensesTable
+          communityId={communityId}
+          onDataChange={() => {
+            // Refrescar datos del dashboard cuando cambien los gastos
+            fetchDashboardData();
+          }}
+        />
+      )}
 
       {/* Alertas de Gastos Vencidos */}
       {overdueExpenses.length > 0 && (

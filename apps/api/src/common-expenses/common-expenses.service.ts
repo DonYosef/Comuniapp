@@ -89,7 +89,9 @@ export class CommonExpensesService {
     });
 
     if (units.length === 0) {
-      throw new ConflictException('No active units found in the community to prorate expenses.');
+      throw new ConflictException(
+        'No active units found in the community to prorate expenses. Please add units to the community first.',
+      );
     }
 
     let totalCoefficient = 0;
@@ -145,7 +147,12 @@ export class CommonExpensesService {
           prorrateMethod: dto.prorrateMethod,
           items: {
             createMany: {
-              data: dto.items,
+              data: dto.items.map((item) => ({
+                name: item.name,
+                amount: item.amount,
+                description: item.description,
+                categoryId: item.categoryId, // ← AGREGAR CATEGORYID
+              })),
             },
           },
         },
@@ -154,37 +161,43 @@ export class CommonExpensesService {
         },
       });
 
-      const createdUnitExpenses: UnitExpenseResponseDto[] = [];
-      for (const ue of unitExpenses) {
-        const expense = await prisma.expense.create({
-          data: {
-            unitId: ue.unitId,
-            amount: ue.amount,
-            concept: ue.concept,
-            description: ue.description,
-            dueDate: ue.dueDate,
-            status: ue.status,
-            communityExpenseId: createdCommonExpense.id,
+      // Crear todos los gastos de unidades de una vez usando createMany
+      const expenseData = unitExpenses.map((ue) => ({
+        unitId: ue.unitId,
+        amount: ue.amount,
+        concept: ue.concept,
+        description: ue.description,
+        dueDate: ue.dueDate,
+        status: ue.status,
+        communityExpenseId: createdCommonExpense.id,
+      }));
+
+      await prisma.expense.createMany({
+        data: expenseData,
+      });
+
+      // Obtener los gastos creados con sus unidades
+      const createdExpenses = await prisma.expense.findMany({
+        where: { communityExpenseId: createdCommonExpense.id },
+        include: {
+          unit: {
+            select: { number: true },
           },
-          include: {
-            unit: {
-              select: { number: true },
-            },
-          },
-        });
-        createdUnitExpenses.push({
-          id: expense.id,
-          unitId: expense.unitId,
-          unitNumber: expense.unit.number,
-          amount: expense.amount.toNumber(),
-          concept: expense.concept,
-          description: expense.description,
-          dueDate: expense.dueDate,
-          status: expense.status,
-          createdAt: expense.createdAt,
-          updatedAt: expense.updatedAt,
-        });
-      }
+        },
+      });
+
+      const createdUnitExpenses: UnitExpenseResponseDto[] = createdExpenses.map((expense) => ({
+        id: expense.id,
+        unitId: expense.unitId,
+        unitNumber: expense.unit.number,
+        amount: expense.amount.toNumber(),
+        concept: expense.concept,
+        description: expense.description,
+        dueDate: expense.dueDate,
+        status: expense.status,
+        createdAt: expense.createdAt,
+        updatedAt: expense.updatedAt,
+      }));
 
       return { createdCommonExpense, createdUnitExpenses };
     });
@@ -257,6 +270,7 @@ export class CommonExpensesService {
       where: { communityId },
       orderBy: { period: 'desc' },
       include: {
+        items: true, // ← AGREGAR ITEMS
         expenses: {
           select: { status: true },
         },
@@ -278,6 +292,15 @@ export class CommonExpensesService {
       pendingUnits: ce.expenses.filter((e) => e.status === 'PENDING').length,
       overdueUnits: ce.expenses.filter((e) => e.status === 'OVERDUE').length,
       createdAt: ce.createdAt,
+      items: ce.items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        amount: item.amount.toNumber(),
+        description: item.description,
+        categoryId: item.categoryId,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      })), // ← AGREGAR MAPEO DE ITEMS
     }));
   }
 
@@ -362,6 +385,135 @@ export class CommonExpensesService {
       })),
       createdAt: commonExpense.createdAt,
       updatedAt: commonExpense.updatedAt,
+    };
+  }
+
+  async updateCommonExpense(
+    user: UserPayload,
+    id: string,
+    dto: Partial<CreateCommonExpenseDto>,
+  ): Promise<CommonExpenseResponseDto> {
+    // 1. Verificar que el gasto común existe y el usuario tiene permisos
+    const existingExpense = await this.prisma.communityExpense.findUnique({
+      where: { id },
+      include: {
+        community: {
+          include: {
+            organization: {
+              include: {
+                users: {
+                  where: { id: user.id },
+                  include: {
+                    roles: {
+                      include: {
+                        role: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!existingExpense) {
+      throw new NotFoundException(`Common expense with ID ${id} not found`);
+    }
+
+    const userOrgRole = existingExpense.community.organization.users.find((u) => u.id === user.id);
+
+    if (!userOrgRole) {
+      throw new UnauthorizedException('You are not a member of this organization.');
+    }
+
+    const hasPermission = userOrgRole.roles.some((ur) =>
+      ur.role.permissions.includes(Permission.MANAGE_COMMUNITY_EXPENSES),
+    );
+
+    if (!hasPermission) {
+      throw new UnauthorizedException('You do not have permission to update this common expense.');
+    }
+
+    // 2. Actualizar el gasto común
+    const updateData: any = {};
+
+    if (dto.period) updateData.period = dto.period;
+    if (dto.dueDate) updateData.dueDate = dto.dueDate;
+    if (dto.prorrateMethod) updateData.prorrateMethod = dto.prorrateMethod;
+
+    // Si se proporcionan items, actualizarlos
+    if (dto.items) {
+      // Eliminar items existentes
+      await this.prisma.communityExpenseItem.deleteMany({
+        where: { communityExpenseId: id },
+      });
+
+      // Crear nuevos items
+      const items = dto.items.map((item) => ({
+        name: item.name,
+        amount: item.amount,
+        description: item.description,
+        categoryId: item.categoryId, // ← AGREGAR CATEGORYID
+        communityExpenseId: id,
+      }));
+
+      await this.prisma.communityExpenseItem.createMany({
+        data: items,
+      });
+
+      // Recalcular el total
+      const totalAmount = dto.items.reduce((sum, item) => sum + item.amount, 0);
+      updateData.totalAmount = totalAmount;
+    }
+
+    // 3. Actualizar el gasto común
+    const updatedExpense = await this.prisma.communityExpense.update({
+      where: { id },
+      data: updateData,
+      include: {
+        community: {
+          select: { name: true },
+        },
+        items: true,
+        expenses: {
+          include: {
+            unit: {
+              select: { number: true },
+            },
+          },
+        },
+      },
+    });
+
+    // 4. Retornar la respuesta
+    return {
+      id: updatedExpense.id,
+      communityId: updatedExpense.communityId,
+      communityName: updatedExpense.community.name,
+      period: updatedExpense.period,
+      totalAmount: updatedExpense.totalAmount.toNumber(),
+      dueDate: updatedExpense.dueDate,
+      prorrateMethod: updatedExpense.prorrateMethod,
+      items: updatedExpense.items.map((item) => ({
+        ...item,
+        amount: item.amount.toNumber(),
+      })),
+      unitExpenses: updatedExpense.expenses.map((expense) => ({
+        id: expense.id,
+        unitId: expense.unitId,
+        unitNumber: expense.unit.number,
+        amount: expense.amount.toNumber(),
+        concept: expense.concept,
+        description: expense.description,
+        dueDate: expense.dueDate,
+        status: expense.status,
+        createdAt: expense.createdAt,
+        updatedAt: expense.updatedAt,
+      })),
+      createdAt: updatedExpense.createdAt,
+      updatedAt: updatedExpense.updatedAt,
     };
   }
 }

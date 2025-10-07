@@ -53,6 +53,8 @@ model Community {
   communityAdmins   CommunityAdmin[]
   commonSpaces      CommunityCommonSpace[]
   communityExpenses CommunityExpense[]
+  communityIncome   CommunityIncome[]
+  expenseCategories ExpenseCategory[]
   documents         Document[]
   units             Unit[]
 
@@ -198,6 +200,7 @@ model UserUnit {
 model Expense {
   id                 String            @id @default(cuid())
   unitId             String            @map("unit_id")
+  categoryId         String?           @map("category_id")
   amount             Decimal           @db.Decimal(10, 2)
   concept            String
   description        String?
@@ -208,10 +211,12 @@ model Expense {
   communityExpenseId String?           @map("community_expense_id")
   communityExpense   CommunityExpense? @relation(fields: [communityExpenseId], references: [id])
   unit               Unit              @relation(fields: [unitId], references: [id])
+  category           ExpenseCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   payments           Payment[]
 
   @@index([status])
   @@index([communityExpenseId])
+  @@index([categoryId])
   @@map("expenses")
 }
 
@@ -255,13 +260,16 @@ model CommunityExpense {
 model CommunityExpenseItem {
   id                 String           @id @default(cuid())
   communityExpenseId String           @map("community_expense_id")
+  categoryId         String?          @map("category_id")
   name               String
   amount             Decimal          @db.Decimal(10, 2)
   description        String?
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
   communityExpense   CommunityExpense @relation(fields: [communityExpenseId], references: [id], onDelete: Cascade)
+  category           ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
+  @@index([categoryId])
   @@map("community_expense_items")
 }
 
@@ -372,6 +380,59 @@ model Incident {
   user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("incidents")
+}
+
+model ExpenseCategory {
+  id          String                 @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean                @default(true) @map("is_active")
+  communityId String                 @map("community_id")
+  createdAt   DateTime               @default(now()) @map("created_at")
+  updatedAt   DateTime               @updatedAt @map("updated_at")
+  community   Community              @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  expenses    Expense[]
+  expenseItems CommunityExpenseItem[]
+  incomeItems CommunityIncomeItem[]
+
+  @@unique([communityId, name])
+  @@index([communityId])
+  @@index([isActive])
+  @@map("expense_categories")
+}
+
+model CommunityIncome {
+  id             String                 @id @default(cuid())
+  communityId    String                 @map("community_id")
+  period         String
+  totalAmount    Decimal                @map("total_amount") @db.Decimal(10, 2)
+  dueDate        DateTime               @map("due_date")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+  prorrateMethod ProrrateMethod         @default(EQUAL) @map("prorrate_method")
+  community      Community              @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  items          CommunityIncomeItem[]
+
+  @@unique([communityId, period])
+  @@index([communityId])
+  @@index([period])
+  @@map("community_income")
+}
+
+model CommunityIncomeItem {
+  id               String           @id @default(cuid())
+  communityIncomeId String          @map("community_income_id")
+  categoryId       String
+  name             String
+  amount           Decimal          @db.Decimal(10, 2)
+  description      String?
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  communityIncome  CommunityIncome  @relation(fields: [communityIncomeId], references: [id], onDelete: Cascade)
+  category         ExpenseCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([categoryId])
+  @@map("community_income_items")
 }
 
 enum UserStatus {
@@ -487,4 +548,9 @@ enum CommunityType {
 enum ProrrateMethod {
   EQUAL
   COEFFICIENT
+}
+
+enum ExpenseType {
+  EXPENSE
+  INCOME
 }

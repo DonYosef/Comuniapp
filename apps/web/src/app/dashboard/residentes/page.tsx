@@ -16,6 +16,7 @@ import ExportButton from '@/components/residents/ExportButton';
 import ConfirmDeleteModal from '@/components/ui/ConfirmDeleteModal';
 import Pagination from '@/components/ui/Pagination';
 import UsersTableSkeleton from '@/components/ui/SkeletonLoader';
+import CommunitiesDisplay from '@/components/ui/CommunitiesDisplay';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import RoleGuard from '@/components/RoleGuard';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -752,7 +753,7 @@ export default function ResidentsPage() {
                         Residente
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Unidad Asociada
+                        Unidad/Comunidad
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Estado
@@ -840,13 +841,19 @@ export default function ResidentsPage() {
                                 /* Mostrar comunidades para administradores de comunidad */
                                 <>
                                   <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                    Administrador
+                                    Comunidades
                                   </div>
                                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    {resident.communityAdmins
-                                      .map((ca) => ca.community?.name)
-                                      .filter(Boolean)
-                                      .join(', ')}
+                                    <CommunitiesDisplay
+                                      communities={resident.communityAdmins
+                                        .map((ca) => ({
+                                          id: ca.community?.id || '',
+                                          name: ca.community?.name || '',
+                                          address: ca.community?.address || '',
+                                        }))
+                                        .filter((community) => community.name)}
+                                      maxDisplay={1}
+                                    />
                                   </div>
                                 </>
                               ) : (
@@ -1069,10 +1076,21 @@ export default function ResidentsPage() {
                                 .filter(Boolean)
                                 .join(', ')
                             : resident.communityAdmins && resident.communityAdmins.length > 0
-                              ? resident.communityAdmins
-                                  .map((ca) => ca.community?.name)
-                                  .filter(Boolean)
-                                  .join(', ')
+                              ? (() => {
+                                  const communities = resident.communityAdmins
+                                    .map((ca) => ({
+                                      id: ca.community?.id || '',
+                                      name: ca.community?.name || '',
+                                      address: ca.community?.address || '',
+                                    }))
+                                    .filter((community) => community.name);
+
+                                  if (communities.length === 0) return 'Sin asignar';
+
+                                  const hasMore = communities.length > 1;
+
+                                  return hasMore ? 'ver más...' : communities[0].name;
+                                })()
                               : 'Sin asignar'}
                         </p>
                       </div>

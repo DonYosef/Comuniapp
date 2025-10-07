@@ -6,6 +6,8 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { CommonExpensesModule } from './common-expenses/common-expenses.module';
 import { CommunitiesModule } from './communities/communities.module';
+import { ExpenseCategoriesModule } from './expense-categories/expense-categories.module';
+import { CommunityIncomeModule } from './community-income/community-income.module';
 import { ConciergeModule } from './concierge/concierge.module';
 import { ConfigModule } from './config/config.module';
 import { HealthModule } from './health/health.module';
@@ -29,6 +31,8 @@ import { UsersModule } from './users/users.module';
     PublicModule,
     CommunitiesModule,
     CommonExpensesModule,
+    ExpenseCategoriesModule,
+    CommunityIncomeModule,
   ],
   controllers: [AppController],
   providers: [AppService],
