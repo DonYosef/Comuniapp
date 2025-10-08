@@ -270,7 +270,11 @@ export class CommonExpensesService {
       where: { communityId },
       orderBy: { period: 'desc' },
       include: {
-        items: true, // ← AGREGAR ITEMS
+        items: {
+          include: {
+            category: true,
+          },
+        },
         expenses: {
           select: { status: true },
         },
@@ -298,6 +302,13 @@ export class CommonExpensesService {
         amount: item.amount.toNumber(),
         description: item.description,
         categoryId: item.categoryId,
+        category: item.category
+          ? {
+              id: item.category.id,
+              name: item.category.name,
+              description: item.category.description,
+            }
+          : null,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
       })), // ← AGREGAR MAPEO DE ITEMS

@@ -1,0 +1,483 @@
+'use client';
+
+import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  ParcelModal,
+  StatusBadge,
+  useParcels,
+  Toast,
+  ParcelFormData,
+} from '@/components/encomiendas/ParcelComponents';
+import ErrorMessage from '@/components/ui/ErrorMessage';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { useCommunities } from '@/hooks/useCommunities';
+
+// Iconos SVG
+const PackageIcon = () => (
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+    />
+  </svg>
+);
+
+const PlusIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+    />
+  </svg>
+);
+
+const SearchIcon = () => (
+  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+    />
+  </svg>
+);
+
+const FilterIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1 1 0 013 7V4z"
+    />
+  </svg>
+);
+
+interface ParcelItem {
+  id: string;
+  unitNumber: string;
+  description: string;
+  sender: string;
+  senderPhone?: string;
+  recipientName: string;
+  recipientResidence: string;
+  recipientPhone?: string;
+  recipientEmail?: string;
+  conciergeName?: string;
+  conciergePhone?: string;
+  notes?: string;
+  receivedAt: Date;
+  retrievedAt?: Date | null;
+  status: 'RECEIVED' | 'RETRIEVED' | 'EXPIRED';
+  communityName: string;
+}
+
+// Datos mock para encomiendas
+const mockParcels: ParcelItem[] = [
+  {
+    id: '1',
+    unitNumber: '201',
+    description: 'Paquete de Amazon',
+    sender: 'Amazon México',
+    senderPhone: '+52 55 1234 5678',
+    recipientName: 'Juan Pérez',
+    recipientResidence: '201',
+    recipientPhone: '+52 55 9876 5432',
+    recipientEmail: 'juan.perez@email.com',
+    conciergeName: 'Ana Martínez',
+    conciergePhone: '+52 55 2222 3333',
+    receivedAt: new Date('2024-01-10T09:00:00'),
+    retrievedAt: null,
+    status: 'RECEIVED',
+    communityName: 'Residencial Los Pinos',
+  },
+  {
+    id: '2',
+    unitNumber: '201',
+    description: 'Regalo de cumpleaños',
+    sender: 'Familia García',
+    senderPhone: '+52 55 4567 8901',
+    recipientName: 'Juan Pérez',
+    recipientResidence: '201',
+    recipientPhone: '+52 55 9876 5432',
+    recipientEmail: 'juan.perez@email.com',
+    conciergeName: 'Ana Martínez',
+    conciergePhone: '+52 55 2222 3333',
+    receivedAt: new Date('2024-01-12T11:00:00'),
+    retrievedAt: new Date('2024-01-12T18:30:00'),
+    status: 'RETRIEVED',
+    communityName: 'Residencial Los Pinos',
+  },
+  {
+    id: '3',
+    unitNumber: '108',
+    description: 'Documentos importantes',
+    sender: 'Oficina de Gobierno',
+    senderPhone: '+52 55 7890 1234',
+    recipientName: 'Laura Fernández',
+    recipientResidence: '108',
+    recipientPhone: '+52 55 6543 2109',
+    recipientEmail: 'laura.fernandez@email.com',
+    conciergeName: 'Ana Martínez',
+    conciergePhone: '+52 55 2222 3333',
+    receivedAt: new Date('2024-01-08T14:30:00'),
+    retrievedAt: null,
+    status: 'EXPIRED',
+    communityName: 'Residencial Los Pinos',
+  },
+  {
+    id: '4',
+    unitNumber: '108',
+    description: 'Regalo de cumpleaños',
+    sender: 'Familia García',
+    senderPhone: '+52 55 4567 8901',
+    recipientName: 'Laura Fernández',
+    recipientResidence: '108',
+    recipientPhone: '+52 55 6543 2109',
+    recipientEmail: 'laura.fernandez@email.com',
+    conciergeName: 'Ana Martínez',
+    conciergePhone: '+52 55 2222 3333',
+    receivedAt: new Date('2024-01-12T11:00:00'),
+    retrievedAt: new Date('2024-01-12T18:30:00'),
+    status: 'RETRIEVED',
+    communityName: 'Residencial Los Pinos',
+  },
+];
+
+interface DynamicParcelsViewProps {
+  isResidentView?: boolean;
+}
+
+export default function DynamicParcelsView({ isResidentView = false }: DynamicParcelsViewProps) {
+  const { user } = useAuth();
+  const { isLoading: communitiesLoading, error: communitiesError } = useCommunities();
+  const { parcels, isLoading: parcelsLoading, createParcel, markAsRetrieved } = useParcels();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingParcel, setEditingParcel] = useState<ParcelFormData | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+  } | null>(null);
+
+  // Determinar si es vista de residente basado en el rol o prop
+  const isResident = isResidentView || user?.roles?.some((role) => role.name === 'RESIDENT');
+
+  // Combinar datos mock con datos del hook
+  let allParcels: ParcelItem[] = [
+    ...mockParcels,
+    ...parcels.map((p) => ({
+      id: p.id || '',
+      unitNumber: p.unitId,
+      description: p.description,
+      sender: p.sender,
+      senderPhone: p.senderPhone,
+      recipientName: p.recipientName || 'No especificado',
+      recipientResidence: p.recipientResidence || 'No especificado',
+      recipientPhone: p.recipientPhone,
+      recipientEmail: p.recipientEmail,
+      conciergeName: p.conciergeName || 'No especificado',
+      conciergePhone: p.conciergePhone,
+      notes: p.notes,
+      receivedAt: p.receivedAt || new Date(),
+      retrievedAt: p.retrievedAt || null,
+      status: p.status || 'RECEIVED',
+      communityName: 'Residencial Los Pinos',
+    })),
+  ];
+
+  // Si es vista de residente, filtrar solo las encomiendas de su unidad
+  if (isResident && user?.unitId) {
+    allParcels = allParcels.filter((parcel) => parcel.unitNumber === user.unitId);
+  }
+
+  // Filtrar encomiendas
+  const filteredParcels = allParcels.filter((parcel) => {
+    const matchesSearch =
+      parcel.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      parcel.sender.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      parcel.recipientName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || parcel.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const handleCreateParcel = async (data: ParcelFormData) => {
+    try {
+      await createParcel(data);
+      setShowCreateForm(false);
+      setToast({
+        message: 'Encomienda registrada exitosamente',
+        type: 'success',
+      });
+    } catch (error) {
+      setToast({
+        message: 'Error al registrar la encomienda',
+        type: 'error',
+      });
+    }
+  };
+
+  const handleEditParcel = (parcel: ParcelItem) => {
+    setEditingParcel({
+      id: parcel.id,
+      unitId: parcel.unitNumber,
+      description: parcel.description,
+      sender: parcel.sender,
+      senderPhone: parcel.senderPhone || '',
+      recipientName: parcel.recipientName,
+      recipientResidence: parcel.recipientResidence,
+      recipientPhone: parcel.recipientPhone || '',
+      recipientEmail: parcel.recipientEmail || '',
+      conciergeName: parcel.conciergeName || '',
+      conciergePhone: parcel.conciergePhone || '',
+      notes: parcel.notes || '',
+      receivedAt: parcel.receivedAt,
+    });
+  };
+
+  const handleMarkAsRetrieved = async (id: string) => {
+    try {
+      await markAsRetrieved(id);
+      setToast({
+        message: isResident
+          ? 'Encomienda marcada como recibida'
+          : 'Encomienda marcada como retirada',
+        type: 'success',
+      });
+    } catch (error) {
+      setToast({
+        message: isResident ? 'Error al marcar como recibida' : 'Error al marcar como retirada',
+        type: 'error',
+      });
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateForm(false);
+    setEditingParcel(null);
+  };
+
+  if (communitiesLoading || parcelsLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (communitiesError) {
+    return <ErrorMessage message="Error al cargar las comunidades" />;
+  }
+
+  // Configuración dinámica basada en el tipo de vista
+  const config = {
+    title: isResident ? 'Tus Encomiendas' : 'Encomiendas',
+    subtitle: isResident
+      ? 'Gestiona las encomiendas de tu unidad'
+      : 'Gestiona todas las encomiendas',
+    buttonText: 'Registrar Encomienda',
+    buttonColor: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
+    listTitle: isResident ? 'Encomiendas de tu Unidad' : 'Todas las Encomiendas',
+    emptyMessage: isResident
+      ? 'No tienes encomiendas registradas.'
+      : 'No hay encomiendas registradas.',
+    showCreateButton: !isResident, // Solo administradores pueden crear encomiendas
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-blue-100 rounded-lg dark:bg-blue-900/20">
+            <PackageIcon />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{config.title}</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{config.subtitle}</p>
+          </div>
+        </div>
+        {config.showCreateButton && (
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className={`mt-4 sm:mt-0 inline-flex items-center px-4 py-2 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors ${config.buttonColor}`}
+          >
+            <PlusIcon />
+            <span className="ml-2">{config.buttonText}</span>
+          </button>
+        )}
+      </div>
+
+      {/* Filtros */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <SearchIcon />
+            </div>
+            <input
+              type="text"
+              placeholder="Buscar encomiendas..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <div className="flex items-center space-x-2">
+            <FilterIcon />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">Todos los estados</option>
+              <option value="RECEIVED">Recibidas</option>
+              <option value="RETRIEVED">Retiradas</option>
+              <option value="EXPIRED">Vencidas</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Estadísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <div className="flex items-center">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+              <PackageIcon />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Total Encomiendas
+              </p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {allParcels.length}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <div className="flex items-center">
+            <div className="p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
+              <PackageIcon />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Pendientes</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {allParcels.filter((p) => p.status === 'RECEIVED').length}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <div className="flex items-center">
+            <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+              <PackageIcon />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Retiradas</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {allParcels.filter((p) => p.status === 'RETRIEVED').length}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Lista de encomiendas */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">{config.listTitle}</h3>
+        </div>
+        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          {filteredParcels.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <PackageIcon />
+              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+                No hay encomiendas
+              </h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {searchTerm || statusFilter !== 'all'
+                  ? 'No se encontraron encomiendas con los filtros aplicados.'
+                  : config.emptyMessage}
+              </p>
+            </div>
+          ) : (
+            filteredParcels.map((parcel) => (
+              <div key={parcel.id} className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0">
+                        <PackageIcon />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {parcel.description}
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          De: {parcel.sender}
+                        </p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                          Recibido: {parcel.receivedAt.toLocaleDateString()} a las{' '}
+                          {parcel.receivedAt.toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <StatusBadge status={parcel.status} />
+                    {parcel.status === 'RECEIVED' && (
+                      <button
+                        onClick={() => handleMarkAsRetrieved(parcel.id)}
+                        className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+                      >
+                        {isResident ? 'Marcar como recibido' : 'Marcar como retirada'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleEditParcel(parcel)}
+                      className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                    >
+                      Ver detalles
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Modales */}
+      {showCreateForm && (
+        <ParcelModal
+          isOpen={showCreateForm}
+          onClose={handleCloseModal}
+          onSubmit={handleCreateParcel}
+          title="Registrar Nueva Encomienda"
+        />
+      )}
+
+      {editingParcel && (
+        <ParcelModal
+          isOpen={!!editingParcel}
+          onClose={handleCloseModal}
+          onSubmit={handleCreateParcel}
+          title="Detalles de la Encomienda"
+          initialData={editingParcel}
+          readOnly
+        />
+      )}
+
+      {/* Toast */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+    </div>
+  );
+}
