@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import {
   VisitModal,
@@ -12,6 +12,8 @@ import {
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useCommunities } from '@/hooks/useCommunities';
+import { useUnits } from '@/hooks/useUnits';
+import { VisitorsService, VisitorResponse } from '@/services/visitors.service';
 
 // Iconos SVG
 const VisitIcon = () => (
@@ -159,14 +161,10 @@ interface DynamicVisitsViewProps {
 
 export default function DynamicVisitsView({ isResidentView = false }: DynamicVisitsViewProps) {
   const { user } = useAuth();
-  const { isLoading: communitiesLoading, error: communitiesError } = useCommunities();
-  const {
-    visits,
-    isLoading: visitsLoading,
-    createVisit,
-    markAsArrived,
-    markAsCompleted,
-  } = useVisits();
+  const { isLoading: communitiesLoading, error: communitiesError, communities } = useCommunities();
+  const { createVisit, markAsArrived, markAsCompleted } = useVisits();
+  const [visits, setVisits] = useState<VisitorResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -179,27 +177,54 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
   // Determinar si es vista de residente basado en el rol o prop
   const isResident = isResidentView || user?.roles?.some((role) => role.name === 'RESIDENT');
 
-  // Combinar datos mock con datos del hook
+  // Obtener la comunidad del usuario
+  const userCommunity = communities?.[0]; // Asumiendo que el usuario pertenece a una comunidad
+  const { units, isLoading: unitsLoading } = useUnits(userCommunity?.id);
+
+  // Cargar visitas desde la API
+  useEffect(() => {
+    const fetchVisits = async () => {
+      if (!userCommunity) return;
+
+      setIsLoading(true);
+      try {
+        const visitsData = await VisitorsService.getVisitors();
+        setVisits(visitsData);
+      } catch (error) {
+        console.error('Error fetching visits:', error);
+        setToast({
+          message: 'Error al cargar las visitas',
+          type: 'error',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchVisits();
+  }, [userCommunity]);
+
+  // Combinar datos mock con datos reales de la API
   let allVisits: VisitItem[] = [
     ...mockVisits,
     ...visits.map((v) => ({
-      id: v.id || '',
+      id: v.id,
       visitorName: v.visitorName,
-      visitorId: v.visitorId,
+      visitorId: v.visitorDocument,
       visitorPhone: v.visitorPhone,
       visitorEmail: v.visitorEmail,
-      unitId: v.unitId,
-      residentName: v.residentName,
+      unitId: v.unitNumber,
+      residentName: v.residentName || 'No especificado',
       residentPhone: v.residentPhone,
-      visitPurpose: v.visitPurpose,
+      visitPurpose: v.visitPurpose as any,
       expectedArrival: v.expectedArrival,
       expectedDeparture: v.expectedDeparture,
       vehicleInfo: v.vehicleInfo,
       notes: v.notes,
-      status: v.status || 'SCHEDULED',
-      arrivalTime: v.arrivalTime,
-      departureTime: v.departureTime,
-      communityName: 'Residencial Los Pinos',
+      status: v.status,
+      arrivalTime: v.entryDate ? new Date(v.entryDate) : undefined,
+      departureTime: v.exitDate ? new Date(v.exitDate) : undefined,
+      communityName: v.communityName,
     })),
   ];
 
@@ -226,6 +251,10 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
         message: 'Visita registrada exitosamente',
         type: 'success',
       });
+
+      // Recargar las visitas
+      const visitsData = await VisitorsService.getVisitors();
+      setVisits(visitsData);
     } catch (error) {
       setToast({
         message: 'Error al registrar la visita',
@@ -259,6 +288,10 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
         message: 'Visita marcada como llegada',
         type: 'success',
       });
+
+      // Recargar las visitas
+      const visitsData = await VisitorsService.getVisitors();
+      setVisits(visitsData);
     } catch (error) {
       setToast({
         message: 'Error al marcar como llegada',
@@ -274,6 +307,10 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
         message: 'Visita marcada como completada',
         type: 'success',
       });
+
+      // Recargar las visitas
+      const visitsData = await VisitorsService.getVisitors();
+      setVisits(visitsData);
     } catch (error) {
       setToast({
         message: 'Error al marcar como completada',
@@ -298,7 +335,7 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
     return purposes[purpose as keyof typeof purposes] || purpose;
   };
 
-  if (communitiesLoading || visitsLoading) {
+  if (communitiesLoading || isLoading || unitsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <LoadingSpinner />
@@ -517,7 +554,7 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
           isOpen={showCreateForm}
           onClose={handleCloseModal}
           onSubmit={handleCreateVisit}
-          title="Registrar Nueva Visita"
+          units={units}
         />
       )}
 
@@ -526,9 +563,8 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
           isOpen={!!editingVisit}
           onClose={handleCloseModal}
           onSubmit={handleCreateVisit}
-          title="Detalles de la Visita"
           initialData={editingVisit}
-          readOnly
+          units={units}
         />
       )}
 

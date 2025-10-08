@@ -111,6 +111,20 @@ interface ParcelModalProps {
   initialData?: ParcelFormData;
   isEditing?: boolean;
   isLoading?: boolean;
+  units?: Array<{
+    id: string;
+    number: string;
+    floor?: string;
+    type: string;
+    communityName: string;
+    residents: Array<{
+      id: string;
+      name: string;
+      email: string;
+      phone?: string;
+      status: string;
+    }>;
+  }>;
 }
 
 export interface ParcelFormData {
@@ -140,6 +154,7 @@ export const ParcelModal = ({
   initialData,
   isEditing = false,
   isLoading = false,
+  units = [],
 }: ParcelModalProps) => {
   const [formData, setFormData] = useState<ParcelFormData>({
     unitId: '',
@@ -229,12 +244,12 @@ export const ParcelModal = ({
                 }`}
               >
                 <option value="">Seleccionar unidad</option>
-                <option value="101">101</option>
-                <option value="102">102</option>
-                <option value="201">201</option>
-                <option value="202">202</option>
-                <option value="301">301</option>
-                <option value="302">302</option>
+                {units.map((unit) => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.number} - {unit.communityName}
+                    {unit.residents.length > 0 && ` (${unit.residents[0].name})`}
+                  </option>
+                ))}
               </select>
               {errors.unitId && (
                 <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.unitId}</p>
@@ -587,15 +602,8 @@ export const useParcels = () => {
     setError(null);
 
     try {
-      // Simular llamada a API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const newParcel: ParcelFormData = {
-        id: Date.now().toString(),
-        ...data,
-        receivedAt: new Date(),
-        status: 'RECEIVED',
-      };
+      const { ParcelsService } = await import('@/services/parcels.service');
+      const newParcel = await ParcelsService.createParcel(data);
 
       setParcels((prev) => [newParcel, ...prev]);
       return newParcel;
@@ -612,12 +620,10 @@ export const useParcels = () => {
     setError(null);
 
     try {
-      // Simular llamada a API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { ParcelsService } = await import('@/services/parcels.service');
+      const updatedParcel = await ParcelsService.updateParcel(id, data);
 
-      setParcels((prev) =>
-        prev.map((parcel) => (parcel.id === id ? { ...parcel, ...data } : parcel)),
-      );
+      setParcels((prev) => prev.map((parcel) => (parcel.id === id ? updatedParcel : parcel)));
     } catch (err) {
       setError('Error al actualizar la encomienda');
       throw err;
@@ -631,14 +637,10 @@ export const useParcels = () => {
     setError(null);
 
     try {
-      // Simular llamada a API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { ParcelsService } = await import('@/services/parcels.service');
+      const updatedParcel = await ParcelsService.markAsRetrieved(id);
 
-      setParcels((prev) =>
-        prev.map((parcel) =>
-          parcel.id === id ? { ...parcel, status: 'RETRIEVED', retrievedAt: new Date() } : parcel,
-        ),
-      );
+      setParcels((prev) => prev.map((parcel) => (parcel.id === id ? updatedParcel : parcel)));
     } catch (err) {
       setError('Error al marcar como entregado');
       throw err;

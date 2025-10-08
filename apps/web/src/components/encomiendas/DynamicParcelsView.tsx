@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import {
   ParcelModal,
@@ -12,6 +12,8 @@ import {
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useCommunities } from '@/hooks/useCommunities';
+import { useUnits } from '@/hooks/useUnits';
+import { ParcelsService, ParcelResponse } from '@/services/parcels.service';
 
 // Iconos SVG
 const PackageIcon = () => (
@@ -155,8 +157,10 @@ interface DynamicParcelsViewProps {
 
 export default function DynamicParcelsView({ isResidentView = false }: DynamicParcelsViewProps) {
   const { user } = useAuth();
-  const { isLoading: communitiesLoading, error: communitiesError } = useCommunities();
-  const { parcels, isLoading: parcelsLoading, createParcel, markAsRetrieved } = useParcels();
+  const { isLoading: communitiesLoading, error: communitiesError, communities } = useCommunities();
+  const { createParcel, markAsRetrieved } = useParcels();
+  const [parcels, setParcels] = useState<ParcelResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -169,12 +173,39 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
   // Determinar si es vista de residente basado en el rol o prop
   const isResident = isResidentView || user?.roles?.some((role) => role.name === 'RESIDENT');
 
-  // Combinar datos mock con datos del hook
+  // Obtener la comunidad del usuario
+  const userCommunity = communities?.[0]; // Asumiendo que el usuario pertenece a una comunidad
+  const { units, isLoading: unitsLoading } = useUnits(userCommunity?.id);
+
+  // Cargar encomiendas desde la API
+  useEffect(() => {
+    const fetchParcels = async () => {
+      if (!userCommunity) return;
+
+      setIsLoading(true);
+      try {
+        const parcelsData = await ParcelsService.getParcels();
+        setParcels(parcelsData);
+      } catch (error) {
+        console.error('Error fetching parcels:', error);
+        setToast({
+          message: 'Error al cargar las encomiendas',
+          type: 'error',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchParcels();
+  }, [userCommunity]);
+
+  // Combinar datos mock con datos reales de la API
   let allParcels: ParcelItem[] = [
     ...mockParcels,
     ...parcels.map((p) => ({
-      id: p.id || '',
-      unitNumber: p.unitId,
+      id: p.id,
+      unitNumber: p.unitNumber,
       description: p.description,
       sender: p.sender,
       senderPhone: p.senderPhone,
@@ -185,10 +216,10 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
       conciergeName: p.conciergeName || 'No especificado',
       conciergePhone: p.conciergePhone,
       notes: p.notes,
-      receivedAt: p.receivedAt || new Date(),
-      retrievedAt: p.retrievedAt || null,
-      status: p.status || 'RECEIVED',
-      communityName: 'Residencial Los Pinos',
+      receivedAt: new Date(p.receivedAt),
+      retrievedAt: p.retrievedAt ? new Date(p.retrievedAt) : null,
+      status: p.status,
+      communityName: p.communityName,
     })),
   ];
 
@@ -215,6 +246,10 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
         message: 'Encomienda registrada exitosamente',
         type: 'success',
       });
+
+      // Recargar las encomiendas
+      const parcelsData = await ParcelsService.getParcels();
+      setParcels(parcelsData);
     } catch (error) {
       setToast({
         message: 'Error al registrar la encomienda',
@@ -250,6 +285,10 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
           : 'Encomienda marcada como retirada',
         type: 'success',
       });
+
+      // Recargar las encomiendas
+      const parcelsData = await ParcelsService.getParcels();
+      setParcels(parcelsData);
     } catch (error) {
       setToast({
         message: isResident ? 'Error al marcar como recibida' : 'Error al marcar como retirada',
@@ -263,7 +302,7 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
     setEditingParcel(null);
   };
 
-  if (communitiesLoading || parcelsLoading) {
+  if (communitiesLoading || isLoading || unitsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <LoadingSpinner />
@@ -461,7 +500,7 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
           isOpen={showCreateForm}
           onClose={handleCloseModal}
           onSubmit={handleCreateParcel}
-          title="Registrar Nueva Encomienda"
+          units={units}
         />
       )}
 
@@ -470,9 +509,8 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
           isOpen={!!editingParcel}
           onClose={handleCloseModal}
           onSubmit={handleCreateParcel}
-          title="Detalles de la Encomienda"
           initialData={editingParcel}
-          readOnly
+          units={units}
         />
       )}
 

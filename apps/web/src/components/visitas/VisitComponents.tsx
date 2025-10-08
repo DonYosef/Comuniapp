@@ -111,6 +111,20 @@ interface VisitModalProps {
   initialData?: VisitFormData;
   isEditing?: boolean;
   isLoading?: boolean;
+  units?: Array<{
+    id: string;
+    number: string;
+    floor?: string;
+    type: string;
+    communityName: string;
+    residents: Array<{
+      id: string;
+      name: string;
+      email: string;
+      phone?: string;
+      status: string;
+    }>;
+  }>;
 }
 
 export interface VisitFormData {
@@ -139,6 +153,7 @@ export const VisitModal = ({
   initialData,
   isEditing = false,
   isLoading = false,
+  units = [],
 }: VisitModalProps) => {
   const [formData, setFormData] = useState<VisitFormData>({
     visitorName: '',
@@ -355,12 +370,12 @@ export const VisitModal = ({
                   }`}
                 >
                   <option value="">Seleccionar unidad</option>
-                  <option value="101">101</option>
-                  <option value="102">102</option>
-                  <option value="201">201</option>
-                  <option value="202">202</option>
-                  <option value="301">301</option>
-                  <option value="302">302</option>
+                  {units.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.number} - {unit.communityName}
+                      {unit.residents.length > 0 && ` (${unit.residents[0].name})`}
+                    </option>
+                  ))}
                 </select>
                 {errors.unitId && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.unitId}</p>
@@ -656,14 +671,8 @@ export const useVisits = () => {
     setError(null);
 
     try {
-      // Simular llamada a API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const newVisit: VisitFormData = {
-        id: Date.now().toString(),
-        ...data,
-        status: 'SCHEDULED',
-      };
+      const { VisitorsService } = await import('@/services/visitors.service');
+      const newVisit = await VisitorsService.createVisitor(data);
 
       setVisits((prev) => [newVisit, ...prev]);
       return newVisit;
@@ -680,10 +689,10 @@ export const useVisits = () => {
     setError(null);
 
     try {
-      // Simular llamada a API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { VisitorsService } = await import('@/services/visitors.service');
+      const updatedVisit = await VisitorsService.updateVisitor(id, data);
 
-      setVisits((prev) => prev.map((visit) => (visit.id === id ? { ...visit, ...data } : visit)));
+      setVisits((prev) => prev.map((visit) => (visit.id === id ? updatedVisit : visit)));
     } catch (err) {
       setError('Error al actualizar la visita');
       throw err;
@@ -697,14 +706,10 @@ export const useVisits = () => {
     setError(null);
 
     try {
-      // Simular llamada a API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { VisitorsService } = await import('@/services/visitors.service');
+      const updatedVisit = await VisitorsService.markAsArrived(id);
 
-      setVisits((prev) =>
-        prev.map((visit) =>
-          visit.id === id ? { ...visit, status: 'ARRIVED', arrivalTime: new Date() } : visit,
-        ),
-      );
+      setVisits((prev) => prev.map((visit) => (visit.id === id ? updatedVisit : visit)));
     } catch (err) {
       setError('Error al marcar como llegado');
       throw err;
@@ -718,14 +723,10 @@ export const useVisits = () => {
     setError(null);
 
     try {
-      // Simular llamada a API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { VisitorsService } = await import('@/services/visitors.service');
+      const updatedVisit = await VisitorsService.markAsCompleted(id);
 
-      setVisits((prev) =>
-        prev.map((visit) =>
-          visit.id === id ? { ...visit, status: 'COMPLETED', departureTime: new Date() } : visit,
-        ),
-      );
+      setVisits((prev) => prev.map((visit) => (visit.id === id ? updatedVisit : visit)));
     } catch (err) {
       setError('Error al marcar como completada');
       throw err;
