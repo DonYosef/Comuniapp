@@ -111,6 +111,20 @@ interface ParcelModalProps {
   initialData?: ParcelFormData;
   isEditing?: boolean;
   isLoading?: boolean;
+  isReadOnly?: boolean; // Nueva prop para modo solo lectura
+  userUnits?: Array<{
+    id: string;
+    unit: {
+      id: string;
+      number: string;
+      floor?: string;
+      community: {
+        id: string;
+        name: string;
+        address: string;
+      };
+    };
+  }>; // Unidades del usuario para mostrar en modo solo lectura
   units?: Array<{
     id: string;
     number: string;
@@ -154,6 +168,8 @@ export const ParcelModal = ({
   initialData,
   isEditing = false,
   isLoading = false,
+  isReadOnly = false,
+  userUnits = [],
   units = [],
 }: ParcelModalProps) => {
   const [formData, setFormData] = useState<ParcelFormData>({
@@ -196,11 +212,27 @@ export const ParcelModal = ({
   };
 
   const handleChange = (field: keyof ParcelFormData, value: string) => {
+    if (isReadOnly) return; // No permitir cambios en modo solo lectura
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
+
+  // Helper para aplicar clases de solo lectura
+  const getReadOnlyClasses = (baseClasses: string) => {
+    return isReadOnly
+      ? `${baseClasses} bg-gray-100 dark:bg-gray-700 cursor-not-allowed opacity-75`
+      : baseClasses;
+  };
+
+  // Helper para aplicar propiedades de solo lectura a inputs
+  const getInputProps = (field: keyof ParcelFormData) => ({
+    value: formData[field] || '',
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      handleChange(field, e.target.value),
+    disabled: isReadOnly,
+  });
 
   if (!isOpen) return null;
 
@@ -217,44 +249,82 @@ export const ParcelModal = ({
         <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
           <div className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {isEditing ? 'Editar Encomienda' : 'Nueva Encomienda'}
+              {isReadOnly
+                ? 'Detalles de la Encomienda'
+                : isEditing
+                  ? 'Editar Encomienda'
+                  : 'Nueva Encomienda'}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {isEditing
-                ? 'Modifica los datos de la encomienda'
-                : 'Registra una nueva encomienda en el sistema'}
+              {isReadOnly
+                ? 'Información detallada de la encomienda'
+                : isEditing
+                  ? 'Modifica los datos de la encomienda'
+                  : 'Registra una nueva encomienda en el sistema'}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            {/* Unidad */}
-            <div>
-              <label
-                htmlFor="unitId"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Unidad *
-              </label>
-              <select
-                id="unitId"
-                value={formData.unitId}
-                onChange={(e) => handleChange('unitId', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white ${
-                  errors.unitId ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
-                }`}
-              >
-                <option value="">Seleccionar unidad</option>
-                {units.map((unit) => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.number} - {unit.communityName}
-                    {unit.residents.length > 0 && ` (${unit.residents[0].name})`}
-                  </option>
-                ))}
-              </select>
-              {errors.unitId && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.unitId}</p>
-              )}
-            </div>
+            {/* Unidad - Solo mostrar si no es modo solo lectura */}
+            {!isReadOnly && (
+              <div>
+                <label
+                  htmlFor="unitId"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Unidad *
+                </label>
+                <select
+                  id="unitId"
+                  value={formData.unitId}
+                  onChange={(e) => handleChange('unitId', e.target.value)}
+                  disabled={isReadOnly}
+                  className={getReadOnlyClasses(
+                    `w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white ${
+                      errors.unitId ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
+                    }`,
+                  )}
+                >
+                  <option value="">Seleccionar unidad</option>
+                  {units.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.number} - {unit.communityName}
+                      {unit.residents.length > 0 && ` (${unit.residents[0].name})`}
+                    </option>
+                  ))}
+                </select>
+                {errors.unitId && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.unitId}</p>
+                )}
+              </div>
+            )}
+
+            {/* Mostrar información de unidad en modo solo lectura */}
+            {isReadOnly && formData.unitId && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Unidad
+                </label>
+                <div className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white">
+                  {(() => {
+                    // Buscar primero en las unidades del usuario (userUnits)
+                    const userUnit = userUnits.find((uu) => uu.unit.id === formData.unitId);
+                    if (userUnit) {
+                      return `${userUnit.unit.number} - ${userUnit.unit.community.name}`;
+                    }
+
+                    // Si no se encuentra en userUnits, buscar en la lista de unidades disponibles
+                    const unit = units.find((u) => u.id === formData.unitId);
+                    if (unit) {
+                      return `${unit.number} - ${unit.communityName}`;
+                    }
+
+                    // Si no se encuentra, mostrar información básica del unitId
+                    return `Unidad ${formData.unitId}`;
+                  })()}
+                </div>
+              </div>
+            )}
 
             {/* Descripción */}
             <div>
@@ -270,9 +340,12 @@ export const ParcelModal = ({
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
                 placeholder="Ej: Paquete de Amazon, Documentos importantes..."
-                className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white ${
-                  errors.description ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
-                }`}
+                disabled={isReadOnly}
+                className={getReadOnlyClasses(
+                  `w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white ${
+                    errors.description ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
+                  }`,
+                )}
               />
               {errors.description && (
                 <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.description}</p>
@@ -293,9 +366,12 @@ export const ParcelModal = ({
                 value={formData.sender}
                 onChange={(e) => handleChange('sender', e.target.value)}
                 placeholder="Ej: Amazon México, DHL, Familia García..."
-                className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white ${
-                  errors.sender ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
-                }`}
+                disabled={isReadOnly}
+                className={getReadOnlyClasses(
+                  `w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white ${
+                    errors.sender ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
+                  }`,
+                )}
               />
               {errors.sender && (
                 <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.sender}</p>
@@ -313,10 +389,11 @@ export const ParcelModal = ({
               <input
                 type="tel"
                 id="senderPhone"
-                value={formData.senderPhone}
-                onChange={(e) => handleChange('senderPhone', e.target.value)}
+                {...getInputProps('senderPhone')}
                 placeholder="Ej: +52 55 1234 5678"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white"
+                className={getReadOnlyClasses(
+                  'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white',
+                )}
               />
             </div>
 
@@ -351,12 +428,13 @@ export const ParcelModal = ({
               <input
                 type="text"
                 id="recipientName"
-                value={formData.recipientName}
-                onChange={(e) => handleChange('recipientName', e.target.value)}
+                {...getInputProps('recipientName')}
                 placeholder="Ej: Juan Pérez, María García..."
-                className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white ${
-                  errors.recipientName ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
-                }`}
+                className={getReadOnlyClasses(
+                  `w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white ${
+                    errors.recipientName ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
+                  }`,
+                )}
               />
               {errors.recipientName && (
                 <p className="mt-1 text-sm text-red-600 dark:text-red-400">
@@ -376,14 +454,15 @@ export const ParcelModal = ({
               <input
                 type="text"
                 id="recipientResidence"
-                value={formData.recipientResidence}
-                onChange={(e) => handleChange('recipientResidence', e.target.value)}
+                {...getInputProps('recipientResidence')}
                 placeholder="Ej: 101, 205, 302..."
-                className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white ${
-                  errors.recipientResidence
-                    ? 'border-red-300'
-                    : 'border-gray-300 dark:border-gray-600'
-                }`}
+                className={getReadOnlyClasses(
+                  `w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white ${
+                    errors.recipientResidence
+                      ? 'border-red-300'
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`,
+                )}
               />
               {errors.recipientResidence && (
                 <p className="mt-1 text-sm text-red-600 dark:text-red-400">
@@ -403,10 +482,11 @@ export const ParcelModal = ({
               <input
                 type="tel"
                 id="recipientPhone"
-                value={formData.recipientPhone}
-                onChange={(e) => handleChange('recipientPhone', e.target.value)}
+                {...getInputProps('recipientPhone')}
                 placeholder="Ej: +52 55 9876 5432"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white"
+                className={getReadOnlyClasses(
+                  'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white',
+                )}
               />
             </div>
 
@@ -421,10 +501,11 @@ export const ParcelModal = ({
               <input
                 type="email"
                 id="recipientEmail"
-                value={formData.recipientEmail}
-                onChange={(e) => handleChange('recipientEmail', e.target.value)}
+                {...getInputProps('recipientEmail')}
                 placeholder="Ej: juan.perez@email.com"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white"
+                className={getReadOnlyClasses(
+                  'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white',
+                )}
               />
             </div>
 
@@ -459,12 +540,13 @@ export const ParcelModal = ({
               <input
                 type="text"
                 id="conciergeName"
-                value={formData.conciergeName}
-                onChange={(e) => handleChange('conciergeName', e.target.value)}
+                {...getInputProps('conciergeName')}
                 placeholder="Ej: Carlos López, Ana Martínez..."
-                className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white ${
-                  errors.conciergeName ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
-                }`}
+                className={getReadOnlyClasses(
+                  `w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white ${
+                    errors.conciergeName ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
+                  }`,
+                )}
               />
               {errors.conciergeName && (
                 <p className="mt-1 text-sm text-red-600 dark:text-red-400">
@@ -484,10 +566,11 @@ export const ParcelModal = ({
               <input
                 type="tel"
                 id="conciergePhone"
-                value={formData.conciergePhone}
-                onChange={(e) => handleChange('conciergePhone', e.target.value)}
+                {...getInputProps('conciergePhone')}
                 placeholder="Ej: +52 55 1111 2222"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white"
+                className={getReadOnlyClasses(
+                  'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white',
+                )}
               />
             </div>
 
@@ -501,11 +584,12 @@ export const ParcelModal = ({
               </label>
               <textarea
                 id="notes"
-                value={formData.notes}
-                onChange={(e) => handleChange('notes', e.target.value)}
+                {...getInputProps('notes')}
                 rows={3}
                 placeholder="Información adicional sobre la encomienda..."
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white"
+                className={getReadOnlyClasses(
+                  'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white',
+                )}
               />
             </div>
 
@@ -514,17 +598,19 @@ export const ParcelModal = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                className={`${isReadOnly ? 'w-full' : 'flex-1'} px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200`}
               >
-                Cancelar
+                {isReadOnly ? 'Cerrar' : 'Cancelar'}
               </button>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all duration-200"
-              >
-                {isLoading ? 'Guardando...' : isEditing ? 'Actualizar' : 'Registrar'}
-              </button>
+              {!isReadOnly && (
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all duration-200"
+                >
+                  {isLoading ? 'Guardando...' : isEditing ? 'Actualizar' : 'Registrar'}
+                </button>
+              )}
             </div>
           </form>
         </div>

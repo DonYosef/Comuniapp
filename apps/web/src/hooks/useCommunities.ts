@@ -40,15 +40,22 @@ export function useCommunities(): UseCommunitiesResult {
       console.log('🔍 [useCommunities] Comunidades obtenidas:', data);
 
       if (isAdmin) {
-        setCommunities(data);
+        setCommunities(Array.isArray(data) ? data : []);
       } else {
         // Para residentes, data es un objeto único o null
         setCommunities(data ? [data] : []);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar las comunidades.');
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar las comunidades.';
+      setError(errorMessage);
       console.error('❌ [useCommunities] Error fetching communities:', err);
       setCommunities([]); // En caso de error, mostrar lista vacía
+
+      // Si es un error de autenticación, no mostrar error en UI
+      if (errorMessage.includes('No autorizado') || errorMessage.includes('No tienes permisos')) {
+        console.warn('⚠️ [useCommunities] Error de autenticación, no mostrando en UI');
+        setError(null);
+      }
     } finally {
       setIsLoading(false);
     }

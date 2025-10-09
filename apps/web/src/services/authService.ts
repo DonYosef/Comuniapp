@@ -22,6 +22,19 @@ export interface LoginResponse {
       address: string;
       status: string;
     }>;
+    userUnits?: Array<{
+      id: string;
+      unit: {
+        id: string;
+        number: string;
+        floor?: string;
+        community: {
+          id: string;
+          name: string;
+          address: string;
+        };
+      };
+    }>;
     createdAt: string;
     updatedAt: string;
   };
@@ -50,6 +63,9 @@ export class AuthService {
   // Login
   static async login(credentials: LoginRequest): Promise<LoginResponse> {
     const response = await api.post<LoginResponse>('/auth/login', credentials);
+
+    console.log('🔍 [AuthService] login - response data:', response.data);
+    console.log('🔍 [AuthService] login - user units:', response.data.user.userUnits);
 
     // Guardar token en localStorage y cookies
     if (response.data.accessToken) {

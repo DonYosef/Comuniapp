@@ -80,80 +80,8 @@ interface VisitItem {
   communityName: string;
 }
 
-// Datos mock para visitas
-const mockVisits: VisitItem[] = [
-  {
-    id: '1',
-    visitorName: 'María González',
-    visitorId: '12345678',
-    visitorPhone: '+52 55 1234 5678',
-    visitorEmail: 'maria.gonzalez@email.com',
-    unitId: '201',
-    residentName: 'Juan Pérez',
-    residentPhone: '+52 55 9876 5432',
-    visitPurpose: 'personal',
-    expectedArrival: '2024-01-15T10:00:00',
-    expectedDeparture: '2024-01-15T12:00:00',
-    vehicleInfo: 'Honda Civic ABC-123',
-    notes: 'Visita familiar',
-    status: 'SCHEDULED',
-    communityName: 'Residencial Los Pinos',
-  },
-  {
-    id: '2',
-    visitorName: 'Carlos López',
-    visitorId: '87654321',
-    visitorPhone: '+52 55 8765 4321',
-    visitorEmail: 'carlos.lopez@email.com',
-    unitId: '201',
-    residentName: 'Juan Pérez',
-    residentPhone: '+52 55 9876 5432',
-    visitPurpose: 'maintenance',
-    expectedArrival: '2024-01-14T09:00:00',
-    expectedDeparture: '2024-01-14T11:00:00',
-    vehicleInfo: 'Van de servicio XYZ-789',
-    notes: 'Mantenimiento de aire acondicionado',
-    status: 'ARRIVED',
-    arrivalTime: new Date('2024-01-14T09:15:00'),
-    communityName: 'Residencial Los Pinos',
-  },
-  {
-    id: '3',
-    visitorName: 'Ana Martínez',
-    visitorId: '11223344',
-    visitorPhone: '+52 55 1122 3344',
-    visitorEmail: 'ana.martinez@email.com',
-    unitId: '108',
-    residentName: 'Laura Fernández',
-    residentPhone: '+52 55 6543 2109',
-    visitPurpose: 'delivery',
-    expectedArrival: '2024-01-13T14:00:00',
-    expectedDeparture: '2024-01-13T14:30:00',
-    vehicleInfo: 'Moto de reparto',
-    notes: 'Entrega de paquete',
-    status: 'COMPLETED',
-    arrivalTime: new Date('2024-01-13T14:05:00'),
-    departureTime: new Date('2024-01-13T14:25:00'),
-    communityName: 'Residencial Los Pinos',
-  },
-  {
-    id: '4',
-    visitorName: 'Roberto Silva',
-    visitorId: '55667788',
-    visitorPhone: '+52 55 5566 7788',
-    visitorEmail: 'roberto.silva@email.com',
-    unitId: '108',
-    residentName: 'Laura Fernández',
-    residentPhone: '+52 55 6543 2109',
-    visitPurpose: 'business',
-    expectedArrival: '2024-01-12T16:00:00',
-    expectedDeparture: '2024-01-12T18:00:00',
-    vehicleInfo: 'BMW X5 DEF-456',
-    notes: 'Reunión de trabajo',
-    status: 'CANCELLED',
-    communityName: 'Residencial Los Pinos',
-  },
-];
+// Datos mock para visitas - ELIMINADOS
+// Los datos de prueba han sido removidos para mostrar solo datos reales de la API
 
 interface DynamicVisitsViewProps {
   isResidentView?: boolean;
@@ -161,10 +89,16 @@ interface DynamicVisitsViewProps {
 
 export default function DynamicVisitsView({ isResidentView = false }: DynamicVisitsViewProps) {
   const { user, isAdmin } = useAuth();
+
+  // Determinar si es vista de residente basado en el rol o prop
+  const isResident = isResidentView || user?.roles?.some((role) => role.name === 'RESIDENT');
+
+  // Solo cargar comunidades si NO es residente
   const { isLoading: communitiesLoading, error: communitiesError, communities } = useCommunities();
   const { createVisit, markAsArrived, markAsCompleted } = useVisits();
   const [visits, setVisits] = useState<VisitorResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -174,21 +108,40 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
     type: 'success' | 'error' | 'warning' | 'info';
   } | null>(null);
 
-  // Determinar si es vista de residente basado en el rol o prop
-  const isResident = isResidentView || user?.roles?.some((role) => role.name === 'RESIDENT');
+  console.log('🔍 [DynamicVisitsView] user:', user);
+  console.log('🔍 [DynamicVisitsView] isResident:', isResident);
+  console.log('🔍 [DynamicVisitsView] user.userUnits:', user?.userUnits);
 
-  // Obtener la comunidad del usuario
-  const userCommunity = communities?.[0]; // Asumiendo que el usuario pertenece a una comunidad
+  // Obtener la comunidad del usuario (solo para admins)
+  const userCommunity = isResident ? null : communities?.[0];
+  console.log('🔍 [DynamicVisitsView] communities:', communities);
+  console.log('🔍 [DynamicVisitsView] userCommunity:', userCommunity);
   const { units, isLoading: unitsLoading } = useUnits(userCommunity?.id);
+  console.log('🔍 [DynamicVisitsView] units:', units);
 
   // Cargar visitas desde la API
   useEffect(() => {
     const fetchVisits = async () => {
-      if (!userCommunity) return;
+      // Para residentes, no necesitamos userCommunity, solo user.userUnits
+      // Para admins, necesitamos userCommunity
+      if (!isResident && !userCommunity) return;
 
       setIsLoading(true);
       try {
-        const visitsData = await VisitorsService.getVisitors();
+        let visitsData;
+        if (isResident) {
+          // Para residentes, obtener todas las visitas (el backend ya filtra por las unidades del usuario)
+          console.log('👥 [fetchVisits] Resident user - fetching visits (backend will filter)');
+          console.log('🔍 [fetchVisits] Calling VisitorsService.getVisitors()...');
+          visitsData = await VisitorsService.getVisitors();
+          console.log('🔍 [fetchVisits] VisitorsService.getVisitors() response:', visitsData);
+        } else {
+          // Para admins, obtener todas las visitas
+          console.log('👑 [fetchVisits] Admin user - fetching all visits');
+          visitsData = await VisitorsService.getVisitors();
+        }
+
+        console.log('👥 Total visits loaded:', visitsData.length);
         setVisits(visitsData);
       } catch (error) {
         console.error('Error fetching visits:', error);
@@ -202,60 +155,68 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
     };
 
     fetchVisits();
-  }, [userCommunity]);
+  }, [userCommunity, user, isResident]);
 
-  // Combinar datos mock con datos reales de la API
-  // Solo incluir datos mock si NO es admin (para evitar mostrar datos de prueba a administradores)
-  let allVisits: VisitItem[] = [
-    // Solo incluir datos mock si no es admin
-    ...(isAdmin() ? [] : mockVisits),
-    ...visits.map((v) => ({
-      id: v.id,
-      visitorName: v.visitorName,
-      visitorId: v.visitorDocument,
-      visitorPhone: v.visitorPhone,
-      visitorEmail: v.visitorEmail,
-      unitId: v.unitNumber,
-      residentName: v.residentName || 'No especificado',
-      residentPhone: v.residentPhone,
-      visitPurpose: v.visitPurpose as any,
-      expectedArrival: v.expectedArrival,
-      expectedDeparture: v.expectedDeparture,
-      vehicleInfo: v.vehicleInfo,
-      notes: v.notes,
-      status: v.status,
-      arrivalTime: v.entryDate ? new Date(v.entryDate) : undefined,
-      departureTime: v.exitDate ? new Date(v.exitDate) : undefined,
-      communityName: v.communityName,
-    })),
-  ];
+  // Convertir datos reales de la API a formato de visualización
+  let allVisits: VisitItem[] = visits.map((v) => ({
+    id: v.id,
+    visitorName: v.visitorName,
+    visitorId: v.visitorDocument,
+    visitorPhone: v.visitorPhone,
+    visitorEmail: v.visitorEmail,
+    unitId: v.unitNumber,
+    residentName: v.residentName || 'No especificado',
+    residentPhone: v.residentPhone,
+    visitPurpose: v.visitPurpose as any,
+    expectedArrival: v.expectedArrival,
+    expectedDeparture: v.expectedDeparture,
+    vehicleInfo: v.vehicleInfo,
+    notes: v.notes,
+    status: v.status,
+    arrivalTime: v.entryDate ? new Date(v.entryDate) : undefined,
+    departureTime: v.exitDate ? new Date(v.exitDate) : undefined,
+    communityName: v.communityName,
+  }));
 
-  // Si es vista de residente, filtrar solo las visitas de su unidad
-  if (isResident && user?.unitId) {
-    allVisits = allVisits.filter((visit) => visit.unitId === user.unitId);
-  }
+  // Nota: Ya no necesitamos filtrar por unidad aquí porque la API ya devuelve solo las visitas relevantes
+  // para cada tipo de usuario (residente vs admin)
 
   // Filtrar visitas
   const filteredVisits = allVisits.filter((visit) => {
     const matchesSearch =
       visit.visitorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       visit.visitorId.includes(searchTerm) ||
-      visit.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+      visit.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      visit.unitId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      visit.residentName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || visit.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const handleCreateVisit = async (data: VisitFormData) => {
     try {
-      await createVisit(data);
+      // Agregar el hostUserId del usuario autenticado
+      const visitData = {
+        ...data,
+        hostUserId: user?.id || '',
+      };
+
+      await createVisit(visitData);
       setShowCreateForm(false);
       setToast({
         message: 'Visita registrada exitosamente',
         type: 'success',
       });
 
-      // Recargar las visitas
-      const visitsData = await VisitorsService.getVisitors();
+      // Recargar las visitas usando la misma lógica que el useEffect
+      let visitsData;
+      if (isResident) {
+        // Para residentes, obtener todas las visitas (el backend ya filtra por las unidades del usuario)
+        visitsData = await VisitorsService.getVisitors();
+      } else {
+        // Para admins, obtener todas las visitas
+        visitsData = await VisitorsService.getVisitors();
+      }
       setVisits(visitsData);
     } catch (error) {
       setToast({
@@ -265,22 +226,47 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
     }
   };
 
-  const handleEditVisit = (visit: VisitItem) => {
-    setEditingVisit({
-      id: visit.id,
-      visitorName: visit.visitorName,
-      visitorId: visit.visitorId,
-      visitorPhone: visit.visitorPhone || '',
-      visitorEmail: visit.visitorEmail || '',
-      unitId: visit.unitId,
-      residentName: visit.residentName,
-      residentPhone: visit.residentPhone || '',
-      visitPurpose: visit.visitPurpose,
-      expectedArrival: visit.expectedArrival,
-      expectedDeparture: visit.expectedDeparture,
-      vehicleInfo: visit.vehicleInfo || '',
-      notes: visit.notes || '',
-    });
+  const handleEditVisit = async (visit: VisitItem) => {
+    try {
+      setIsLoadingDetails(true);
+
+      // Obtener los datos completos de la visita desde la API
+      const { VisitorsService } = await import('@/services/visitors.service');
+      const visitDetails = await VisitorsService.getVisitor(visit.id);
+
+      console.log('🔍 [handleEditVisit] Visit details from API:', visitDetails);
+
+      // Mapear los datos de la API al formato del formulario
+      setEditingVisit({
+        id: visitDetails.id,
+        visitorName: visitDetails.visitorName,
+        visitorId: visitDetails.visitorDocument, // Mapear visitorDocument a visitorId
+        visitorPhone: visitDetails.visitorPhone || '',
+        visitorEmail: visitDetails.visitorEmail || '',
+        unitId: visitDetails.unitId,
+        residentName: visitDetails.residentName || '',
+        residentPhone: visitDetails.residentPhone || '',
+        visitPurpose: visitDetails.visitPurpose,
+        expectedArrival: visitDetails.expectedArrival
+          ? new Date(visitDetails.expectedArrival).toISOString().slice(0, 16)
+          : '',
+        expectedDeparture: visitDetails.expectedDeparture
+          ? new Date(visitDetails.expectedDeparture).toISOString().slice(0, 16)
+          : '',
+        vehicleInfo: visitDetails.vehicleInfo || '',
+        notes: visitDetails.notes || '',
+        hostUserId: visitDetails.hostUserId,
+        status: visitDetails.status,
+      });
+    } catch (error) {
+      console.error('Error loading visit details:', error);
+      setToast({
+        message: 'Error al cargar los detalles de la visita',
+        type: 'error',
+      });
+    } finally {
+      setIsLoadingDetails(false);
+    }
   };
 
   const handleMarkAsArrived = async (id: string) => {
@@ -504,6 +490,27 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
                         <p className="text-sm text-gray-500 dark:text-gray-400">
                           {getPurposeText(visit.visitPurpose)} • {visit.visitorId}
                         </p>
+                        {/* Mostrar unidad y residente solo para administradores */}
+                        {!isResident && (
+                          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                              />
+                            </svg>
+                            <span>Unidad {visit.unitId}</span>
+                            <span>•</span>
+                            <span>{visit.residentName}</span>
+                          </div>
+                        )}
                         <p className="text-xs text-gray-400 dark:text-gray-500">
                           {new Date(visit.expectedArrival).toLocaleDateString()} de{' '}
                           {new Date(visit.expectedArrival).toLocaleTimeString()} a{' '}
@@ -538,9 +545,10 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
                     )}
                     <button
                       onClick={() => handleEditVisit(visit)}
-                      className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                      disabled={isLoadingDetails}
+                      className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Ver detalles
+                      {isLoadingDetails ? 'Cargando...' : 'Ver detalles'}
                     </button>
                   </div>
                 </div>
@@ -567,6 +575,9 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
           onSubmit={handleCreateVisit}
           initialData={editingVisit}
           units={units}
+          isEditing={!isResident}
+          isReadOnly={isResident}
+          userUnits={user?.userUnits || []}
         />
       )}
 

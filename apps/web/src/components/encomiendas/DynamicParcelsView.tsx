@@ -79,77 +79,8 @@ interface ParcelItem {
   communityName: string;
 }
 
-// Datos mock para encomiendas
-const mockParcels: ParcelItem[] = [
-  {
-    id: '1',
-    unitNumber: '201',
-    description: 'Paquete de Amazon',
-    sender: 'Amazon México',
-    senderPhone: '+52 55 1234 5678',
-    recipientName: 'Juan Pérez',
-    recipientResidence: '201',
-    recipientPhone: '+52 55 9876 5432',
-    recipientEmail: 'juan.perez@email.com',
-    conciergeName: 'Ana Martínez',
-    conciergePhone: '+52 55 2222 3333',
-    receivedAt: new Date('2024-01-10T09:00:00'),
-    retrievedAt: null,
-    status: 'RECEIVED',
-    communityName: 'Residencial Los Pinos',
-  },
-  {
-    id: '2',
-    unitNumber: '201',
-    description: 'Regalo de cumpleaños',
-    sender: 'Familia García',
-    senderPhone: '+52 55 4567 8901',
-    recipientName: 'Juan Pérez',
-    recipientResidence: '201',
-    recipientPhone: '+52 55 9876 5432',
-    recipientEmail: 'juan.perez@email.com',
-    conciergeName: 'Ana Martínez',
-    conciergePhone: '+52 55 2222 3333',
-    receivedAt: new Date('2024-01-12T11:00:00'),
-    retrievedAt: new Date('2024-01-12T18:30:00'),
-    status: 'RETRIEVED',
-    communityName: 'Residencial Los Pinos',
-  },
-  {
-    id: '3',
-    unitNumber: '108',
-    description: 'Documentos importantes',
-    sender: 'Oficina de Gobierno',
-    senderPhone: '+52 55 7890 1234',
-    recipientName: 'Laura Fernández',
-    recipientResidence: '108',
-    recipientPhone: '+52 55 6543 2109',
-    recipientEmail: 'laura.fernandez@email.com',
-    conciergeName: 'Ana Martínez',
-    conciergePhone: '+52 55 2222 3333',
-    receivedAt: new Date('2024-01-08T14:30:00'),
-    retrievedAt: null,
-    status: 'EXPIRED',
-    communityName: 'Residencial Los Pinos',
-  },
-  {
-    id: '4',
-    unitNumber: '108',
-    description: 'Regalo de cumpleaños',
-    sender: 'Familia García',
-    senderPhone: '+52 55 4567 8901',
-    recipientName: 'Laura Fernández',
-    recipientResidence: '108',
-    recipientPhone: '+52 55 6543 2109',
-    recipientEmail: 'laura.fernandez@email.com',
-    conciergeName: 'Ana Martínez',
-    conciergePhone: '+52 55 2222 3333',
-    receivedAt: new Date('2024-01-12T11:00:00'),
-    retrievedAt: new Date('2024-01-12T18:30:00'),
-    status: 'RETRIEVED',
-    communityName: 'Residencial Los Pinos',
-  },
-];
+// Datos mock para encomiendas - ELIMINADOS
+// Los datos de prueba han sido removidos para mostrar solo datos reales de la API
 
 interface DynamicParcelsViewProps {
   isResidentView?: boolean;
@@ -226,30 +157,25 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
     fetchParcels();
   }, [userCommunity, user, isResident]);
 
-  // Combinar datos mock con datos reales de la API
-  // Solo incluir datos mock si NO es admin Y NO es residente (para evitar mostrar datos de prueba a usuarios reales)
-  let allParcels: ParcelItem[] = [
-    // Solo incluir datos mock si no es admin y no es residente (ej: usuarios sin autenticar o demos)
-    ...(isAdmin() || isResident ? [] : mockParcels),
-    ...parcels.map((p) => ({
-      id: p.id,
-      unitNumber: p.unitNumber,
-      description: p.description,
-      sender: p.sender,
-      senderPhone: p.senderPhone,
-      recipientName: p.recipientName || 'No especificado',
-      recipientResidence: p.recipientResidence || 'No especificado',
-      recipientPhone: p.recipientPhone,
-      recipientEmail: p.recipientEmail,
-      conciergeName: p.conciergeName || 'No especificado',
-      conciergePhone: p.conciergePhone,
-      notes: p.notes,
-      receivedAt: new Date(p.receivedAt),
-      retrievedAt: p.retrievedAt ? new Date(p.retrievedAt) : null,
-      status: p.status,
-      communityName: p.communityName,
-    })),
-  ];
+  // Convertir datos reales de la API a formato de visualización
+  let allParcels: ParcelItem[] = parcels.map((p) => ({
+    id: p.id,
+    unitNumber: p.unitNumber,
+    description: p.description,
+    sender: p.sender,
+    senderPhone: p.senderPhone,
+    recipientName: p.recipientName || 'No especificado',
+    recipientResidence: p.recipientResidence || 'No especificado',
+    recipientPhone: p.recipientPhone,
+    recipientEmail: p.recipientEmail,
+    conciergeName: p.conciergeName || 'No especificado',
+    conciergePhone: p.conciergePhone,
+    notes: p.notes,
+    receivedAt: new Date(p.receivedAt),
+    retrievedAt: p.retrievedAt ? new Date(p.retrievedAt) : null,
+    status: p.status,
+    communityName: p.communityName,
+  }));
 
   // Nota: Ya no necesitamos filtrar por unidad aquí porque la API ya devuelve solo las encomiendas relevantes
   // para cada tipo de usuario (residente vs admin)
@@ -520,7 +446,7 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
                       onClick={() => handleEditParcel(parcel)}
                       className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                     >
-                      Ver detalles
+                      {isResident ? 'Ver detalles' : 'Editar'}
                     </button>
                   </div>
                 </div>
@@ -546,6 +472,8 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
           onClose={handleCloseModal}
           onSubmit={handleCreateParcel}
           initialData={editingParcel}
+          isReadOnly={isResident} // Solo lectura para residentes
+          userUnits={user?.userUnits || []} // Pasar las unidades del usuario
           units={units}
         />
       )}

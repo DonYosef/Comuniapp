@@ -131,8 +131,24 @@ export class CommunityService {
 
   // Métodos estáticos para compatibilidad
   static async getCommunities(endpoint: string = '/communities'): Promise<Community | Community[]> {
-    const response = await apiClient.get<Community | Community[]>(endpoint);
-    return response.data;
+    try {
+      console.log('🔍 [CommunityService] getCommunities - endpoint:', endpoint);
+      const response = await apiClient.get<Community | Community[]>(endpoint);
+      console.log('✅ [CommunityService] getCommunities - response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ [CommunityService] getCommunities - error:', error);
+      // Si es un error 401, re-lanzar para que se maneje en el hook
+      if (error.response?.status === 401) {
+        throw new Error('No autorizado. Por favor, inicia sesión nuevamente.');
+      }
+      // Si es un error 403, re-lanzar para que se maneje en el hook
+      if (error.response?.status === 403) {
+        throw new Error('No tienes permisos para acceder a esta información.');
+      }
+      // Para otros errores, re-lanzar con mensaje genérico
+      throw new Error('Error al cargar las comunidades. Por favor, intenta nuevamente.');
+    }
   }
 
   static async getCommunityById(id: string): Promise<Community> {

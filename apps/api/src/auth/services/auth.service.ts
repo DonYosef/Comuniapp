@@ -130,6 +130,12 @@ export class AuthService {
         },
       })) || [];
 
+    console.log(
+      '🔍 [AuthService] login - userWithPermissions:',
+      JSON.stringify(userWithPermissions, null, 2),
+    );
+    console.log('🔍 [AuthService] login - userUnits:', (userWithPermissions as any).userUnits);
+
     return {
       user: userWithPermissions,
       accessToken,

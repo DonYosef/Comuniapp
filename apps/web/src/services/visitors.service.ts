@@ -57,7 +57,10 @@ export interface VisitorResponse {
 export class VisitorsService {
   static async getVisitors(unitId?: string): Promise<VisitorResponse[]> {
     const params = unitId ? { unitId } : {};
+    console.log('🔍 [VisitorsService] getVisitors - params:', params);
+    console.log('🔍 [VisitorsService] getVisitors - calling /visitors with params:', params);
     const response = await apiClient.get('/visitors', { params });
+    console.log('🔍 [VisitorsService] getVisitors - response:', response.data);
     return response.data;
   }
 
@@ -67,12 +70,27 @@ export class VisitorsService {
   }
 
   static async createVisitor(data: VisitorFormData): Promise<VisitorResponse> {
-    const response = await apiClient.post('/visitors', data);
+    // Mapear los campos del frontend al formato esperado por el backend
+    const backendData = {
+      ...data,
+      visitorDocument: data.visitorDocument, // El campo ya está correcto en VisitorFormData
+    };
+
+    // Eliminar campos que no existen en el esquema de Prisma
+    delete (backendData as any).visitorId;
+
+    console.log('🔍 [VisitorsService] createVisitor - data enviada:', backendData);
+
+    const response = await apiClient.post('/visitors', backendData);
     return response.data;
   }
 
   static async updateVisitor(id: string, data: Partial<VisitorFormData>): Promise<VisitorResponse> {
-    const response = await apiClient.patch(`/visitors/${id}`, data);
+    // Eliminar campos que no existen en el esquema de Prisma
+    const cleanData = { ...data };
+    delete (cleanData as any).visitorId;
+
+    const response = await apiClient.patch(`/visitors/${id}`, cleanData);
     return response.data;
   }
 
