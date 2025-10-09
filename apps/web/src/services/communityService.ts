@@ -1,4 +1,4 @@
-import { apiClient } from '@/services/api/api-client';
+import { apiClient } from '@/services/api';
 
 export interface Community {
   id: string;

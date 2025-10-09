@@ -160,7 +160,7 @@ interface DynamicVisitsViewProps {
 }
 
 export default function DynamicVisitsView({ isResidentView = false }: DynamicVisitsViewProps) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { isLoading: communitiesLoading, error: communitiesError, communities } = useCommunities();
   const { createVisit, markAsArrived, markAsCompleted } = useVisits();
   const [visits, setVisits] = useState<VisitorResponse[]>([]);
@@ -205,8 +205,10 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
   }, [userCommunity]);
 
   // Combinar datos mock con datos reales de la API
+  // Solo incluir datos mock si NO es admin (para evitar mostrar datos de prueba a administradores)
   let allVisits: VisitItem[] = [
-    ...mockVisits,
+    // Solo incluir datos mock si no es admin
+    ...(isAdmin() ? [] : mockVisits),
     ...visits.map((v) => ({
       id: v.id,
       visitorName: v.visitorName,

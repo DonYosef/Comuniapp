@@ -360,7 +360,39 @@ export class CommunitiesService {
   }
 
   async getCommunityById(id: string, userId: string) {
-    // Verificar que el usuario es administrador de la comunidad
+    // Primero verificar si el usuario es SUPER_ADMIN
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    const isSuperAdmin = user?.roles.some((ur) => ur.role.name === 'SUPER_ADMIN');
+
+    if (isSuperAdmin) {
+      // SUPER_ADMIN puede acceder a cualquier comunidad
+      const community = await this.prisma.community.findUnique({
+        where: { id },
+        include: {
+          organization: true,
+          units: true,
+          commonSpaces: true,
+        },
+      });
+
+      if (!community) {
+        throw new NotFoundException('Comunidad no encontrada');
+      }
+
+      return community;
+    }
+
+    // Para otros usuarios, verificar que es administrador de la comunidad
     const communityAdmin = await this.prisma.communityAdmin.findUnique({
       where: {
         communityId_userId: {

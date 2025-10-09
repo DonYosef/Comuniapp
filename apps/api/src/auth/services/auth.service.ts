@@ -100,7 +100,7 @@ export class AuthService {
       user.updatedAt,
     );
 
-    // Agregar roles y comunidades al objeto de usuario
+    // Agregar roles, comunidades y unidades al objeto de usuario
     (userWithPermissions as any).roles = userWithRoles.roles.map((ur) => ({
       id: ur.role.id,
       name: ur.role.name,
@@ -113,6 +113,21 @@ export class AuthService {
         name: ca.community.name,
         address: ca.community.address,
         isActive: ca.community.isActive,
+      })) || [];
+
+    (userWithPermissions as any).userUnits =
+      userWithRoles.userUnits?.map((uu) => ({
+        id: uu.id,
+        unit: {
+          id: uu.unit.id,
+          number: uu.unit.number,
+          floor: uu.unit.floor,
+          community: {
+            id: uu.unit.community.id,
+            name: uu.unit.community.name,
+            address: uu.unit.community.address,
+          },
+        },
       })) || [];
 
     return {

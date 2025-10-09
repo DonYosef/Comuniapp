@@ -156,8 +156,14 @@ interface DynamicParcelsViewProps {
 }
 
 export default function DynamicParcelsView({ isResidentView = false }: DynamicParcelsViewProps) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+
+  // Determinar si es vista de residente basado en el rol o prop
+  const isResident = isResidentView || user?.roles?.some((role) => role.name === 'RESIDENT');
+
+  // Solo cargar comunidades si NO es residente
   const { isLoading: communitiesLoading, error: communitiesError, communities } = useCommunities();
+
   const { createParcel, markAsRetrieved } = useParcels();
   const [parcels, setParcels] = useState<ParcelResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -170,9 +176,6 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
     type: 'success' | 'error' | 'warning' | 'info';
   } | null>(null);
 
-  // Determinar si es vista de residente basado en el rol o prop
-  const isResident = isResidentView || user?.roles?.some((role) => role.name === 'RESIDENT');
-
   // Obtener la comunidad del usuario
   const userCommunity = communities?.[0]; // Asumiendo que el usuario pertenece a una comunidad
   const { units, isLoading: unitsLoading } = useUnits(userCommunity?.id);
@@ -180,11 +183,34 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
   // Cargar encomiendas desde la API
   useEffect(() => {
     const fetchParcels = async () => {
-      if (!userCommunity) return;
+      // Para residentes, no necesitamos userCommunity, solo user.userUnits
+      // Para admins, necesitamos userCommunity
+      if (!isResident && !userCommunity) return;
 
       setIsLoading(true);
       try {
-        const parcelsData = await ParcelsService.getParcels();
+        // Si es residente y tiene unidades, obtener solo las encomiendas de sus unidades
+        let parcelsData;
+        if (isResident && user?.userUnits && user.userUnits.length > 0) {
+          // Para residentes, obtener encomiendas de todas sus unidades
+          const userUnitIds = user.userUnits.map((userUnit) => userUnit.unit?.id).filter(Boolean);
+          console.log('🔍 Resident user units:', userUnitIds);
+          parcelsData = [];
+
+          // Obtener encomiendas para cada unidad del usuario
+          for (const unitId of userUnitIds) {
+            console.log('📦 Fetching parcels for unit:', unitId);
+            const unitParcels = await ParcelsService.getParcels(unitId);
+            console.log('📦 Parcels found for unit:', unitId, unitParcels.length);
+            parcelsData.push(...unitParcels);
+          }
+        } else {
+          // Para admins, obtener todas las encomiendas
+          console.log('👑 Admin user - fetching all parcels');
+          parcelsData = await ParcelsService.getParcels();
+        }
+
+        console.log('📦 Total parcels loaded:', parcelsData.length);
         setParcels(parcelsData);
       } catch (error) {
         console.error('Error fetching parcels:', error);
@@ -198,11 +224,13 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
     };
 
     fetchParcels();
-  }, [userCommunity]);
+  }, [userCommunity, user, isResident]);
 
   // Combinar datos mock con datos reales de la API
+  // Solo incluir datos mock si NO es admin Y NO es residente (para evitar mostrar datos de prueba a usuarios reales)
   let allParcels: ParcelItem[] = [
-    ...mockParcels,
+    // Solo incluir datos mock si no es admin y no es residente (ej: usuarios sin autenticar o demos)
+    ...(isAdmin() || isResident ? [] : mockParcels),
     ...parcels.map((p) => ({
       id: p.id,
       unitNumber: p.unitNumber,
@@ -223,17 +251,16 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
     })),
   ];
 
-  // Si es vista de residente, filtrar solo las encomiendas de su unidad
-  if (isResident && user?.unitId) {
-    allParcels = allParcels.filter((parcel) => parcel.unitNumber === user.unitId);
-  }
+  // Nota: Ya no necesitamos filtrar por unidad aquí porque la API ya devuelve solo las encomiendas relevantes
+  // para cada tipo de usuario (residente vs admin)
 
   // Filtrar encomiendas
   const filteredParcels = allParcels.filter((parcel) => {
     const matchesSearch =
       parcel.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       parcel.sender.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      parcel.recipientName.toLowerCase().includes(searchTerm.toLowerCase());
+      parcel.recipientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      parcel.unitNumber.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || parcel.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -302,7 +329,11 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
     setEditingParcel(null);
   };
 
-  if (communitiesLoading || isLoading || unitsLoading) {
+  // Para residentes, solo mostrar loading si está cargando encomiendas
+  // Para admins, mostrar loading si está cargando comunidades, encomiendas o unidades
+  const shouldShowLoading = isLoading || (!isResident && (communitiesLoading || unitsLoading));
+
+  if (shouldShowLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <LoadingSpinner />
@@ -310,7 +341,9 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
     );
   }
 
-  if (communitiesError) {
+  // Para residentes, no mostrar error de comunidades
+  // Para admins, mostrar error de comunidades si existe
+  if (!isResident && communitiesError) {
     return <ErrorMessage message="Error al cargar las comunidades" />;
   }
 
@@ -462,6 +495,9 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
                         </p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
                           De: {parcel.sender}
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Para: {parcel.recipientName} - Unidad {parcel.unitNumber}
                         </p>
                         <p className="text-xs text-gray-400 dark:text-gray-500">
                           Recibido: {parcel.receivedAt.toLocaleDateString()} a las{' '}
