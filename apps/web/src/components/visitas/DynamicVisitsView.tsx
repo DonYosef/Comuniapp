@@ -526,8 +526,8 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
                   </div>
                   <div className="flex items-center space-x-3">
                     <StatusBadge status={visit.status} />
-                    {/* Solo administradores pueden marcar llegadas y salidas */}
-                    {!isResident && visit.status === 'SCHEDULED' && (
+                    {/* Residentes y administradores pueden marcar llegadas y salidas */}
+                    {visit.status === 'SCHEDULED' && (
                       <button
                         onClick={() => handleMarkAsArrived(visit.id)}
                         className="text-sm text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 font-medium"
@@ -535,7 +535,7 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
                         Marcar llegada
                       </button>
                     )}
-                    {!isResident && visit.status === 'ARRIVED' && (
+                    {visit.status === 'ARRIVED' && (
                       <button
                         onClick={() => handleMarkAsCompleted(visit.id)}
                         className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"

@@ -213,7 +213,23 @@ export const ParcelModal = ({
 
   const handleChange = (field: keyof ParcelFormData, value: string) => {
     if (isReadOnly) return; // No permitir cambios en modo solo lectura
-    setFormData((prev) => ({ ...prev, [field]: value }));
+
+    // Si se cambia la unidad, autocompletar el número de residencia del destinatario
+    if (field === 'unitId' && value) {
+      const selectedUnit = units.find((unit) => unit.id === value);
+      if (selectedUnit) {
+        setFormData((prev) => ({
+          ...prev,
+          [field]: value,
+          recipientResidence: selectedUnit.number, // Autocompletar con el número de la unidad
+        }));
+      } else {
+        setFormData((prev) => ({ ...prev, [field]: value }));
+      }
+    } else {
+      setFormData((prev) => ({ ...prev, [field]: value }));
+    }
+
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
