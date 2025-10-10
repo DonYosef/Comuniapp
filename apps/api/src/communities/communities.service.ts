@@ -671,4 +671,33 @@ export class CommunitiesService {
       data: { isActive: false, deletedAt: new Date() },
     });
   }
+
+  async getCommunitiesByOrganization(organizationId: string) {
+    console.log(
+      '🔍 [CommunitiesService] getCommunitiesByOrganization - organizationId:',
+      organizationId,
+    );
+
+    const communities = await this.prisma.community.findMany({
+      where: {
+        organizationId: organizationId,
+        isActive: true,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        type: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    console.log(
+      `🔍 [CommunitiesService] Comunidades encontradas para organización ${organizationId}: ${communities.length}`,
+    );
+    return communities;
+  }
 }

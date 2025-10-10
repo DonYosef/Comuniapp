@@ -44,6 +44,10 @@ export default function UserModal({
 
   useEffect(() => {
     if (user && (mode === 'view' || mode === 'edit')) {
+      // Obtener la unidad actual del usuario si existe
+      const currentUnitId =
+        user.userUnits && user.userUnits.length > 0 ? user.userUnits[0].unit.id : '';
+
       setFormData({
         name: user.name,
         email: user.email,
@@ -51,7 +55,7 @@ export default function UserModal({
         phone: user.phone || '',
         status: user.status,
         roleName: 'RESIDENT', // Por defecto, se puede cambiar si es necesario
-        unitId: '', // TODO: Obtener unidad del usuario si existe
+        unitId: currentUnitId,
       });
     } else if (mode === 'create') {
       // Determinar el rol por defecto basado en el usuario autenticado

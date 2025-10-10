@@ -49,6 +49,7 @@ export interface RegisterRequest {
   confirmPassword: string;
   phone?: string;
   organizationId?: string;
+  communityId?: string;
   acceptTerms: boolean;
 }
 
@@ -57,6 +58,17 @@ export interface RegisterResponse {
   userId: string;
   email: string;
   name: string;
+}
+
+export interface CommunityForRegistration {
+  id: string;
+  name: string;
+  address: string;
+  type: 'CONDOMINIO' | 'EDIFICIO' | 'RESIDENCIAL';
+  organization: {
+    id: string;
+    name: string;
+  };
 }
 
 export class AuthService {
@@ -155,6 +167,12 @@ export class AuthService {
       console.log('🔐 [AuthService] isTokenExpired(): Error decodificando token');
       return true;
     }
+  }
+
+  // Obtener comunidades disponibles para registro
+  static async getCommunitiesForRegistration(): Promise<CommunityForRegistration[]> {
+    const response = await api.get<CommunityForRegistration[]>('/auth/communities');
+    return response.data;
   }
 }
 

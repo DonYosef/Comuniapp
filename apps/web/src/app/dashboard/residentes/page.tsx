@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   useUsers,
   useCreateUser,
@@ -17,6 +17,7 @@ import ConfirmDeleteModal from '@/components/ui/ConfirmDeleteModal';
 import Pagination from '@/components/ui/Pagination';
 import UsersTableSkeleton from '@/components/ui/SkeletonLoader';
 import CommunitiesDisplay from '@/components/ui/CommunitiesDisplay';
+import { CommunityService } from '@/services/communityService';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import RoleGuard from '@/components/RoleGuard';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -29,10 +30,46 @@ interface ResidentFilters {
   building: string;
 }
 
+interface PaginationData {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+interface Community {
+  id: string;
+  name: string;
+  address: string;
+  type: string;
+}
+
+interface UserUnit {
+  id: string;
+  unit: {
+    id: string;
+    number: string;
+    community: {
+      id: string;
+      name: string;
+      address: string;
+    };
+  };
+}
+
+interface CommunityAdmin {
+  id: string;
+  community: {
+    id: string;
+    name: string;
+    address: string;
+  };
+}
+
 export default function ResidentsPage() {
   // Estado para paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize] = useState(20);
 
   // Estado para filtros
   const [filters, setFilters] = useState<ResidentFilters>({
@@ -61,22 +98,107 @@ export default function ResidentsPage() {
   const [modalMode, setModalMode] = useState<'view' | 'edit' | 'create'>('view');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [residentToDelete, setResidentToDelete] = useState<UserResponseDto | null>(null);
+  const [communitiesByOrganization, setCommunitiesByOrganization] = useState<
+    Record<string, Community[]>
+  >({});
 
   // Usar datos paginados si están disponibles, sino usar datos completos
   const residents = useMemo(() => {
-    if (paginatedUsersQuery.data?.users) {
+    if (
+      paginatedUsersQuery.data &&
+      typeof paginatedUsersQuery.data === 'object' &&
+      'users' in paginatedUsersQuery.data
+    ) {
       return Array.isArray(paginatedUsersQuery.data.users) ? paginatedUsersQuery.data.users : [];
     }
     if (!users) return [];
     return Array.isArray(users) ? users : [];
-  }, [paginatedUsersQuery.data?.users, users]);
+  }, [paginatedUsersQuery.data, users]);
 
   // Datos de paginación
-  const paginationData = paginatedUsersQuery.data || {
-    total: users?.length || 0,
-    page: 1,
-    limit: pageSize,
-    totalPages: 1,
+  const paginationData: PaginationData =
+    paginatedUsersQuery.data &&
+    typeof paginatedUsersQuery.data === 'object' &&
+    'total' in paginatedUsersQuery.data
+      ? (paginatedUsersQuery.data as PaginationData)
+      : {
+          total: Array.isArray(users) ? users.length : 0,
+          page: 1,
+          limit: pageSize,
+          totalPages: 1,
+        };
+
+  // Cargar comunidades por organización cuando cambien los residentes
+  useEffect(() => {
+    const loadCommunitiesByOrganization = async () => {
+      const organizationIds = new Set<string>();
+
+      // Recopilar todas las organizationIds únicas de los residentes
+      residents.forEach((resident: UserResponseDto) => {
+        if (resident.organizationId) {
+          organizationIds.add(resident.organizationId);
+        }
+      });
+
+      // Cargar comunidades para cada organización
+      const communitiesPromises = Array.from(organizationIds).map(async (orgId) => {
+        try {
+          const communities = await CommunityService.getCommunitiesByOrganization(orgId);
+          return { orgId, communities };
+        } catch (error) {
+          console.error(`Error cargando comunidades para organización ${orgId}:`, error);
+          return { orgId, communities: [] };
+        }
+      });
+
+      const results = await Promise.all(communitiesPromises);
+      const communitiesMap: Record<string, Community[]> = {};
+
+      results.forEach(({ orgId, communities }) => {
+        communitiesMap[orgId] = communities;
+      });
+
+      setCommunitiesByOrganization(communitiesMap);
+    };
+
+    if (residents.length > 0) {
+      loadCommunitiesByOrganization();
+    }
+  }, [residents]);
+
+  // Función auxiliar para obtener la comunidad del usuario
+  const getUserCommunity = (resident: UserResponseDto) => {
+    // Si tiene unidades asignadas, obtener la comunidad de la primera unidad
+    if (resident.userUnits && resident.userUnits.length > 0) {
+      return resident.userUnits[0].unit.community;
+    }
+
+    // Si es administrador de comunidad, obtener la primera comunidad
+    if (resident.communityAdmins && resident.communityAdmins.length > 0) {
+      return resident.communityAdmins[0].community;
+    }
+
+    // Si tiene organización, buscar comunidades de esa organización
+    if (resident.organizationId) {
+      const communities = communitiesByOrganization[resident.organizationId];
+      if (communities && communities.length > 0) {
+        // Retornar la primera comunidad de la organización
+        return communities[0];
+      }
+    }
+
+    return null;
+  };
+
+  // Función auxiliar para obtener el nombre de la residencia registrada
+  const getRegisteredCommunityName = (resident: UserResponseDto) => {
+    if (resident.organizationId) {
+      const communities = communitiesByOrganization[resident.organizationId];
+      if (communities && communities.length > 0) {
+        return communities[0].name;
+      }
+    }
+    return null;
   };
 
   // Debug: Mostrar estructura de datos recibida
@@ -92,12 +214,16 @@ export default function ResidentsPage() {
   // Filtrar residentes (solo si no estamos usando paginación)
   const filteredResidents = useMemo(() => {
     // Si estamos usando paginación, los filtros se aplican en el backend
-    if (paginatedUsersQuery.data?.users) {
+    if (
+      paginatedUsersQuery.data &&
+      typeof paginatedUsersQuery.data === 'object' &&
+      'users' in paginatedUsersQuery.data
+    ) {
       return residents;
     }
 
     // Si no hay paginación, aplicar filtros localmente
-    return residents.filter((resident) => {
+    return residents.filter((resident: UserResponseDto) => {
       const matchesSearch =
         resident.name.toLowerCase().includes(filters.search.toLowerCase()) ||
         resident.email.toLowerCase().includes(filters.search.toLowerCase());
@@ -109,14 +235,14 @@ export default function ResidentsPage() {
 
       return matchesSearch && matchesStatus && matchesRole && matchesBuilding;
     });
-  }, [residents, filters, paginatedUsersQuery.data?.users]);
+  }, [residents, filters, paginatedUsersQuery.data]);
 
   // Estadísticas
   const stats = useMemo(() => {
     const total = residents.length;
-    const active = residents.filter((r) => r.status === 'ACTIVE').length;
-    const inactive = residents.filter((r) => r.status === 'INACTIVE').length;
-    const suspended = residents.filter((r) => r.status === 'SUSPENDED').length;
+    const active = residents.filter((r: UserResponseDto) => r.status === 'ACTIVE').length;
+    const inactive = residents.filter((r: UserResponseDto) => r.status === 'INACTIVE').length;
+    const suspended = residents.filter((r: UserResponseDto) => r.status === 'SUSPENDED').length;
 
     return { total, active, inactive, suspended };
   }, [residents]);
@@ -176,12 +302,12 @@ export default function ResidentsPage() {
   };
 
   const handleStatusChange = (status: string) => {
-    setFilters((prev) => ({ ...prev, status: status as any }));
+    setFilters((prev) => ({ ...prev, status: status as ResidentFilters['status'] }));
     setCurrentPage(1); // Reset a la primera página al filtrar
   };
 
   const handleRoleChange = (role: string) => {
-    setFilters((prev) => ({ ...prev, role: role as any }));
+    setFilters((prev) => ({ ...prev, role: role as ResidentFilters['role'] }));
     setCurrentPage(1); // Reset a la primera página al filtrar
   };
 
@@ -773,7 +899,7 @@ export default function ResidentsPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredResidents.map((resident) => (
+                    {filteredResidents.map((resident: UserResponseDto) => (
                       <tr
                         key={resident.id}
                         className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200 group"
@@ -785,7 +911,7 @@ export default function ResidentsPage() {
                                 <span className="text-lg font-bold text-white">
                                   {resident.name
                                     .split(' ')
-                                    .map((n) => n[0])
+                                    .map((n: string) => n[0])
                                     .join('')
                                     .slice(0, 2)
                                     .toUpperCase()}
@@ -820,53 +946,85 @@ export default function ResidentsPage() {
                               </svg>
                             </div>
                             <div>
-                              {/* Mostrar unidades para residentes */}
-                              {resident.userUnits && resident.userUnits.length > 0 ? (
-                                <>
-                                  <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                    {resident.userUnits
-                                      .map((userUnit) => userUnit.unit?.number)
-                                      .filter(Boolean)
-                                      .join(', ')}
-                                  </div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    {resident.userUnits
-                                      .map((userUnit) => userUnit.unit?.community?.name)
-                                      .filter(Boolean)
-                                      .join(', ')}
-                                  </div>
-                                </>
-                              ) : resident.communityAdmins &&
-                                resident.communityAdmins.length > 0 ? (
-                                /* Mostrar comunidades para administradores de comunidad */
-                                <>
-                                  <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                    Comunidades
-                                  </div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    <CommunitiesDisplay
-                                      communities={resident.communityAdmins
-                                        .map((ca) => ({
-                                          id: ca.community?.id || '',
-                                          name: ca.community?.name || '',
-                                          address: ca.community?.address || '',
-                                        }))
-                                        .filter((community) => community.name)}
-                                      maxDisplay={1}
-                                    />
-                                  </div>
-                                </>
-                              ) : (
-                                /* Sin asignación */
-                                <>
-                                  <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                    Sin asignar
-                                  </div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    N/A
-                                  </div>
-                                </>
-                              )}
+                              {/* Mostrar información de unidad/comunidad */}
+                              {(() => {
+                                // Si tiene unidades asignadas, mostrar número de unidad
+                                if (resident.userUnits && resident.userUnits.length > 0) {
+                                  return (
+                                    <>
+                                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                        {resident.userUnits
+                                          .map((userUnit: UserUnit) => userUnit.unit?.number)
+                                          .filter(Boolean)
+                                          .join(', ')}
+                                      </div>
+                                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                                        {resident.userUnits
+                                          .map(
+                                            (userUnit: UserUnit) => userUnit.unit?.community?.name,
+                                          )
+                                          .filter(Boolean)
+                                          .join(', ')}
+                                      </div>
+                                    </>
+                                  );
+                                }
+
+                                // Si es administrador de comunidad, mostrar comunidades
+                                if (
+                                  resident.communityAdmins &&
+                                  resident.communityAdmins.length > 0
+                                ) {
+                                  return (
+                                    <>
+                                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                        Comunidades
+                                      </div>
+                                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                                        <CommunitiesDisplay
+                                          communities={resident.communityAdmins
+                                            .map((ca: CommunityAdmin) => ({
+                                              id: ca.community?.id || '',
+                                              name: ca.community?.name || '',
+                                              address: ca.community?.address || '',
+                                            }))
+                                            .filter(
+                                              (community: { name: string }) => community.name,
+                                            )}
+                                          maxDisplay={1}
+                                        />
+                                      </div>
+                                    </>
+                                  );
+                                }
+
+                                // Si tiene organización pero no unidad ni comunidad admin, mostrar "Sin unidad"
+                                if (resident.organizationId) {
+                                  const communityName = getRegisteredCommunityName(resident);
+                                  return (
+                                    <>
+                                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                        Sin unidad
+                                      </div>
+                                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                                        {communityName || 'Registrado'}
+                                      </div>
+                                    </>
+                                  );
+                                }
+
+                                // Sin ninguna relación
+                                return (
+                                  <>
+                                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                      Sin unidad
+                                    </div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                                      Sin asignar
+                                    </div>
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                         </td>
@@ -882,7 +1040,7 @@ export default function ResidentsPage() {
                         </td>
                         <td className="px-6 py-6 whitespace-nowrap">
                           <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getRoleColor(resident.roles?.[0]?.role?.name)}`}
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getRoleColor(resident.roles?.[0]?.role?.name || 'RESIDENT')}`}
                           >
                             <svg
                               className="w-3 h-3 mr-1.5"
@@ -897,7 +1055,7 @@ export default function ResidentsPage() {
                                 d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                               />
                             </svg>
-                            {getRoleText(resident.roles?.[0]?.role?.name)}
+                            {getRoleText(resident.roles?.[0]?.role?.name || 'RESIDENT')}
                           </span>
                         </td>
                         <td className="px-6 py-6 whitespace-nowrap">
@@ -1010,7 +1168,7 @@ export default function ResidentsPage() {
 
               {/* Vista Mobile - Cards */}
               <div className="lg:hidden space-y-4">
-                {filteredResidents.map((resident) => (
+                {filteredResidents.map((resident: UserResponseDto) => (
                   <div
                     key={resident.id}
                     className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 hover:shadow-xl transition-all duration-200"
@@ -1021,7 +1179,7 @@ export default function ResidentsPage() {
                         <span className="text-lg font-bold text-white">
                           {resident.name
                             .split(' ')
-                            .map((n) => n[0])
+                            .map((n: string) => n[0])
                             .join('')
                             .slice(0, 2)
                             .toUpperCase()}
@@ -1065,33 +1223,27 @@ export default function ResidentsPage() {
                     <div className="grid grid-cols-2 gap-3 mb-4">
                       <div>
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                          {resident.userUnits && resident.userUnits.length > 0
-                            ? 'Unidad'
-                            : 'Comunidad'}
+                          Unidad
                         </p>
                         <p className="text-sm text-gray-900 dark:text-white">
-                          {resident.userUnits && resident.userUnits.length > 0
-                            ? resident.userUnits
-                                .map((userUnit) => userUnit.unit?.number)
+                          {(() => {
+                            // Si tiene unidades asignadas, mostrar número de unidad
+                            if (resident.userUnits && resident.userUnits.length > 0) {
+                              return resident.userUnits
+                                .map((userUnit: UserUnit) => userUnit.unit?.number)
                                 .filter(Boolean)
-                                .join(', ')
-                            : resident.communityAdmins && resident.communityAdmins.length > 0
-                              ? (() => {
-                                  const communities = resident.communityAdmins
-                                    .map((ca) => ({
-                                      id: ca.community?.id || '',
-                                      name: ca.community?.name || '',
-                                      address: ca.community?.address || '',
-                                    }))
-                                    .filter((community) => community.name);
+                                .join(', ');
+                            }
 
-                                  if (communities.length === 0) return 'Sin asignar';
+                            // Si tiene organización pero no unidad, mostrar "Sin unidad"
+                            if (resident.organizationId) {
+                              const communityName = getRegisteredCommunityName(resident);
+                              return communityName ? `${communityName} (Sin unidad)` : 'Sin unidad';
+                            }
 
-                                  const hasMore = communities.length > 1;
-
-                                  return hasMore ? 'ver más...' : communities[0].name;
-                                })()
-                              : 'Sin asignar'}
+                            // Sin ninguna relación
+                            return 'Sin unidad';
+                          })()}
                         </p>
                       </div>
                       <div>
@@ -1099,9 +1251,9 @@ export default function ResidentsPage() {
                           Rol
                         </p>
                         <span
-                          className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(resident.roles?.[0]?.role?.name)}`}
+                          className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(resident.roles?.[0]?.role?.name || 'RESIDENT')}`}
                         >
-                          {getRoleText(resident.roles?.[0]?.role?.name)}
+                          {getRoleText(resident.roles?.[0]?.role?.name || 'RESIDENT')}
                         </span>
                       </div>
                     </div>

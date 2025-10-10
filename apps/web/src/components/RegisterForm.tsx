@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from '@/lib/router';
 import { useAuth } from '@/hooks/useAuth';
-import { AuthService, RegisterRequest } from '@/services/authService';
+import { AuthService, RegisterRequest, CommunityForRegistration } from '@/services/authService';
 
 interface RegisterFormData {
   name: string;
@@ -12,6 +12,7 @@ interface RegisterFormData {
   confirmPassword: string;
   phone?: string;
   organizationId?: string;
+  communityId?: string;
   acceptTerms: boolean;
 }
 
@@ -22,6 +23,7 @@ interface RegisterFormErrors {
   confirmPassword?: string;
   phone?: string;
   organizationId?: string;
+  communityId?: string;
   acceptTerms?: string;
   general?: string;
 }
@@ -34,11 +36,14 @@ export default function RegisterForm() {
     confirmPassword: '',
     phone: '',
     organizationId: '',
+    communityId: '',
     acceptTerms: false,
   });
 
   const [errors, setErrors] = useState<RegisterFormErrors>({});
   const [loading, setLoading] = useState(false);
+  const [communities, setCommunities] = useState<CommunityForRegistration[]>([]);
+  const [communitiesLoading, setCommunitiesLoading] = useState(true);
   const router = useRouter();
   const { isAuthenticated } = useAuth();
 
@@ -48,6 +53,24 @@ export default function RegisterForm() {
       router.replace('/dashboard');
     }
   }, [isAuthenticated, router]);
+
+  // Cargar comunidades disponibles para el registro
+  useEffect(() => {
+    const loadCommunities = async () => {
+      try {
+        setCommunitiesLoading(true);
+        const communitiesData = await AuthService.getCommunitiesForRegistration();
+        setCommunities(communitiesData);
+      } catch (error) {
+        console.error('Error al cargar comunidades:', error);
+        setCommunities([]);
+      } finally {
+        setCommunitiesLoading(false);
+      }
+    };
+
+    loadCommunities();
+  }, []);
 
   const validateForm = (): boolean => {
     const newErrors: RegisterFormErrors = {};
@@ -86,6 +109,11 @@ export default function RegisterForm() {
       newErrors.phone = 'El teléfono no es válido';
     }
 
+    // Validar comunidad
+    if (!formData.communityId) {
+      newErrors.communityId = 'Debes seleccionar una residencia';
+    }
+
     // Validar aceptación de términos
     if (!formData.acceptTerms) {
       newErrors.acceptTerms = 'Debes aceptar los términos y condiciones';
@@ -95,8 +123,10 @@ export default function RegisterForm() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+
     setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
@@ -129,6 +159,7 @@ export default function RegisterForm() {
         confirmPassword: formData.confirmPassword,
         phone: formData.phone || undefined,
         organizationId: formData.organizationId || undefined,
+        communityId: formData.communityId || undefined,
         acceptTerms: formData.acceptTerms,
       };
 
@@ -314,6 +345,39 @@ export default function RegisterForm() {
                 />
                 {errors.phone && (
                   <p className="mt-2 text-sm text-red-600 dark:text-red-400">{errors.phone}</p>
+                )}
+              </div>
+
+              {/* Residencia */}
+              <div>
+                <label
+                  htmlFor="communityId"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Residencia *
+                </label>
+                <select
+                  id="communityId"
+                  name="communityId"
+                  required
+                  className="appearance-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white bg-white dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
+                  value={formData.communityId}
+                  onChange={handleInputChange}
+                  disabled={communitiesLoading}
+                >
+                  <option value="">
+                    {communitiesLoading ? 'Cargando residencias...' : 'Selecciona tu residencia'}
+                  </option>
+                  {communities.map((community) => (
+                    <option key={community.id} value={community.id}>
+                      {community.name} - {community.address}
+                    </option>
+                  ))}
+                </select>
+                {errors.communityId && (
+                  <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                    {errors.communityId}
+                  </p>
                 )}
               </div>
 

@@ -81,6 +81,14 @@ export class CommunityService {
     return response.data;
   }
 
+  // Obtener comunidades por organización
+  static async getCommunitiesByOrganization(organizationId: string): Promise<Community[]> {
+    const response = await apiClient.get<Community[]>(
+      `/communities/organization/${organizationId}`,
+    );
+    return response.data;
+  }
+
   // Obtener una comunidad por ID
   async getCommunityById(id: string): Promise<Community> {
     const response = await apiClient.get<Community>(`/communities/${id}`);

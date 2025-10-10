@@ -209,6 +209,22 @@ export class AuthService {
       },
     });
 
+    // Si se especifica una comunidad, obtener su organización y asignarla al usuario
+    if (registerDto.communityId) {
+      const community = await this.prisma.community.findUnique({
+        where: { id: registerDto.communityId },
+        select: { organizationId: true },
+      });
+
+      if (community && community.organizationId) {
+        // Actualizar el usuario con la organización de la comunidad
+        await this.prisma.user.update({
+          where: { id: newUser.id },
+          data: { organizationId: community.organizationId },
+        });
+      }
+    }
+
     // Asignar rol por defecto (RESIDENT) si no se especifica organización
     if (!registerDto.organizationId) {
       const residentRole = await this.prisma.role.findFirst({
@@ -231,5 +247,38 @@ export class AuthService {
       email: newUser.email,
       name: newUser.name,
     };
+  }
+
+  async getCommunitiesForRegistration() {
+    // Obtener todas las comunidades activas disponibles para registro
+    const communities = await this.prisma.community.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        type: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return communities.map((community) => ({
+      id: community.id,
+      name: community.name,
+      address: community.address,
+      type: community.type,
+      organization: community.organization,
+    }));
   }
 }

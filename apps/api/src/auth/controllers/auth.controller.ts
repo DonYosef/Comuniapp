@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
 import { LoginResponseDto } from '../dto/login-response.dto';
@@ -47,6 +47,17 @@ export class AuthController {
   })
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
+  }
+
+  @Get('communities')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Obtener comunidades disponibles para registro' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de comunidades disponibles',
+  })
+  async getCommunitiesForRegistration() {
+    return this.authService.getCommunitiesForRegistration();
   }
 
   @Post('logout')

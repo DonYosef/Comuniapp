@@ -58,6 +58,15 @@ export class RegisterDto {
   organizationId?: string;
 
   @ApiProperty({
+    description: 'ID de la comunidad/residencia',
+    example: 'comm_123',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  communityId?: string;
+
+  @ApiProperty({
     description: 'Aceptación de términos y condiciones',
     example: true,
   })

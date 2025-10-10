@@ -232,6 +232,14 @@ export class UserRepository implements IUserRepository {
     });
   }
 
+  async removeUserUnits(userId: string): Promise<void> {
+    await this.prisma.userUnit.deleteMany({
+      where: {
+        userId: userId,
+      },
+    });
+  }
+
   async findAllCommunityAdmins(): Promise<User[]> {
     console.log(
       '🔍 [UserRepository] findAllCommunityAdmins - buscando todos los administradores de comunidad',
