@@ -4,6 +4,7 @@ import QueryProvider from '@/providers/QueryProvider';
 import { AuthProvider } from '@/hooks/useAuth';
 import { CommunityProvider } from '@/hooks/useCommunity';
 import { ThemeProvider } from '@/hooks/useTheme';
+import { Chatbot } from '@/components/chatbot';
 
 export const metadata: Metadata = {
   title: 'Comuniapp',
@@ -38,7 +39,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider defaultTheme="system" storageKey="comuniapp-theme">
           <AuthProvider>
             <CommunityProvider>
-              <QueryProvider>{children}</QueryProvider>
+              <QueryProvider>
+                {children}
+                <Chatbot />
+              </QueryProvider>
             </CommunityProvider>
           </AuthProvider>
         </ThemeProvider>
