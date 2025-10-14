@@ -81,6 +81,7 @@ model CommunityCommonSpace {
   communityId  String             @map("community_id")
   community    Community          @relation(fields: [communityId], references: [id])
   reservations SpaceReservation[]
+  schedules    SpaceSchedule[]
 
   @@unique([communityId, name])
   @@map("community_common_spaces")
@@ -384,6 +385,21 @@ model SpaceReservation {
   @@map("space_reservations")
 }
 
+model SpaceSchedule {
+  id            String               @id @default(cuid())
+  dayOfWeek     DayOfWeek            @map("day_of_week")
+  startTime     String               @map("start_time")
+  endTime       String               @map("end_time")
+  isActive      Boolean              @default(true) @map("is_active")
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  commonSpaceId String               @map("common_space_id")
+  commonSpace   CommunityCommonSpace @relation(fields: [commonSpaceId], references: [id], onDelete: Cascade)
+
+  @@unique([commonSpaceId, dayOfWeek])
+  @@map("space_schedules")
+}
+
 model Incident {
   id          String         @id @default(cuid())
   userId      String         @map("user_id")
@@ -569,4 +585,14 @@ enum ProrrateMethod {
 enum ExpenseType {
   EXPENSE
   INCOME
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
 }

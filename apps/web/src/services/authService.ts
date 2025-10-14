@@ -85,6 +85,9 @@ export class AuthService {
 
       // También guardar en cookies para el middleware
       document.cookie = `token=${response.data.accessToken}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
+
+      // Disparar evento personalizado para notificar cambios de autenticación
+      window.dispatchEvent(new CustomEvent('auth-change', { detail: { type: 'login' } }));
     }
 
     return response.data;
@@ -125,6 +128,9 @@ export class AuthService {
 
       // Limpiar sessionStorage
       sessionStorage.clear();
+
+      // Disparar evento personalizado para notificar cambios de autenticación
+      window.dispatchEvent(new CustomEvent('auth-change', { detail: { type: 'logout' } }));
 
       // Redirigir al login si es necesario
       if (typeof window !== 'undefined') {

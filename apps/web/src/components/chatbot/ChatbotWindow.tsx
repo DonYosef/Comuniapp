@@ -11,6 +11,7 @@ import {
   EnvelopeIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { ChatbotService } from '../../services/chatbot.service';
 
 interface Message {
   id: string;
@@ -68,53 +69,47 @@ export default function ChatbotWindow({ isOpen, onClose, onMinimize }: ChatbotWi
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const currentInput = inputText.trim();
     setInputText('');
     setIsTyping(true);
 
-    // Simular respuesta del bot
-    setTimeout(
-      () => {
-        const botResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          text: getBotResponse(inputText.trim()),
-          isUser: false,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, botResponse]);
-        setIsTyping(false);
-      },
-      1000 + Math.random() * 1000,
-    );
-  };
+    try {
+      // Llamar a la API real del chatbot
+      const response = await ChatbotService.sendMessage(currentInput);
 
-  const getBotResponse = (userInput: string): string => {
-    const input = userInput.toLowerCase();
+      const botResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        text: response.answer,
+        isUser: false,
+        timestamp: new Date(),
+      };
 
-    if (input.includes('pago') || input.includes('gasto')) {
-      return 'Para consultas sobre pagos y gastos comunes, puedes acceder al módulo de "Gastos Comunes" en el dashboard. ¿Te gustaría que te explique cómo registrar un nuevo gasto?';
+      setMessages((prev) => [...prev, botResponse]);
+    } catch (error) {
+      console.error('Error calling chatbot API:', error);
+
+      let errorMessage =
+        'Lo siento, no pude procesar tu solicitud en este momento. Por favor, intenta nuevamente.';
+
+      // Verificar si es un error de autenticación
+      if (error instanceof Error && error.message.includes('401')) {
+        errorMessage =
+          'Tu sesión ha expirado. Por favor, inicia sesión nuevamente para usar el chatbot.';
+      } else if (error instanceof Error && error.message.includes('403')) {
+        errorMessage = 'No tienes permisos para usar el chatbot. Contacta al administrador.';
+      }
+
+      const fallbackResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        text: errorMessage,
+        isUser: false,
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, fallbackResponse]);
+    } finally {
+      setIsTyping(false);
     }
-
-    if (input.includes('visita') || input.includes('visitante')) {
-      return 'El módulo de visitas te permite registrar y gestionar visitantes. Puedes crear una nueva visita desde el panel de "Control de Visitas". ¿Necesitas ayuda con algún proceso específico?';
-    }
-
-    if (input.includes('encomienda') || input.includes('paquete')) {
-      return 'Las encomiendas se gestionan en el módulo correspondiente. Puedes registrar la llegada de paquetes y notificar a los residentes. ¿Quieres que te muestre cómo hacerlo?';
-    }
-
-    if (input.includes('reserva') || input.includes('espacio')) {
-      return 'Para reservar espacios comunes como salas de juntas o áreas recreativas, utiliza el sistema de reservas. ¿Qué tipo de espacio necesitas reservar?';
-    }
-
-    if (input.includes('incidencia') || input.includes('problema')) {
-      return 'Puedes reportar incidencias o solicitudes desde el módulo correspondiente. Esto nos ayuda a mantener la comunidad en óptimas condiciones. ¿Qué tipo de incidencia quieres reportar?';
-    }
-
-    if (input.includes('ayuda') || input.includes('help')) {
-      return 'Estoy aquí para ayudarte con cualquier consulta sobre Comuniapp. Puedo asistirte con: pagos, visitas, encomiendas, reservas, incidencias y más. ¿Qué necesitas saber?';
-    }
-
-    return 'Gracias por tu mensaje. Un miembro de nuestro equipo te responderá pronto. Mientras tanto, puedes explorar los diferentes módulos de la plataforma o contactarnos directamente.';
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -125,16 +120,15 @@ export default function ChatbotWindow({ isOpen, onClose, onMinimize }: ChatbotWi
   };
 
   const quickActions = [
-    { label: 'Gastos Comunes', icon: '💰' },
-    { label: 'Registrar Visita', icon: '👥' },
-    { label: 'Encomiendas', icon: '📦' },
-    { label: 'Reservar Espacio', icon: '🏢' },
+    { label: 'espacios comunes', icon: '🏢' },
+    { label: 'avisos', icon: '📢' },
+    { label: 'gastos comunes', icon: '💰' },
   ];
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-24 right-6 z-40 w-96 h-[28rem] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
+    <div className="fixed bottom-24 right-6 z-40 w-[28rem] h-[36rem] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
@@ -173,7 +167,7 @@ export default function ChatbotWindow({ isOpen, onClose, onMinimize }: ChatbotWi
           >
             <div
               className={`
-                max-w-sm px-4 py-3 rounded-2xl text-sm
+                max-w-md px-4 py-3 rounded-2xl text-sm
                 ${
                   message.isUser
                     ? 'bg-blue-600 text-white'

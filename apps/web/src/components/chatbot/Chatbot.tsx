@@ -3,22 +3,58 @@
 import { useState, useEffect } from 'react';
 import ChatbotButton from './ChatbotButton';
 import ChatbotWindow from './ChatbotWindow';
+import { AuthService } from '../../services/authService';
 
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Simular mensajes no leídos (en una implementación real, esto vendría de un estado global o API)
+  // Verificar autenticación al montar el componente
   useEffect(() => {
-    if (!isOpen && !isMinimized) {
+    const checkAuth = () => {
+      const authenticated = AuthService.isAuthenticated() && !AuthService.isTokenExpired();
+      setIsAuthenticated(authenticated);
+    };
+
+    checkAuth();
+
+    // Escuchar cambios en el localStorage para detectar login/logout
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'token') {
+        checkAuth();
+      }
+    };
+
+    // Escuchar eventos personalizados de autenticación
+    const handleAuthChange = () => {
+      checkAuth();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('auth-change', handleAuthChange);
+
+    // También verificar periódicamente en caso de que el token expire
+    const interval = setInterval(checkAuth, 5000); // Verificar cada 5 segundos
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('auth-change', handleAuthChange);
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Simular mensajes no leídos solo si está autenticado
+  useEffect(() => {
+    if (isAuthenticated && !isOpen && !isMinimized) {
       const interval = setInterval(() => {
         setUnreadCount((prev) => Math.min(prev + 1, 9));
       }, 30000); // Simular un mensaje cada 30 segundos
 
       return () => clearInterval(interval);
     }
-  }, [isOpen, isMinimized]);
+  }, [isAuthenticated, isOpen, isMinimized]);
 
   const handleToggle = () => {
     if (isOpen) {
@@ -46,6 +82,11 @@ export default function Chatbot() {
     setIsMinimized(false);
     setUnreadCount(0);
   };
+
+  // No mostrar el chatbot si no está autenticado
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <>
