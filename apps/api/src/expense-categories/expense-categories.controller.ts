@@ -25,8 +25,9 @@ export class ExpenseCategoriesController {
   async findByCommunity(
     @CurrentUser() user: UserPayload,
     @Query('communityId') communityId: string,
+    @Query('type') type?: 'EXPENSE' | 'INCOME',
   ): Promise<ExpenseCategoryResponseDto[]> {
-    return this.expenseCategoriesService.getCategoriesByCommunity(user, communityId);
+    return this.expenseCategoriesService.getCategoriesByCommunity(user, communityId, type);
   }
 
   @Get(':id')

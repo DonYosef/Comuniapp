@@ -2,20 +2,26 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useExpenseData } from '@/hooks/useExpenseData';
+import { useIncomeData } from '@/hooks/useIncomeData';
 import ExpenseTableSkeleton from './ExpenseTableSkeleton';
 import { eventBus, EVENTS } from '@/utils/eventBus';
 import { formatCurrency, parseCurrency, formatInputValue } from '@/utils/currencyFormatter';
 import { CommonExpensesService } from '@/services/api/common-expenses.service';
+import { CommunityIncomeService } from '@/services/communityIncomeService';
 import { useToast } from '@/contexts/ToastContext';
 
 interface MonthlyExpensesTableProps {
   communityId: string;
   onDataChange?: () => void; // Callback para notificar cambios
+  onConfigExpenses?: () => void; // Callback para configurar egresos
+  onConfigIncome?: () => void; // Callback para configurar ingresos
 }
 
 export default function MonthlyExpensesTable({
   communityId,
   onDataChange,
+  onConfigExpenses,
+  onConfigIncome,
 }: MonthlyExpensesTableProps) {
   const [expenseType, setExpenseType] = useState<'expenses' | 'income'>('expenses');
   const [expenseValues, setExpenseValues] = useState<Record<string, number>>({});
@@ -29,14 +35,36 @@ export default function MonthlyExpensesTable({
   // Hook para toast notifications
   const { showToast } = useToast();
 
-  // Usar el hook personalizado para manejar los datos
-  const { categories, expenses, isLoading, error, refreshData } = useExpenseData(communityId);
+  // Usar los hooks para manejar los datos
+  const {
+    categories: expenseCategories,
+    expenses,
+    isLoading: expensesLoading,
+    error: expensesError,
+    refreshData: refreshExpenses,
+  } = useExpenseData(communityId);
+  const {
+    categories: incomeCategories,
+    incomes,
+    isLoading: incomesLoading,
+    error: incomesError,
+    refreshData: refreshIncomes,
+  } = useIncomeData(communityId);
+
+  // Determinar qué datos usar según el tipo seleccionado
+  const categories = expenseType === 'expenses' ? expenseCategories : incomeCategories;
+  const isLoading = expenseType === 'expenses' ? expensesLoading : incomesLoading;
+  const error = expenseType === 'expenses' ? expensesError : incomesError;
 
   // Función para refrescar datos cuando se notifica un cambio
   const handleDataChange = useCallback(async () => {
-    await refreshData();
+    if (expenseType === 'expenses') {
+      await refreshExpenses();
+    } else {
+      await refreshIncomes();
+    }
     onDataChange?.();
-  }, [refreshData, onDataChange]);
+  }, [expenseType, refreshExpenses, refreshIncomes, onDataChange]);
 
   // Escuchar eventos de actualización de datos
   useEffect(() => {
@@ -67,21 +95,23 @@ export default function MonthlyExpensesTable({
     }
   }, [handleDataChange]);
 
-  // Inicializar valores de gastos cuando se cargan los datos
+  // Inicializar valores cuando se cargan los datos
   useEffect(() => {
-    if (expenses && expenses.length > 0) {
+    const currentData = expenseType === 'expenses' ? expenses : incomes;
+
+    if (currentData && currentData.length > 0) {
       const initialValues: Record<string, number> = {};
       const initialDisplayValues: Record<string, string> = {};
       const initialDisabledInputs: Record<string, boolean> = {};
 
-      expenses.forEach((expense) => {
+      currentData.forEach((item) => {
         // Solo inicializar si no hay valor guardado
-        if (savedValues[expense.id] === undefined) {
-          initialValues[expense.id] = expense.amount || 0;
-          initialDisplayValues[expense.id] =
-            expense.amount > 0 ? formatInputValue(expense.amount) : '0';
+        if (savedValues[item.id] === undefined) {
+          const amount = expenseType === 'expenses' ? item.amount : item.totalAmount;
+          initialValues[item.id] = amount || 0;
+          initialDisplayValues[item.id] = amount > 0 ? formatInputValue(amount) : '0';
           // Deshabilitar input si tiene valor > 0
-          initialDisabledInputs[expense.id] = (expense.amount || 0) > 0;
+          initialDisabledInputs[item.id] = (amount || 0) > 0;
         }
       });
 
@@ -91,7 +121,7 @@ export default function MonthlyExpensesTable({
         setIsInputDisabled((prev) => ({ ...prev, ...initialDisabledInputs }));
       }
     }
-  }, [expenses, savedValues]);
+  }, [expenseType, expenses, incomes, savedValues]);
 
   const handleValueChange = (expenseId: string, value: string) => {
     const numericValue = parseCurrency(value);
@@ -334,14 +364,32 @@ export default function MonthlyExpensesTable({
   // Memoización de funciones de filtrado para evitar recálculos innecesarios
   const getExpensesByCategory = useCallback(
     (categoryId: string) => {
-      return expenses.filter((expense) => expense.categoryId === categoryId);
+      const currentData = expenseType === 'expenses' ? expenses : incomes;
+      return currentData.filter((item) => {
+        if (expenseType === 'expenses') {
+          return item.categoryId === categoryId;
+        } else {
+          // Para ingresos, verificar si algún item tiene esta categoría
+          return item.items?.some((incomeItem: any) => incomeItem.categoryId === categoryId);
+        }
+      });
     },
-    [expenses],
+    [expenseType, expenses, incomes],
   );
 
   const getExpensesWithoutCategory = useCallback(() => {
-    return expenses.filter((expense) => !expense.categoryId || expense.categoryId === '');
-  }, [expenses]);
+    const currentData = expenseType === 'expenses' ? expenses : incomes;
+    return currentData.filter((item) => {
+      if (expenseType === 'expenses') {
+        return !item.categoryId || item.categoryId === '';
+      } else {
+        // Para ingresos, verificar si algún item no tiene categoría
+        return item.items?.some(
+          (incomeItem: any) => !incomeItem.categoryId || incomeItem.categoryId === '',
+        );
+      }
+    });
+  }, [expenseType, expenses, incomes]);
 
   // Memoización del mes actual para evitar recálculos
   const currentMonth = useMemo(() => {
@@ -363,18 +411,18 @@ export default function MonthlyExpensesTable({
     return `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
   }, []);
 
-  // Memoización de categorías con gastos para optimizar renderizado
-  const categoriesWithExpenses = useMemo(() => {
+  // Memoización de categorías con datos para optimizar renderizado
+  const categoriesWithData = useMemo(() => {
     return categories
       .map((category) => ({
         ...category,
-        expenses: getExpensesByCategory(category.id),
+        items: getExpensesByCategory(category.id),
       }))
-      .filter((cat) => cat.expenses.length > 0);
+      .filter((cat) => cat.items.length > 0);
   }, [categories, getExpensesByCategory]);
 
-  // Memoización de gastos sin categoría
-  const expensesWithoutCategory = useMemo(() => {
+  // Memoización de datos sin categoría
+  const dataWithoutCategory = useMemo(() => {
     return getExpensesWithoutCategory();
   }, [getExpensesWithoutCategory]);
 
@@ -403,7 +451,7 @@ export default function MonthlyExpensesTable({
                   />
                 </svg>
               </div>
-              Gastos Recientes - {currentMonth}
+              {expenseType === 'expenses' ? 'Gastos' : 'Ingresos'} Recientes - {currentMonth}
             </h3>
           </div>
         </div>
@@ -458,31 +506,92 @@ export default function MonthlyExpensesTable({
                 />
               </svg>
             </div>
-            Gastos Recientes - {currentMonth}
+            {expenseType === 'expenses' ? 'Egresos' : 'Ingresos'} Recientes - {currentMonth}
           </h3>
 
-          {/* Selector de tipo */}
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setExpenseType('expenses')}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
-                expenseType === 'expenses'
-                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm border border-gray-200 dark:border-gray-600'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-            >
-              Egresos
-            </button>
-            <button
-              onClick={() => setExpenseType('income')}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
-                expenseType === 'income'
-                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm border border-gray-200 dark:border-gray-600'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-            >
-              Ingresos
-            </button>
+          {/* Botones de configuración y selector de tipo */}
+          <div className="flex items-center space-x-3">
+            {/* Botón de configuración según el tipo activo */}
+            {expenseType === 'expenses' ? (
+              <button
+                onClick={onConfigExpenses}
+                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-200"
+              >
+                <svg
+                  className="w-4 h-4 mr-1.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+                Configurar Egresos
+              </button>
+            ) : (
+              <button
+                onClick={onConfigIncome}
+                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-200"
+              >
+                <svg
+                  className="w-4 h-4 mr-1.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+                Configurar Ingresos
+              </button>
+            )}
+
+            {/* Separador vertical */}
+            <div className="h-8 w-px bg-gray-300 dark:bg-gray-600"></div>
+
+            {/* Selector de tipo */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setExpenseType('expenses')}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
+                  expenseType === 'expenses'
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm border border-gray-200 dark:border-gray-600'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                Egresos
+              </button>
+              <button
+                onClick={() => setExpenseType('income')}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
+                  expenseType === 'income'
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm border border-gray-200 dark:border-gray-600'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                Ingresos
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -531,7 +640,7 @@ export default function MonthlyExpensesTable({
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                    {categoriesWithExpenses.map((category) => {
+                    {categoriesWithData.map((category) => {
                       return (
                         <React.Fragment key={category.id}>
                           {/* Fila de categoría como separador */}
@@ -550,17 +659,16 @@ export default function MonthlyExpensesTable({
                             </td>
                           </tr>
 
-                          {/* Filas de gastos de esta categoría */}
-                          {category.expenses.map((expense) => (
-                            <tr
-                              key={expense.id}
-                              className="hover:bg-gray-50 dark:hover:bg-gray-800"
-                            >
+                          {/* Filas de datos de esta categoría */}
+                          {category.items.map((item) => (
+                            <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                               <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                                {expense.title}
+                                {expenseType === 'expenses' ? item.title : item.name}
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                                {expense.description || '-'}
+                                {expenseType === 'expenses'
+                                  ? item.description || '-'
+                                  : item.description || '-'}
                               </td>
                               <td className="px-4 py-3 text-right">
                                 <div className="flex items-center justify-end space-x-2">
@@ -571,30 +679,27 @@ export default function MonthlyExpensesTable({
                                     <input
                                       type="text"
                                       value={
-                                        displayValues[expense.id] !== undefined
-                                          ? displayValues[expense.id]
-                                          : expenseValues[expense.id] &&
-                                              expenseValues[expense.id] > 0
-                                            ? formatInputValue(expenseValues[expense.id])
+                                        displayValues[item.id] !== undefined
+                                          ? displayValues[item.id]
+                                          : expenseValues[item.id] && expenseValues[item.id] > 0
+                                            ? formatInputValue(expenseValues[item.id])
                                             : ''
                                       }
-                                      onChange={(e) =>
-                                        handleValueChange(expense.id, e.target.value)
-                                      }
-                                      onFocus={() => handleInputFocus(expense.id)}
-                                      onBlur={() => handleInputBlur(expense.id)}
-                                      disabled={isInputDisabled[expense.id]}
+                                      onChange={(e) => handleValueChange(item.id, e.target.value)}
+                                      onFocus={() => handleInputFocus(item.id)}
+                                      onBlur={() => handleInputBlur(item.id)}
+                                      disabled={isInputDisabled[item.id]}
                                       className={`w-24 px-2 py-1 text-sm border rounded-md text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                        isInputDisabled[expense.id]
+                                        isInputDisabled[item.id]
                                           ? 'border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
                                           : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
                                       }`}
                                       placeholder="0"
                                     />
-                                    {editingExpenseId === expense.id ? (
+                                    {editingExpenseId === item.id ? (
                                       <div className="flex space-x-1">
                                         <button
-                                          onClick={() => handleSaveExpense(expense.id)}
+                                          onClick={() => handleSaveExpense(item.id)}
                                           disabled={isSaving}
                                           className="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 disabled:opacity-50"
                                           title="Guardar"
@@ -614,7 +719,7 @@ export default function MonthlyExpensesTable({
                                           </svg>
                                         </button>
                                         <button
-                                          onClick={() => handleCancelEdit(expense.id)}
+                                          onClick={() => handleCancelEdit(item.id)}
                                           disabled={isSaving}
                                           className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50"
                                           title="Cancelar"
@@ -636,7 +741,7 @@ export default function MonthlyExpensesTable({
                                       </div>
                                     ) : (
                                       <button
-                                        onClick={() => handleEditExpense(expense.id)}
+                                        onClick={() => handleEditExpense(item.id)}
                                         className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
                                         title="Editar"
                                       >
@@ -664,8 +769,8 @@ export default function MonthlyExpensesTable({
                       );
                     })}
 
-                    {/* Gastos sin categoría */}
-                    {expensesWithoutCategory.length > 0 && (
+                    {/* Datos sin categoría */}
+                    {dataWithoutCategory.length > 0 && (
                       <React.Fragment>
                         {/* Fila de categoría "Sin categoría" */}
                         <tr className="bg-gray-50 dark:bg-gray-700">
@@ -675,20 +780,23 @@ export default function MonthlyExpensesTable({
                                 Sin categoría
                               </h4>
                               <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                                - Gastos sin categoría asignada
+                                - {expenseType === 'expenses' ? 'Gastos' : 'Ingresos'} sin categoría
+                                asignada
                               </span>
                             </div>
                           </td>
                         </tr>
 
-                        {/* Filas de gastos sin categoría */}
-                        {expensesWithoutCategory.map((expense) => (
-                          <tr key={expense.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                        {/* Filas de datos sin categoría */}
+                        {dataWithoutCategory.map((item) => (
+                          <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                             <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                              {expense.title}
+                              {expenseType === 'expenses' ? item.title : item.name}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                              {expense.description || '-'}
+                              {expenseType === 'expenses'
+                                ? item.description || '-'
+                                : item.description || '-'}
                             </td>
                             <td className="px-4 py-3 text-right">
                               <div className="flex items-center justify-end space-x-2">
@@ -697,27 +805,27 @@ export default function MonthlyExpensesTable({
                                   <input
                                     type="text"
                                     value={
-                                      displayValues[expense.id] !== undefined
-                                        ? displayValues[expense.id]
-                                        : expenseValues[expense.id] && expenseValues[expense.id] > 0
-                                          ? formatInputValue(expenseValues[expense.id])
+                                      displayValues[item.id] !== undefined
+                                        ? displayValues[item.id]
+                                        : expenseValues[item.id] && expenseValues[item.id] > 0
+                                          ? formatInputValue(expenseValues[item.id])
                                           : ''
                                     }
-                                    onChange={(e) => handleValueChange(expense.id, e.target.value)}
-                                    onFocus={() => handleInputFocus(expense.id)}
-                                    onBlur={() => handleInputBlur(expense.id)}
-                                    disabled={isInputDisabled[expense.id]}
+                                    onChange={(e) => handleValueChange(item.id, e.target.value)}
+                                    onFocus={() => handleInputFocus(item.id)}
+                                    onBlur={() => handleInputBlur(item.id)}
+                                    disabled={isInputDisabled[item.id]}
                                     className={`w-24 px-2 py-1 text-sm border rounded-md text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                      isInputDisabled[expense.id]
+                                      isInputDisabled[item.id]
                                         ? 'border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
                                         : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
                                     }`}
                                     placeholder="0"
                                   />
-                                  {editingExpenseId === expense.id ? (
+                                  {editingExpenseId === item.id ? (
                                     <div className="flex space-x-1">
                                       <button
-                                        onClick={() => handleSaveExpense(expense.id)}
+                                        onClick={() => handleSaveExpense(item.id)}
                                         disabled={isSaving}
                                         className="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 disabled:opacity-50"
                                         title="Guardar"
@@ -737,7 +845,7 @@ export default function MonthlyExpensesTable({
                                         </svg>
                                       </button>
                                       <button
-                                        onClick={() => handleCancelEdit(expense.id)}
+                                        onClick={() => handleCancelEdit(item.id)}
                                         disabled={isSaving}
                                         className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50"
                                         title="Cancelar"
@@ -759,7 +867,7 @@ export default function MonthlyExpensesTable({
                                     </div>
                                   ) : (
                                     <button
-                                      onClick={() => handleEditExpense(expense.id)}
+                                      onClick={() => handleEditExpense(item.id)}
                                       className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
                                       title="Editar"
                                     >
@@ -791,11 +899,11 @@ export default function MonthlyExpensesTable({
             </div>
 
             {/* Botón de guardar */}
-            <div className="flex justify-end pt-4 px-6 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex justify-end pt-3 px-6 pb-3 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="inline-flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 font-medium"
               >
                 {isSaving ? (
                   <>

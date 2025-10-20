@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { CommunityService } from '@/services/communityService';
 import { CommonExpenseService } from '@/services/commonExpenseService';
+import { CommunityIncomeService } from '@/services/communityIncomeService';
 import { StatCard, LoadingSpinner } from '@/components/common-expenses/CommonExpenseComponents';
 import MonthlyExpensesTable from '@/components/common-expenses/MonthlyExpensesTableConnected';
 import { eventBus, EVENTS } from '@/utils/eventBus';
@@ -82,16 +83,33 @@ interface ExpenseSummary {
   createdAt: string;
 }
 
+interface IncomeSummary {
+  id: string;
+  communityId: string;
+  communityName?: string;
+  period: string;
+  totalAmount: number;
+  dueDate: string;
+  createdAt: string;
+}
+
 interface CommonExpensesDashboardProps {
   communityId?: string;
   key?: number; // Para forzar re-render
+  onConfigExpenses?: () => void; // Callback para configurar egresos
+  onConfigIncome?: () => void; // Callback para configurar ingresos
 }
 
-export default function CommonExpensesDashboard({ communityId }: CommonExpensesDashboardProps) {
+export default function CommonExpensesDashboard({
+  communityId,
+  onConfigExpenses,
+  onConfigIncome,
+}: CommonExpensesDashboardProps) {
   const { user } = useAuth();
   const router = useRouter();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [expenses, setExpenses] = useState<ExpenseSummary[]>([]);
+  const [incomes, setIncomes] = useState<IncomeSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -139,36 +157,100 @@ export default function CommonExpensesDashboard({ communityId }: CommonExpensesD
           return;
         }
 
-        // Cargar gastos de esa comunidad específica
+        // Cargar gastos e ingresos de esa comunidad específica
         try {
-          const communityExpenses =
-            await CommonExpenseService.getCommonExpensesByCommunity(communityId);
-          setExpenses(communityExpenses);
+          const [communityExpenses, communityIncomes] = await Promise.all([
+            CommonExpenseService.getCommonExpensesByCommunity(communityId),
+            CommunityIncomeService.getCommunityIncomes(communityId),
+          ]);
+
+          // Convertir datos a los tipos esperados
+          const convertedExpenses = communityExpenses.map((expense) => ({
+            ...expense,
+            dueDate:
+              typeof expense.dueDate === 'string' ? expense.dueDate : expense.dueDate.toISOString(),
+            createdAt:
+              typeof expense.createdAt === 'string'
+                ? expense.createdAt
+                : expense.createdAt.toISOString(),
+          }));
+
+          const convertedIncomes = communityIncomes.map((income) => ({
+            ...income,
+            dueDate:
+              typeof income.dueDate === 'string'
+                ? income.dueDate
+                : (income.dueDate as Date).toISOString(),
+            createdAt:
+              typeof income.createdAt === 'string'
+                ? income.createdAt
+                : (income.createdAt as Date).toISOString(),
+            communityName: income.communityName || 'Sin nombre',
+          }));
+
+          setExpenses(convertedExpenses);
+          setIncomes(convertedIncomes);
         } catch (error) {
           console.warn(
             'No se pudieron cargar los gastos comunes (puede que no existan aún):',
             error,
           );
           setExpenses([]); // Establecer array vacío en lugar de fallar
+          setIncomes([]);
         }
       } else {
         // Cargar todas las comunidades del usuario
         const communitiesData = await CommunityService.getCommunities();
-        setCommunities(communitiesData);
+        const communitiesArray = Array.isArray(communitiesData)
+          ? communitiesData
+          : [communitiesData];
+        setCommunities(communitiesArray);
 
-        // Cargar gastos comunes de todas las comunidades
+        // Cargar gastos e ingresos comunes de todas las comunidades
         const allExpenses: ExpenseSummary[] = [];
-        for (const community of communitiesData) {
+        const allIncomes: IncomeSummary[] = [];
+
+        for (const community of communitiesArray) {
           try {
-            const communityExpenses = await CommonExpenseService.getCommonExpensesByCommunity(
-              community.id,
-            );
-            allExpenses.push(...communityExpenses);
+            const [communityExpenses, communityIncomes] = await Promise.all([
+              CommonExpenseService.getCommonExpensesByCommunity(community.id),
+              CommunityIncomeService.getCommunityIncomes(community.id),
+            ]);
+
+            // Convertir datos a los tipos esperados
+            const convertedExpenses = communityExpenses.map((expense) => ({
+              ...expense,
+              dueDate:
+                typeof expense.dueDate === 'string'
+                  ? expense.dueDate
+                  : expense.dueDate.toISOString(),
+              createdAt:
+                typeof expense.createdAt === 'string'
+                  ? expense.createdAt
+                  : expense.createdAt.toISOString(),
+            }));
+
+            const convertedIncomes = communityIncomes.map((income) => ({
+              ...income,
+              dueDate:
+                typeof income.dueDate === 'string'
+                  ? income.dueDate
+                  : (income.dueDate as Date).toISOString(),
+              createdAt:
+                typeof income.createdAt === 'string'
+                  ? income.createdAt
+                  : (income.createdAt as Date).toISOString(),
+              communityName: income.communityName || 'Sin nombre',
+            }));
+
+            allExpenses.push(...convertedExpenses);
+            allIncomes.push(...convertedIncomes);
           } catch (error) {
-            console.warn(`Error al cargar gastos para la comunidad ${community.name}:`, error);
+            console.warn(`Error al cargar datos para la comunidad ${community.name}:`, error);
           }
         }
         setExpenses(allExpenses);
+        setIncomes(allIncomes);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error al cargar los datos';
@@ -187,15 +269,15 @@ export default function CommonExpensesDashboard({ communityId }: CommonExpensesD
   // Calcular estadísticas globales
   const globalStats = expenses.reduce(
     (acc, expense) => {
-      const expenseStats = CommonExpenseService.calculateStats(expense);
+      const expenseStats = CommonExpenseService.calculateStats(expense as any);
       acc.totalAmount += expenseStats.totalAmount;
       acc.paidAmount += expenseStats.paidAmount;
       acc.pendingAmount += expenseStats.pendingAmount;
       acc.overdueAmount += expenseStats.overdueAmount;
       acc.totalUnits += expenseStats.totalUnits;
-      acc.paidUnits += expenseStats.paidUnits;
-      acc.pendingUnits += expenseStats.pendingUnits;
-      acc.overdueUnits += expenseStats.overdueUnits;
+      acc.paidUnits += (expenseStats as any).paidUnits || 0;
+      acc.pendingUnits += (expenseStats as any).pendingUnits || 0;
+      acc.overdueUnits += (expenseStats as any).overdueUnits || 0;
       return acc;
     },
     {
@@ -209,6 +291,21 @@ export default function CommonExpensesDashboard({ communityId }: CommonExpensesD
       overdueUnits: 0,
     },
   );
+
+  // Calcular estadísticas de ingresos
+  const incomeStats = incomes.reduce(
+    (acc, income) => {
+      const amount = Number(income.totalAmount) || 0;
+      acc.totalIncome += amount;
+      return acc;
+    },
+    {
+      totalIncome: 0,
+    },
+  );
+
+  // Calcular balance (ingresos - gastos)
+  const balance = (Number(incomeStats.totalIncome) || 0) - globalStats.totalAmount;
 
   const paymentPercentage =
     globalStats.totalUnits > 0 ? (globalStats.paidUnits / globalStats.totalUnits) * 100 : 0;
@@ -239,9 +336,7 @@ export default function CommonExpensesDashboard({ communityId }: CommonExpensesD
         <div className="flex">
           <div className="ml-3">
             <h3 className="text-sm font-medium text-red-800">Error</h3>
-            <div className="mt-2 text-sm text-red-700">
-              {error instanceof Error ? error.message : String(error)}
-            </div>
+            <div className="mt-2 text-sm text-red-700">{String(error)}</div>
             <div className="mt-4">
               <button
                 onClick={fetchDashboardData}
@@ -318,6 +413,17 @@ export default function CommonExpensesDashboard({ communityId }: CommonExpensesD
           color="yellow"
           subtitle={`${globalStats.pendingUnits} unidades`}
         />
+        <StatCard
+          title="Balance"
+          value={`$${balance.toFixed(2)}`}
+          icon={<CurrencyDollarIcon />}
+          color={balance >= 0 ? 'green' : 'red'}
+          subtitle={balance >= 0 ? 'Positivo' : 'Negativo'}
+          trend={{
+            value: Math.abs(balance),
+            isPositive: balance >= 0,
+          }}
+        />
       </div>
 
       {/* Resumen Financiero */}
@@ -328,11 +434,17 @@ export default function CommonExpensesDashboard({ communityId }: CommonExpensesD
           </div>
           Resumen Financiero Global
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Total Generado</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Total Gastos</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
               ${globalStats.totalAmount.toFixed(2)}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-gray-600 dark:text-gray-400">Total Ingresos</p>
+            <p className="text-2xl font-bold text-blue-600">
+              ${(Number(incomeStats.totalIncome) || 0).toFixed(2)}
             </p>
           </div>
           <div className="text-center">
@@ -348,9 +460,9 @@ export default function CommonExpensesDashboard({ communityId }: CommonExpensesD
             </p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Vencido</p>
-            <p className="text-2xl font-bold text-red-600">
-              ${globalStats.overdueAmount.toFixed(2)}
+            <p className="text-sm text-gray-600 dark:text-gray-400">Balance</p>
+            <p className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              ${balance.toFixed(2)}
             </p>
           </div>
         </div>
@@ -364,6 +476,8 @@ export default function CommonExpensesDashboard({ communityId }: CommonExpensesD
             // Refrescar datos del dashboard cuando cambien los gastos
             fetchDashboardData();
           }}
+          onConfigExpenses={onConfigExpenses}
+          onConfigIncome={onConfigIncome}
         />
       )}
 

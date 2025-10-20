@@ -16,6 +16,7 @@ export interface CreateExpenseCategoryRequest {
   name: string;
   description?: string;
   communityId: string;
+  type?: 'EXPENSE' | 'INCOME';
 }
 
 export interface UpdateExpenseCategoryRequest {
@@ -26,8 +27,15 @@ export interface UpdateExpenseCategoryRequest {
 export class ExpenseCategoriesService {
   private static readonly BASE_URL = '/expense-categories';
 
-  static async getCategoriesByCommunity(communityId: string): Promise<ExpenseCategory[]> {
-    const response = await apiClient.get(`${this.BASE_URL}?communityId=${communityId}`);
+  static async getCategoriesByCommunity(
+    communityId: string,
+    type?: 'EXPENSE' | 'INCOME',
+  ): Promise<ExpenseCategory[]> {
+    const params = new URLSearchParams({ communityId });
+    if (type) {
+      params.append('type', type);
+    }
+    const response = await apiClient.get(`${this.BASE_URL}?${params.toString()}`);
     return response.data;
   }
 
