@@ -19,6 +19,19 @@ interface User {
     address: string;
     status: string;
   }>;
+  userUnits?: Array<{
+    id: string;
+    unit: {
+      id: string;
+      number: string;
+      floor?: string;
+      community: {
+        id: string;
+        name: string;
+        address: string;
+      };
+    };
+  }>;
   createdAt: string;
   updatedAt: string;
 }

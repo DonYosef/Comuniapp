@@ -25,11 +25,27 @@ export class UpdateUserUseCase {
       existingUser.passwordHash, // No permitir actualizar la contraseña desde aquí
       updateUserDto.status ?? existingUser.status,
       existingUser.organizationId,
-      existingUser.phone,
+      updateUserDto.phone ?? existingUser.phone,
       existingUser.createdAt,
       new Date(), // updatedAt
     );
 
-    return await this.userRepository.update(updatedUser);
+    const savedUser = await this.userRepository.update(updatedUser);
+
+    // Manejar asignación de unidad si se proporciona
+    if (updateUserDto.unitId) {
+      console.log('🔍 [UpdateUserUseCase] Asignando unidad:', updateUserDto.unitId);
+      try {
+        // Primero eliminar las unidades existentes del usuario
+        await this.userRepository.removeUserUnits(id);
+        // Luego asignar la nueva unidad
+        await this.userRepository.assignUnit(id, updateUserDto.unitId);
+        console.log('✅ [UpdateUserUseCase] Unidad asignada correctamente');
+      } catch (error) {
+        console.error('❌ [UpdateUserUseCase] Error asignando unidad:', error);
+      }
+    }
+
+    return savedUser;
   }
 }

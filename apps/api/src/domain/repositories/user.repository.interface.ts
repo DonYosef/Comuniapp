@@ -11,6 +11,7 @@ export interface UserRepository {
   existsByEmail(email: string): Promise<boolean>;
   assignRole(userId: string, roleId: string): Promise<void>;
   assignUnit(userId: string, unitId: string): Promise<void>;
+  removeUserUnits(userId: string): Promise<void>;
 
   // Nuevos métodos para la lógica de negocio
   findAllCommunityAdmins(): Promise<User[]>;

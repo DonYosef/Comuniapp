@@ -360,7 +360,39 @@ export class CommunitiesService {
   }
 
   async getCommunityById(id: string, userId: string) {
-    // Verificar que el usuario es administrador de la comunidad
+    // Primero verificar si el usuario es SUPER_ADMIN
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    const isSuperAdmin = user?.roles.some((ur) => ur.role.name === 'SUPER_ADMIN');
+
+    if (isSuperAdmin) {
+      // SUPER_ADMIN puede acceder a cualquier comunidad
+      const community = await this.prisma.community.findUnique({
+        where: { id },
+        include: {
+          organization: true,
+          units: true,
+          commonSpaces: true,
+        },
+      });
+
+      if (!community) {
+        throw new NotFoundException('Comunidad no encontrada');
+      }
+
+      return community;
+    }
+
+    // Para otros usuarios, verificar que es administrador de la comunidad
     const communityAdmin = await this.prisma.communityAdmin.findUnique({
       where: {
         communityId_userId: {
@@ -549,18 +581,32 @@ export class CommunitiesService {
 
   // Métodos para gestión de unidades
   async getCommunityUnits(communityId: string, userId: string) {
-    // Verificar que el usuario es administrador de la comunidad
-    const communityAdmin = await this.prisma.communityAdmin.findUnique({
-      where: {
-        communityId_userId: {
-          communityId: communityId,
-          userId: userId,
-        },
-      },
+    // Verificar que el usuario es SUPER_ADMIN o administrador de la comunidad
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { roles: { include: { role: true } } },
     });
 
-    if (!communityAdmin) {
-      throw new NotFoundException('No tienes permisos para acceder a esta comunidad');
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const isSuperAdmin = user.roles.some((ur) => ur.role.name === 'SUPER_ADMIN');
+
+    if (!isSuperAdmin) {
+      // Verificar que el usuario es administrador de la comunidad
+      const communityAdmin = await this.prisma.communityAdmin.findUnique({
+        where: {
+          communityId_userId: {
+            communityId: communityId,
+            userId: userId,
+          },
+        },
+      });
+
+      if (!communityAdmin) {
+        throw new NotFoundException('No tienes permisos para acceder a esta comunidad');
+      }
     }
 
     return this.prisma.unit.findMany({
@@ -624,5 +670,34 @@ export class CommunitiesService {
       where: { id: unitId },
       data: { isActive: false, deletedAt: new Date() },
     });
+  }
+
+  async getCommunitiesByOrganization(organizationId: string) {
+    console.log(
+      '🔍 [CommunitiesService] getCommunitiesByOrganization - organizationId:',
+      organizationId,
+    );
+
+    const communities = await this.prisma.community.findMany({
+      where: {
+        organizationId: organizationId,
+        isActive: true,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        type: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    console.log(
+      `🔍 [CommunitiesService] Comunidades encontradas para organización ${organizationId}: ${communities.length}`,
+    );
+    return communities;
   }
 }

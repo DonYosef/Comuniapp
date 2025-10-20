@@ -81,6 +81,7 @@ model CommunityCommonSpace {
   communityId  String             @map("community_id")
   community    Community          @relation(fields: [communityId], references: [id])
   reservations SpaceReservation[]
+  schedules    SpaceSchedule[]
 
   @@unique([communityId, name])
   @@map("community_common_spaces")
@@ -274,34 +275,50 @@ model CommunityExpenseItem {
 }
 
 model Parcel {
-  id          String       @id @default(cuid())
-  unitId      String       @map("unit_id")
-  description String
-  sender      String?
-  receivedAt  DateTime     @default(now()) @map("received_at")
-  retrievedAt DateTime?    @map("retrieved_at")
-  status      ParcelStatus @default(RECEIVED)
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
-  unit        Unit         @relation(fields: [unitId], references: [id])
+  id                  String       @id @default(cuid())
+  unitId              String       @map("unit_id")
+  description         String
+  sender              String?
+  senderPhone         String?      @map("sender_phone")
+  recipientName       String?      @map("recipient_name")
+  recipientResidence  String?      @map("recipient_residence")
+  recipientPhone      String?      @map("recipient_phone")
+  recipientEmail      String?      @map("recipient_email")
+  conciergeName       String?      @map("concierge_name")
+  conciergePhone      String?      @map("concierge_phone")
+  notes               String?
+  receivedAt          DateTime     @default(now()) @map("received_at")
+  retrievedAt         DateTime?    @map("retrieved_at")
+  status              ParcelStatus @default(RECEIVED)
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+  unit                Unit         @relation(fields: [unitId], references: [id])
 
   @@map("parcels")
 }
 
 model Visitor {
-  id              String        @id @default(cuid())
-  unitId          String        @map("unit_id")
-  hostUserId      String        @map("host_user_id")
-  visitorName     String        @map("visitor_name")
-  visitorDocument String        @map("visitor_document")
-  visitorPhone    String?       @map("visitor_phone")
-  entryDate       DateTime      @map("entry_date")
-  exitDate        DateTime?     @map("exit_date")
-  status          VisitorStatus @default(REGISTERED)
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
-  host            User          @relation("HostedVisitors", fields: [hostUserId], references: [id])
-  unit            Unit          @relation(fields: [unitId], references: [id])
+  id                String        @id @default(cuid())
+  unitId            String        @map("unit_id")
+  hostUserId        String        @map("host_user_id")
+  visitorName       String        @map("visitor_name")
+  visitorDocument   String        @map("visitor_document")
+  visitorPhone      String?       @map("visitor_phone")
+  visitorEmail      String?       @map("visitor_email")
+  residentName      String?       @map("resident_name")
+  residentPhone     String?       @map("resident_phone")
+  visitPurpose      String        @map("visit_purpose") // personal, business, maintenance, delivery, other
+  expectedArrival   DateTime      @map("expected_arrival")
+  expectedDeparture DateTime      @map("expected_departure")
+  vehicleInfo       String?       @map("vehicle_info")
+  notes             String?
+  entryDate         DateTime?     @map("entry_date")
+  exitDate          DateTime?     @map("exit_date")
+  status            VisitorStatus @default(SCHEDULED)
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  host              User          @relation("HostedVisitors", fields: [hostUserId], references: [id])
+  unit              Unit          @relation(fields: [unitId], references: [id])
 
   @@map("visitors")
 }
@@ -366,6 +383,21 @@ model SpaceReservation {
   unit            Unit                 @relation(fields: [unitId], references: [id])
 
   @@map("space_reservations")
+}
+
+model SpaceSchedule {
+  id            String               @id @default(cuid())
+  dayOfWeek     DayOfWeek            @map("day_of_week")
+  startTime     String               @map("start_time")
+  endTime       String               @map("end_time")
+  isActive      Boolean              @default(true) @map("is_active")
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  commonSpaceId String               @map("common_space_id")
+  commonSpace   CommunityCommonSpace @relation(fields: [commonSpaceId], references: [id], onDelete: Cascade)
+
+  @@unique([commonSpaceId, dayOfWeek])
+  @@map("space_schedules")
 }
 
 model Incident {
@@ -497,10 +529,10 @@ enum ParcelStatus {
 }
 
 enum VisitorStatus {
-  REGISTERED
-  ENTERED
-  EXITED
-  EXPIRED
+  SCHEDULED
+  ARRIVED
+  COMPLETED
+  CANCELLED
 }
 
 enum AnnouncementType {
@@ -553,4 +585,14 @@ enum ProrrateMethod {
 enum ExpenseType {
   EXPENSE
   INCOME
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
 }

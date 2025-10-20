@@ -35,7 +35,14 @@ export class CommunitiesController {
     return this.communitiesService.getCommunitiesByUser(req.user.id);
   }
 
+  @Get('organization/:organizationId')
+  @RequirePermission(Permission.MANAGE_COMMUNITY)
+  getCommunitiesByOrganization(@Param('organizationId') organizationId: string) {
+    return this.communitiesService.getCommunitiesByOrganization(organizationId);
+  }
+
   @Get('my-community')
+  @RequirePermission(Permission.VIEW_OWN_UNIT)
   async getMyCommunity(@Request() req) {
     console.log('🔍 [CommunitiesController] getMyCommunity - userId:', req.user.id);
     console.log(
@@ -47,6 +54,7 @@ export class CommunitiesController {
   }
 
   @Get('my-units')
+  @RequirePermission(Permission.VIEW_OWN_UNIT)
   async getMyUnits(@Request() req) {
     console.log('🔍 [CommunitiesController] getMyUnits - userId:', req.user.id);
     console.log(

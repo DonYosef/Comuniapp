@@ -153,7 +153,7 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
       });
     }
 
-    // Mostrar Encomiendas para administradores y residentes
+    // Mostrar Encomiendas - vista unificada que se adapta al rol
     const canAccessParcels = isAdmin() || hasPermission('manage_parcels') || isResident;
 
     console.log('🔍 [Sidebar] Verificando módulo Encomiendas:');
@@ -163,9 +163,9 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
     console.log('- canAccessParcels:', canAccessParcels);
 
     if (canAccessParcels) {
-      console.log('✅ [Sidebar] Agregando módulo Encomiendas');
+      console.log('✅ [Sidebar] Agregando módulo Encomiendas (vista dinámica)');
       baseItems.push({
-        name: 'Encomiendas',
+        name: isResident ? 'Tus Encomiendas' : 'Encomiendas',
         href: '/dashboard/encomiendas',
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,7 +180,7 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
       });
     }
 
-    // Mostrar Visitas para administradores y residentes
+    // Mostrar Visitas - vista unificada que se adapta al rol
     const canAccessVisits = isAdmin() || isResident;
 
     console.log('🔍 [Sidebar] Verificando módulo Visitas:');
@@ -189,9 +189,9 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
     console.log('- canAccessVisits:', canAccessVisits);
 
     if (canAccessVisits) {
-      console.log('✅ [Sidebar] Agregando módulo Visitas');
+      console.log('✅ [Sidebar] Agregando módulo Visitas (vista dinámica)');
       baseItems.push({
-        name: 'Visitas',
+        name: isResident ? 'Tus Visitas' : 'Visitas',
         href: '/dashboard/visitas',
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

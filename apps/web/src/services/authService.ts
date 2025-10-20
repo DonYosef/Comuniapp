@@ -22,6 +22,19 @@ export interface LoginResponse {
       address: string;
       status: string;
     }>;
+    userUnits?: Array<{
+      id: string;
+      unit: {
+        id: string;
+        number: string;
+        floor?: string;
+        community: {
+          id: string;
+          name: string;
+          address: string;
+        };
+      };
+    }>;
     createdAt: string;
     updatedAt: string;
   };
@@ -36,6 +49,7 @@ export interface RegisterRequest {
   confirmPassword: string;
   phone?: string;
   organizationId?: string;
+  communityId?: string;
   acceptTerms: boolean;
 }
 
@@ -46,10 +60,24 @@ export interface RegisterResponse {
   name: string;
 }
 
+export interface CommunityForRegistration {
+  id: string;
+  name: string;
+  address: string;
+  type: 'CONDOMINIO' | 'EDIFICIO' | 'RESIDENCIAL';
+  organization: {
+    id: string;
+    name: string;
+  };
+}
+
 export class AuthService {
   // Login
   static async login(credentials: LoginRequest): Promise<LoginResponse> {
     const response = await api.post<LoginResponse>('/auth/login', credentials);
+
+    console.log('🔍 [AuthService] login - response data:', response.data);
+    console.log('🔍 [AuthService] login - user units:', response.data.user.userUnits);
 
     // Guardar token en localStorage y cookies
     if (response.data.accessToken) {
@@ -57,6 +85,9 @@ export class AuthService {
 
       // También guardar en cookies para el middleware
       document.cookie = `token=${response.data.accessToken}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
+
+      // Disparar evento personalizado para notificar cambios de autenticación
+      window.dispatchEvent(new CustomEvent('auth-change', { detail: { type: 'login' } }));
     }
 
     return response.data;
@@ -97,6 +128,9 @@ export class AuthService {
 
       // Limpiar sessionStorage
       sessionStorage.clear();
+
+      // Disparar evento personalizado para notificar cambios de autenticación
+      window.dispatchEvent(new CustomEvent('auth-change', { detail: { type: 'logout' } }));
 
       // Redirigir al login si es necesario
       if (typeof window !== 'undefined') {
@@ -139,6 +173,12 @@ export class AuthService {
       console.log('🔐 [AuthService] isTokenExpired(): Error decodificando token');
       return true;
     }
+  }
+
+  // Obtener comunidades disponibles para registro
+  static async getCommunitiesForRegistration(): Promise<CommunityForRegistration[]> {
+    const response = await api.get<CommunityForRegistration[]>('/auth/communities');
+    return response.data;
   }
 }
 

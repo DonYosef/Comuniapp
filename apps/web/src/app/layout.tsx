@@ -5,7 +5,7 @@ import { AuthProvider } from '@/hooks/useAuth';
 import { CommunityProvider } from '@/hooks/useCommunity';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { ToastProvider } from '@/contexts/ToastContext';
-// Removido GlobalThemeHandler para evitar conflictos
+import { Chatbot } from '@/components/chatbot';
 
 export const metadata: Metadata = {
   title: 'Comuniapp',
@@ -73,7 +73,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthProvider>
             <CommunityProvider>
               <ToastProvider>
-                <QueryProvider>{children}</QueryProvider>
+                <QueryProvider>
+                  {children}
+                  <Chatbot />
+                </QueryProvider>
               </ToastProvider>
             </CommunityProvider>
           </AuthProvider>

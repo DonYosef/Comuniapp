@@ -111,6 +111,34 @@ interface VisitModalProps {
   initialData?: VisitFormData;
   isEditing?: boolean;
   isLoading?: boolean;
+  isReadOnly?: boolean;
+  userUnits?: Array<{
+    id: string;
+    unit: {
+      id: string;
+      number: string;
+      floor?: string;
+      community: {
+        id: string;
+        name: string;
+        address: string;
+      };
+    };
+  }>;
+  units?: Array<{
+    id: string;
+    number: string;
+    floor?: string;
+    type: string;
+    communityName: string;
+    residents: Array<{
+      id: string;
+      name: string;
+      email: string;
+      phone?: string;
+      status: string;
+    }>;
+  }>;
 }
 
 export interface VisitFormData {
@@ -120,6 +148,7 @@ export interface VisitFormData {
   visitorPhone?: string;
   visitorEmail?: string;
   unitId: string;
+  hostUserId?: string; // ID del usuario que está creando la visita
   residentName: string;
   residentPhone?: string;
   visitPurpose: string;
@@ -139,6 +168,9 @@ export const VisitModal = ({
   initialData,
   isEditing = false,
   isLoading = false,
+  isReadOnly = false,
+  userUnits = [],
+  units = [],
 }: VisitModalProps) => {
   const [formData, setFormData] = useState<VisitFormData>({
     visitorName: '',
@@ -146,6 +178,7 @@ export const VisitModal = ({
     visitorPhone: '',
     visitorEmail: '',
     unitId: '',
+    hostUserId: '',
     residentName: '',
     residentPhone: '',
     visitPurpose: '',
@@ -201,12 +234,18 @@ export const VisitModal = ({
         <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {isEditing ? 'Editar Visita' : 'Nueva Visita'}
+              {isReadOnly
+                ? 'Ver Detalles de la Visita'
+                : isEditing
+                  ? 'Editar Visita'
+                  : 'Nueva Visita'}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {isEditing
-                ? 'Modifica los datos de la visita'
-                : 'Registra una nueva visita en el sistema'}
+              {isReadOnly
+                ? 'Información detallada de la visita'
+                : isEditing
+                  ? 'Modifica los datos de la visita'
+                  : 'Registra una nueva visita en el sistema'}
             </p>
           </div>
 
@@ -246,9 +285,11 @@ export const VisitModal = ({
                   value={formData.visitorName}
                   onChange={(e) => handleChange('visitorName', e.target.value)}
                   placeholder="Ej: Juan Pérez, María García..."
+                  disabled={isReadOnly}
+                  readOnly={isReadOnly}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
                     errors.visitorName ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
-                  }`}
+                  } ${isReadOnly ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''}`}
                 />
                 {errors.visitorName && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">
@@ -271,9 +312,11 @@ export const VisitModal = ({
                   value={formData.visitorId}
                   onChange={(e) => handleChange('visitorId', e.target.value)}
                   placeholder="Ej: 12345678, ABC123456..."
+                  disabled={isReadOnly}
+                  readOnly={isReadOnly}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
                     errors.visitorId ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
-                  }`}
+                  } ${isReadOnly ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''}`}
                 />
                 {errors.visitorId && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.visitorId}</p>
@@ -294,7 +337,11 @@ export const VisitModal = ({
                   value={formData.visitorPhone}
                   onChange={(e) => handleChange('visitorPhone', e.target.value)}
                   placeholder="Ej: +52 55 1234 5678"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  disabled={isReadOnly}
+                  readOnly={isReadOnly}
+                  className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
+                    isReadOnly ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''
+                  }`}
                 />
               </div>
 
@@ -312,7 +359,11 @@ export const VisitModal = ({
                   value={formData.visitorEmail}
                   onChange={(e) => handleChange('visitorEmail', e.target.value)}
                   placeholder="Ej: juan.perez@email.com"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  disabled={isReadOnly}
+                  readOnly={isReadOnly}
+                  className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
+                    isReadOnly ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''
+                  }`}
                 />
               </div>
             </div>
@@ -350,22 +401,50 @@ export const VisitModal = ({
                   id="unitId"
                   value={formData.unitId}
                   onChange={(e) => handleChange('unitId', e.target.value)}
+                  disabled={isReadOnly}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
                     errors.unitId ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
-                  }`}
+                  } ${isReadOnly ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''}`}
                 >
                   <option value="">Seleccionar unidad</option>
-                  <option value="101">101</option>
-                  <option value="102">102</option>
-                  <option value="201">201</option>
-                  <option value="202">202</option>
-                  <option value="301">301</option>
-                  <option value="302">302</option>
+                  {units.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.number} - {unit.communityName}
+                      {unit.residents.length > 0 && ` (${unit.residents[0].name})`}
+                    </option>
+                  ))}
                 </select>
                 {errors.unitId && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.unitId}</p>
                 )}
               </div>
+
+              {/* Mostrar unidad del residente en modo de solo lectura */}
+              {isReadOnly && formData.unitId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Unidad
+                  </label>
+                  <div className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white">
+                    {(() => {
+                      // Buscar primero en las unidades del usuario (userUnits)
+                      const userUnit = userUnits.find((uu) => uu.unit.id === formData.unitId);
+                      if (userUnit) {
+                        return `${userUnit.unit.number} - ${userUnit.unit.community.name}`;
+                      }
+
+                      // Si no se encuentra en userUnits, buscar en la lista de unidades disponibles
+                      const unit = units.find((u) => u.id === formData.unitId);
+                      if (unit) {
+                        return `${unit.number} - ${unit.communityName}`;
+                      }
+
+                      // Si no se encuentra, mostrar información básica del unitId
+                      return `Unidad ${formData.unitId}`;
+                    })()}
+                  </div>
+                </div>
+              )}
 
               {/* Nombre del residente */}
               <div>
@@ -381,9 +460,11 @@ export const VisitModal = ({
                   value={formData.residentName}
                   onChange={(e) => handleChange('residentName', e.target.value)}
                   placeholder="Ej: Carlos López, Ana Martínez..."
+                  disabled={isReadOnly}
+                  readOnly={isReadOnly}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
                     errors.residentName ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
-                  }`}
+                  } ${isReadOnly ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''}`}
                 />
                 {errors.residentName && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">
@@ -406,7 +487,11 @@ export const VisitModal = ({
                   value={formData.residentPhone}
                   onChange={(e) => handleChange('residentPhone', e.target.value)}
                   placeholder="Ej: +52 55 9876 5432"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  disabled={isReadOnly}
+                  readOnly={isReadOnly}
+                  className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
+                    isReadOnly ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''
+                  }`}
                 />
               </div>
             </div>
@@ -444,9 +529,10 @@ export const VisitModal = ({
                   id="visitPurpose"
                   value={formData.visitPurpose}
                   onChange={(e) => handleChange('visitPurpose', e.target.value)}
+                  disabled={isReadOnly}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
                     errors.visitPurpose ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'
-                  }`}
+                  } ${isReadOnly ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''}`}
                 >
                   <option value="">Seleccionar propósito</option>
                   <option value="personal">Visita personal</option>
@@ -476,11 +562,13 @@ export const VisitModal = ({
                   id="expectedArrival"
                   value={formData.expectedArrival}
                   onChange={(e) => handleChange('expectedArrival', e.target.value)}
+                  disabled={isReadOnly}
+                  readOnly={isReadOnly}
                   className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
                     errors.expectedArrival
                       ? 'border-red-300'
                       : 'border-gray-300 dark:border-gray-600'
-                  }`}
+                  } ${isReadOnly ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''}`}
                 />
                 {errors.expectedArrival && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">
@@ -502,7 +590,11 @@ export const VisitModal = ({
                   id="expectedDeparture"
                   value={formData.expectedDeparture}
                   onChange={(e) => handleChange('expectedDeparture', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  disabled={isReadOnly}
+                  readOnly={isReadOnly}
+                  className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
+                    isReadOnly ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''
+                  }`}
                 />
               </div>
 
@@ -520,7 +612,11 @@ export const VisitModal = ({
                   value={formData.vehicleInfo}
                   onChange={(e) => handleChange('vehicleInfo', e.target.value)}
                   placeholder="Ej: Toyota Corolla ABC-123, Moto Honda XYZ-456..."
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  disabled={isReadOnly}
+                  readOnly={isReadOnly}
+                  className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
+                    isReadOnly ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''
+                  }`}
                 />
               </div>
 
@@ -538,27 +634,43 @@ export const VisitModal = ({
                   onChange={(e) => handleChange('notes', e.target.value)}
                   rows={3}
                   placeholder="Información adicional sobre la visita..."
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  disabled={isReadOnly}
+                  readOnly={isReadOnly}
+                  className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
+                    isReadOnly ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''
+                  }`}
                 />
               </div>
             </div>
 
             {/* Botones */}
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all duration-200"
-              >
-                {isLoading ? 'Guardando...' : isEditing ? 'Actualizar' : 'Registrar'}
-              </button>
+              {isReadOnly ? (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white font-medium rounded-xl transition-all duration-200"
+                >
+                  Cerrar
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all duration-200"
+                  >
+                    {isLoading ? 'Guardando...' : isEditing ? 'Actualizar' : 'Registrar'}
+                  </button>
+                </>
+              )}
             </div>
           </form>
         </div>
@@ -656,14 +768,22 @@ export const useVisits = () => {
     setError(null);
 
     try {
-      // Simular llamada a API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { VisitorsService } = await import('@/services/visitors.service');
 
-      const newVisit: VisitFormData = {
-        id: Date.now().toString(),
+      // Mapear VisitFormData a VisitorFormData
+      const visitorData = {
         ...data,
-        status: 'SCHEDULED',
+        visitorDocument: data.visitorId, // Mapear visitorId a visitorDocument
+        hostUserId: data.hostUserId || '', // Agregar hostUserId si no está presente
       };
+
+      // Eliminar visitorId del objeto para evitar conflictos
+      delete visitorData.visitorId;
+
+      console.log('🔍 [useVisits] createVisit - data original:', data);
+      console.log('🔍 [useVisits] createVisit - data mapeada:', visitorData);
+
+      const newVisit = await VisitorsService.createVisitor(visitorData);
 
       setVisits((prev) => [newVisit, ...prev]);
       return newVisit;
@@ -680,10 +800,18 @@ export const useVisits = () => {
     setError(null);
 
     try {
-      // Simular llamada a API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { VisitorsService } = await import('@/services/visitors.service');
 
-      setVisits((prev) => prev.map((visit) => (visit.id === id ? { ...visit, ...data } : visit)));
+      // Mapear VisitFormData a VisitorFormData para actualización
+      const visitorData = { ...data };
+      if (data.visitorId) {
+        visitorData.visitorDocument = data.visitorId;
+        delete visitorData.visitorId;
+      }
+
+      const updatedVisit = await VisitorsService.updateVisitor(id, visitorData);
+
+      setVisits((prev) => prev.map((visit) => (visit.id === id ? updatedVisit : visit)));
     } catch (err) {
       setError('Error al actualizar la visita');
       throw err;
@@ -697,14 +825,10 @@ export const useVisits = () => {
     setError(null);
 
     try {
-      // Simular llamada a API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { VisitorsService } = await import('@/services/visitors.service');
+      const updatedVisit = await VisitorsService.markAsArrived(id);
 
-      setVisits((prev) =>
-        prev.map((visit) =>
-          visit.id === id ? { ...visit, status: 'ARRIVED', arrivalTime: new Date() } : visit,
-        ),
-      );
+      setVisits((prev) => prev.map((visit) => (visit.id === id ? updatedVisit : visit)));
     } catch (err) {
       setError('Error al marcar como llegado');
       throw err;
@@ -718,14 +842,10 @@ export const useVisits = () => {
     setError(null);
 
     try {
-      // Simular llamada a API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { VisitorsService } = await import('@/services/visitors.service');
+      const updatedVisit = await VisitorsService.markAsCompleted(id);
 
-      setVisits((prev) =>
-        prev.map((visit) =>
-          visit.id === id ? { ...visit, status: 'COMPLETED', departureTime: new Date() } : visit,
-        ),
-      );
+      setVisits((prev) => prev.map((visit) => (visit.id === id ? updatedVisit : visit)));
     } catch (err) {
       setError('Error al marcar como completada');
       throw err;

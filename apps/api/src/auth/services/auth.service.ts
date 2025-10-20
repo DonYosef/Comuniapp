@@ -100,7 +100,7 @@ export class AuthService {
       user.updatedAt,
     );
 
-    // Agregar roles y comunidades al objeto de usuario
+    // Agregar roles, comunidades y unidades al objeto de usuario
     (userWithPermissions as any).roles = userWithRoles.roles.map((ur) => ({
       id: ur.role.id,
       name: ur.role.name,
@@ -114,6 +114,27 @@ export class AuthService {
         address: ca.community.address,
         isActive: ca.community.isActive,
       })) || [];
+
+    (userWithPermissions as any).userUnits =
+      userWithRoles.userUnits?.map((uu) => ({
+        id: uu.id,
+        unit: {
+          id: uu.unit.id,
+          number: uu.unit.number,
+          floor: uu.unit.floor,
+          community: {
+            id: uu.unit.community.id,
+            name: uu.unit.community.name,
+            address: uu.unit.community.address,
+          },
+        },
+      })) || [];
+
+    console.log(
+      '🔍 [AuthService] login - userWithPermissions:',
+      JSON.stringify(userWithPermissions, null, 2),
+    );
+    console.log('🔍 [AuthService] login - userUnits:', (userWithPermissions as any).userUnits);
 
     return {
       user: userWithPermissions,
@@ -188,6 +209,22 @@ export class AuthService {
       },
     });
 
+    // Si se especifica una comunidad, obtener su organización y asignarla al usuario
+    if (registerDto.communityId) {
+      const community = await this.prisma.community.findUnique({
+        where: { id: registerDto.communityId },
+        select: { organizationId: true },
+      });
+
+      if (community && community.organizationId) {
+        // Actualizar el usuario con la organización de la comunidad
+        await this.prisma.user.update({
+          where: { id: newUser.id },
+          data: { organizationId: community.organizationId },
+        });
+      }
+    }
+
     // Asignar rol por defecto (RESIDENT) si no se especifica organización
     if (!registerDto.organizationId) {
       const residentRole = await this.prisma.role.findFirst({
@@ -210,5 +247,38 @@ export class AuthService {
       email: newUser.email,
       name: newUser.name,
     };
+  }
+
+  async getCommunitiesForRegistration() {
+    // Obtener todas las comunidades activas disponibles para registro
+    const communities = await this.prisma.community.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        type: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return communities.map((community) => ({
+      id: community.id,
+      name: community.name,
+      address: community.address,
+      type: community.type,
+      organization: community.organization,
+    }));
   }
 }
