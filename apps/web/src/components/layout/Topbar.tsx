@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCommunity } from '@/hooks/useCommunity';
+import { useTheme } from '@/hooks/useTheme';
 import { useRouter } from 'next/navigation';
 
 interface TopbarProps {
@@ -10,12 +11,53 @@ interface TopbarProps {
 }
 
 export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isCommunityMenuOpen, setIsCommunityMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const { currentCommunity, communities, setCurrentCommunity, loadCommunities, units } =
     useCommunity();
+  // Manejo seguro del tema con fallback
+  let resolvedTheme: 'light' | 'dark' = 'dark'; // Tema oscuro por defecto
+  let toggleTheme: () => void = () => {};
+
+  try {
+    const themeContext = useTheme();
+    resolvedTheme = themeContext.resolvedTheme;
+    toggleTheme = themeContext.toggleTheme;
+  } catch (error) {
+    // Si useTheme falla, usar tema del DOM como fallback
+    console.warn('useTheme no disponible, usando fallback:', error);
+
+    // Verificar que estamos en el cliente antes de acceder a document
+    if (typeof window !== 'undefined' && document) {
+      resolvedTheme = document.documentElement.classList.contains('light') ? 'light' : 'dark';
+      toggleTheme = () => {
+        const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+        document.documentElement.classList.remove('light', 'dark');
+        document.documentElement.classList.add(newTheme);
+        document.documentElement.setAttribute('data-theme', newTheme);
+
+        // Actualizar variables CSS
+        const bgColor = newTheme === 'dark' ? '#0a0a0a' : '#ffffff';
+        const textColor = newTheme === 'dark' ? '#ededed' : '#171717';
+
+        document.documentElement.style.setProperty('--background', bgColor);
+        document.documentElement.style.setProperty('--foreground', textColor);
+
+        // Guardar en localStorage
+        try {
+          localStorage.setItem('comuniapp-theme', newTheme);
+        } catch (e) {
+          console.warn('No se pudo guardar el tema en localStorage:', e);
+        }
+      };
+    } else {
+      // En el servidor, mantener tema oscuro por defecto
+      console.warn('Ejecutándose en servidor, usando tema oscuro por defecto');
+    }
+  }
   const router = useRouter();
 
   // Debug: Mostrar información del usuario
@@ -24,33 +66,7 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
   console.log('- user.roles:', user?.roles);
   console.log('- user.name:', user?.name);
 
-  // Cargar tema desde localStorage al montar el componente
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
-
-    setIsDarkMode(shouldBeDark);
-    if (shouldBeDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, []);
-
-  // Función para cambiar tema
-  const toggleTheme = () => {
-    const newTheme = !isDarkMode;
-    setIsDarkMode(newTheme);
-
-    if (newTheme) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  };
+  // El tema ahora se maneja a través del useTheme hook
 
   // Función para manejar logout
   const handleLogout = async () => {
@@ -218,9 +234,9 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
           <button
             onClick={toggleTheme}
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200"
-            aria-label={isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            aria-label={resolvedTheme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           >
-            {isDarkMode ? (
+            {resolvedTheme === 'dark' ? (
               <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
               </svg>

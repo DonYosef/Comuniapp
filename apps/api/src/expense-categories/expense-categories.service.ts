@@ -21,8 +21,8 @@ export class ExpenseCategoriesService {
     // Verificar que el usuario tenga acceso a la comunidad
     await this.verifyCommunityAccess(user, dto.communityId);
 
-    // Verificar que no exista una categoría con el mismo nombre en la comunidad
-    const existingCategory = await this.prisma.expenseCategory.findFirst({
+    // Verificar si existe una categoría activa con el mismo nombre
+    const existingActiveCategory = await this.prisma.expenseCategory.findFirst({
       where: {
         communityId: dto.communityId,
         name: dto.name,
@@ -30,27 +30,61 @@ export class ExpenseCategoriesService {
       },
     });
 
-    if (existingCategory) {
+    if (existingActiveCategory) {
       throw new ConflictException(
         `Ya existe una categoría con el nombre "${dto.name}" en esta comunidad.`,
       );
     }
 
-    const category = await this.prisma.expenseCategory.create({
-      data: {
-        name: dto.name,
-        description: dto.description,
+    // Verificar si existe una categoría inactiva con el mismo nombre
+    const existingInactiveCategory = await this.prisma.expenseCategory.findFirst({
+      where: {
         communityId: dto.communityId,
-      },
-      include: {
-        community: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        name: dto.name,
+        isActive: false,
       },
     });
+
+    let category;
+
+    if (existingInactiveCategory) {
+      // Si existe una categoría inactiva, reactivarla y actualizar sus datos
+      category = await this.prisma.expenseCategory.update({
+        where: {
+          id: existingInactiveCategory.id,
+        },
+        data: {
+          name: dto.name,
+          description: dto.description,
+          isActive: true,
+        },
+        include: {
+          community: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+    } else {
+      // Si no existe ninguna categoría con ese nombre, crear una nueva
+      category = await this.prisma.expenseCategory.create({
+        data: {
+          name: dto.name,
+          description: dto.description,
+          communityId: dto.communityId,
+        },
+        include: {
+          community: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+    }
 
     return this.mapToResponseDto(category);
   }

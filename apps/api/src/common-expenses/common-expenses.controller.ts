@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { CommonExpensesService } from './common-expenses.service';
 import { CreateCommonExpenseDto } from './dto/create-common-expense.dto';
 import {
@@ -11,11 +11,16 @@ import { UserPayload } from '../auth/interfaces/user-payload.interface';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { Permission } from '../domain/entities/role.entity';
 
-@UseGuards(JwtAuthGuard)
 @Controller('common-expenses')
 export class CommonExpensesController {
   constructor(private readonly commonExpensesService: CommonExpensesService) {}
 
+  @Get('test')
+  async test() {
+    return { message: 'Common expenses endpoint is working' };
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post()
   @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES)
   async create(
@@ -25,6 +30,7 @@ export class CommonExpensesController {
     return this.commonExpensesService.createCommonExpense(user, createCommonExpenseDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get()
   @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES, Permission.VIEW_OWN_EXPENSES)
   async findAll(
@@ -34,6 +40,19 @@ export class CommonExpensesController {
     return this.commonExpensesService.getCommonExpenses(user, communityId);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id/items/:itemId')
+  @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES)
+  async deleteItem(
+    @CurrentUser() user: UserPayload,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+  ): Promise<{ message: string }> {
+    console.log('🗑️ [Controller] Eliminando item:', { id, itemId, userId: user.id });
+    return this.commonExpensesService.deleteExpenseItem(user, id, itemId);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES, Permission.VIEW_OWN_EXPENSES)
   async findOne(
@@ -43,6 +62,7 @@ export class CommonExpensesController {
     return this.commonExpensesService.getCommonExpenseById(user, id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Put(':id')
   @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES)
   async update(

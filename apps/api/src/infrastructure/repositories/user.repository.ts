@@ -42,8 +42,7 @@ export class UserRepository implements IUserRepository {
   async findAll(organizationId?: string): Promise<User[]> {
     const where = organizationId ? { organizationId } : {};
 
-    console.log('🔍 [UserRepository] findAll - organizationId:', organizationId);
-    console.log('🔍 [UserRepository] findAll - where clause:', JSON.stringify(where, null, 2));
+    // Logs removidos para mejorar rendimiento
 
     // Optimización: Usar select específico para reducir transferencia de datos
     const users = await this.prisma.user.findMany({
@@ -58,16 +57,37 @@ export class UserRepository implements IUserRepository {
         organizationId: true,
         createdAt: true,
         updatedAt: true,
+        // Solo cargar roles básicos, no todas las relaciones
         roles: {
-          include: { role: true },
-        },
-        userUnits: {
-          include: {
-            unit: {
-              include: { community: true },
+          select: {
+            role: {
+              select: {
+                id: true,
+                name: true,
+                permissions: true,
+              },
             },
           },
         },
+        // Cargar solo información básica de unidades
+        userUnits: {
+          select: {
+            id: true,
+            unit: {
+              select: {
+                id: true,
+                number: true,
+                community: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        // Solo comunidades activas
         communityAdmins: {
           where: {
             community: {
@@ -75,20 +95,20 @@ export class UserRepository implements IUserRepository {
               deletedAt: null,
             },
           },
-          include: {
-            community: true,
+          select: {
+            id: true,
+            community: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
       },
     });
 
-    console.log(`🔍 [UserRepository] findAll - encontrados ${users.length} usuarios`);
-    if (organizationId) {
-      const usersWithOrg = users.filter((user) => user.organizationId === organizationId);
-      console.log(
-        `🔍 [UserRepository] findAll - usuarios con organizationId ${organizationId}: ${usersWithOrg.length}`,
-      );
-    }
+    // Logs removidos para mejorar rendimiento
 
     return users.map((user) => this.toDomainEntity(user));
   }

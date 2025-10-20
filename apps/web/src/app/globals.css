@@ -2,28 +2,69 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Variables CSS para temas - Tema oscuro por defecto para evitar flash */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0a;
+  --foreground: #ededed;
   --primary: #0ea5e9;
   --primary-foreground: #ffffff;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --primary: #0ea5e9;
-    --primary-foreground: #ffffff;
-  }
+/* NO aplicar tema oscuro automáticamente - solo cuando la clase .dark esté presente */
+
+/* Tema claro - específico y prioritario */
+html.light {
+  --background: #ffffff !important;
+  --foreground: #171717 !important;
+  --primary: #0ea5e9;
+  --primary-foreground: #ffffff;
+}
+
+/* Tema oscuro - específico y prioritario */
+html.dark {
+  --background: #0a0a0a !important;
+  --foreground: #ededed !important;
+  --primary: #0ea5e9;
+  --primary-foreground: #ffffff;
+}
+
+/* Aplicar colores de fondo al HTML y body - SIN transiciones para evitar flash */
+html {
+  background-color: var(--background);
+  color: var(--foreground);
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
+  background-color: var(--background);
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
     'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Asegurar que las clases de tema tengan máxima prioridad */
+html.light body {
+  background-color: #ffffff !important;
+  color: #171717 !important;
+}
+
+html.dark body {
+  background-color: #0a0a0a !important;
+  color: #ededed !important;
+}
+
+/* Aplicar tema oscuro por defecto a todos los elementos principales */
+body {
+  background-color: #0a0a0a !important;
+  color: #ededed !important;
+}
+
+/* Solo cambiar a claro cuando la clase .light esté presente */
+html.light body {
+  background-color: #ffffff !important;
+  color: #171717 !important;
 }
 
 /* Gradientes personalizados para títulos */

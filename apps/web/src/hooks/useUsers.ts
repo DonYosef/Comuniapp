@@ -14,8 +14,8 @@ export const useUsers = () => {
     queryKey: [USERS_QUERY_KEY],
     queryFn: UserService.getAllUsers,
     enabled: isAuthenticated, // Solo ejecutar si está autenticado
-    staleTime: 10 * 60 * 1000, // 10 minutos (aumentado para mejor rendimiento)
-    cacheTime: 15 * 60 * 1000, // 15 minutos en caché
+    staleTime: 15 * 60 * 1000, // 15 minutos (aumentado para mejor rendimiento)
+    cacheTime: 30 * 60 * 1000, // 30 minutos en caché
     refetchOnWindowFocus: false,
     refetchOnMount: false, // No refetch si ya tenemos datos frescos
     retry: 1, // Solo reintentar una vez en caso de error

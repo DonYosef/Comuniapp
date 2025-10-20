@@ -9,12 +9,12 @@ import { LoadingSpinner } from '@/components/common-expenses/CommonExpenseCompon
 import ProtectedRoute from '@/components/ProtectedRoute';
 import RoleGuard from '@/components/RoleGuard';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import { invalidateExpenseCache } from '@/hooks/useExpenseData';
 
 export default function GastosComunesPage() {
   const { currentCommunity, communities, isLoading: communitiesLoading } = useCommunity();
   const { user } = useAuth();
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   if (communitiesLoading) {
     return (
@@ -175,10 +175,7 @@ export default function GastosComunesPage() {
             </div>
 
             {/* Dashboard de gastos comunes usando la comunidad seleccionada */}
-            <CommonExpensesDashboard
-              communityId={currentCommunity.id}
-              key={refreshKey} // Forzar re-render cuando cambie el refreshKey
-            />
+            <CommonExpensesDashboard communityId={currentCommunity.id} />
           </div>
 
           {/* Modales */}
@@ -186,8 +183,8 @@ export default function GastosComunesPage() {
             isOpen={isConfigModalOpen}
             onClose={() => {
               setIsConfigModalOpen(false);
-              // Actualizar la grilla después de cerrar el modal
-              setRefreshKey((prev) => prev + 1);
+              // Invalidar caché para forzar recarga de datos
+              invalidateExpenseCache(currentCommunity.id);
             }}
             communityId={currentCommunity.id}
           />

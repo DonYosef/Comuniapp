@@ -7,6 +7,7 @@ import { CommunityService } from '@/services/communityService';
 import { CommonExpenseService } from '@/services/commonExpenseService';
 import { StatCard, LoadingSpinner } from '@/components/common-expenses/CommonExpenseComponents';
 import MonthlyExpensesTable from '@/components/common-expenses/MonthlyExpensesTableConnected';
+import { eventBus, EVENTS } from '@/utils/eventBus';
 
 // Iconos SVG como componentes
 const CurrencyDollarIcon = () => (
@@ -99,6 +100,28 @@ export default function CommonExpensesDashboard({ communityId }: CommonExpensesD
       fetchDashboardData();
     }
   }, [user, communityId]);
+
+  // Escuchar eventos de actualización de datos
+  useEffect(() => {
+    const handleDataRefresh = (data: { communityId: string }) => {
+      if (data.communityId === communityId) {
+        console.log('📢 Evento recibido: actualizando dashboard de gastos');
+        fetchDashboardData();
+      }
+    };
+
+    // Suscribirse a eventos
+    eventBus.on(EVENTS.DATA_REFRESH_NEEDED, handleDataRefresh);
+    eventBus.on(EVENTS.EXPENSE_CREATED, handleDataRefresh);
+    eventBus.on(EVENTS.EXPENSE_DELETED, handleDataRefresh);
+
+    // Limpiar suscripción al desmontar
+    return () => {
+      eventBus.off(EVENTS.DATA_REFRESH_NEEDED, handleDataRefresh);
+      eventBus.off(EVENTS.EXPENSE_CREATED, handleDataRefresh);
+      eventBus.off(EVENTS.EXPENSE_DELETED, handleDataRefresh);
+    };
+  }, [communityId]);
 
   const fetchDashboardData = async () => {
     try {

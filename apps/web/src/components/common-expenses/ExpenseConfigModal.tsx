@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   ExpenseCategoriesService,
   ExpenseCategory,
 } from '@/services/api/expense-categories.service';
 import { CommonExpensesService, CommonExpense } from '@/services/api/common-expenses.service';
 import { useToast } from '@/components/ui/Toast';
+import { invalidateExpenseCache } from '@/hooks/useExpenseData';
+import { eventBus, EVENTS } from '@/utils/eventBus';
 
 // Las interfaces ya están importadas desde los servicios
 
@@ -25,12 +27,14 @@ interface ExpenseConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
   communityId: string;
+  onDataChange?: () => void; // Callback para notificar cambios
 }
 
 export default function ExpenseConfigModal({
   isOpen,
   onClose,
   communityId,
+  onDataChange,
 }: ExpenseConfigModalProps) {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -63,6 +67,12 @@ export default function ExpenseConfigModal({
     description: '',
   });
   const [editExpenseErrors, setEditExpenseErrors] = useState<Record<string, string>>({});
+
+  // Estados para eliminación
+  const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
+  const [showDeleteCategoryModal, setShowDeleteCategoryModal] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<ExpenseCategory | null>(null);
 
   // Cargar categorías al abrir el modal
   useEffect(() => {
@@ -119,53 +129,26 @@ export default function ExpenseConfigModal({
 
   const loadExpenses = async () => {
     try {
-      console.log('📡 Cargando gastos comunes desde la API para comunidad:', communityId);
       // Cargar gastos comunes desde la API
       const commonExpensesData = await CommonExpensesService.getCommonExpenses(communityId);
-      console.log('📊 Gastos comunes recibidos:', commonExpensesData.length);
 
-      // Transformar los gastos comunes a formato de gastos individuales
-      console.log('🔍 Transformando gastos comunes:', commonExpensesData);
+      // Transformar los gastos comunes a formato de gastos individuales (optimizado)
+      const expensesData = commonExpensesData.flatMap((commonExpense) =>
+        (commonExpense.items || []).map((item) => ({
+          id: item.id,
+          title: item.name,
+          amount: item.amount,
+          description: item.description,
+          categoryId: item.categoryId || '',
+          date: commonExpense.dueDate,
+          status: 'PENDING' as const,
+          createdAt: item.createdAt,
+        })),
+      );
 
-      const expensesData = commonExpensesData.flatMap((commonExpense) => {
-        console.log('📋 Procesando gasto común:', {
-          id: commonExpense.id,
-          period: commonExpense.period,
-          items: commonExpense.items,
-          itemsLength: commonExpense.items?.length || 0,
-        });
-
-        const transformedItems = (commonExpense.items || []).map((item) => {
-          console.log('🔧 Transformando item:', {
-            id: item.id,
-            name: item.name,
-            amount: item.amount,
-            description: item.description,
-            categoryId: item.categoryId,
-          });
-
-          return {
-            id: item.id,
-            title: item.name,
-            amount: item.amount,
-            description: item.description,
-            categoryId: item.categoryId || '',
-            date: commonExpense.dueDate,
-            status: 'PENDING' as const,
-            createdAt: item.createdAt,
-          };
-        });
-
-        console.log('✅ Items transformados:', transformedItems.length);
-        return transformedItems;
-      });
-
-      console.log('🔄 Gastos transformados:', expensesData.length);
       setExpenses(expensesData);
-      console.log('✅ Estado de gastos actualizado');
     } catch (error) {
-      console.error('❌ Error loading expenses:', error);
-      // En caso de error, mostrar array vacío
+      console.error('Error loading expenses:', error);
       setExpenses([]);
     }
   };
@@ -224,23 +207,6 @@ export default function ExpenseConfigModal({
       setErrors({});
     } catch (error) {
       console.error('Error al actualizar categoría:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDeleteCategory = async (categoryId: string) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar esta categoría?')) return;
-
-    setIsLoading(true);
-    try {
-      // TODO: Implementar llamada a la API para eliminar categoría
-      // await ExpenseCategoryService.deleteCategory(categoryId);
-
-      // Simular eliminación
-      setCategories((prev) => prev.filter((cat) => cat.id !== categoryId));
-    } catch (error) {
-      console.error('Error al eliminar categoría:', error);
     } finally {
       setIsLoading(false);
     }
@@ -338,6 +304,12 @@ export default function ExpenseConfigModal({
       console.log('🔄 Recargando datos después de crear gasto...');
       await loadExpenses();
       console.log('✅ Datos recargados exitosamente');
+
+      // Invalidar caché y emitir evento
+      invalidateExpenseCache(communityId);
+      eventBus.emit(EVENTS.EXPENSE_CREATED, { communityId, expense: newExpenseData });
+      eventBus.emit(EVENTS.DATA_REFRESH_NEEDED, { communityId });
+      console.log('📢 Eventos emitidos para actualizar datos');
 
       setShowNewExpenseForm(false);
       setNewExpenseData({ title: '', description: '' });
@@ -441,12 +413,184 @@ export default function ExpenseConfigModal({
   };
 
   // Obtener gastos de la categoría activa
-  const getExpensesByCategory = (categoryId: string) => {
-    return expenses.filter((expense) => expense.categoryId === categoryId);
+  // Memoización de funciones de filtrado
+  const getExpensesByCategory = useCallback(
+    (categoryId: string) => {
+      return expenses.filter((expense) => expense.categoryId === categoryId);
+    },
+    [expenses],
+  );
+
+  const getExpensesWithoutCategory = useCallback(() => {
+    return expenses.filter((expense) => !expense.categoryId || expense.categoryId === '');
+  }, [expenses]);
+
+  // Función para mostrar modal de confirmación de eliminación
+  const handleDeleteCategoryClick = (categoryId: string) => {
+    const category = categories.find((cat) => cat.id === categoryId);
+    if (category) {
+      setCategoryToDelete(category);
+      setShowDeleteCategoryModal(true);
+    }
   };
 
-  const getExpensesWithoutCategory = () => {
-    return expenses.filter((expense) => !expense.categoryId || expense.categoryId === '');
+  // Función para confirmar eliminación de categoría
+  const handleConfirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+
+    setDeletingCategoryId(categoryToDelete.id);
+    setIsLoading(true);
+
+    try {
+      console.log('🗑️ Eliminando categoría:', categoryToDelete.id, categoryToDelete.name);
+      console.log('📡 Llamando a la API:', `/expense-categories/${categoryToDelete.id}`);
+
+      // Eliminar la categoría
+      const result = await ExpenseCategoriesService.deleteCategory(categoryToDelete.id);
+      console.log('✅ Respuesta de la API:', result);
+
+      // Recargar categorías
+      console.log('🔄 Recargando categorías...');
+      await loadCategories();
+      console.log('✅ Categorías recargadas');
+
+      // Invalidar caché y emitir evento
+      invalidateExpenseCache(communityId);
+      eventBus.emit(EVENTS.DATA_REFRESH_NEEDED, { communityId });
+      console.log('📢 Eventos emitidos para actualizar datos (eliminación de categoría)');
+
+      showToast('Categoría eliminada exitosamente', 'success');
+
+      // Cerrar modal de confirmación
+      setShowDeleteCategoryModal(false);
+      setCategoryToDelete(null);
+    } catch (error: any) {
+      console.error('❌ Error al eliminar categoría:', error);
+      console.error('❌ Detalles del error:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        method: error.config?.method,
+      });
+
+      // Mostrar mensaje de error específico
+      let errorMessage = 'Error al eliminar la categoría';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      showToast(errorMessage, 'error');
+    } finally {
+      setDeletingCategoryId(null);
+      setIsLoading(false);
+    }
+  };
+
+  // Función para cancelar eliminación
+  const handleCancelDeleteCategory = () => {
+    setShowDeleteCategoryModal(false);
+    setCategoryToDelete(null);
+  };
+
+  // Función para eliminar un gasto
+  const handleDeleteExpense = async (expenseId: string) => {
+    setDeletingExpenseId(expenseId);
+    setIsLoading(true);
+
+    try {
+      console.log('🗑️ Iniciando eliminación del gasto:', expenseId);
+
+      // Encontrar el gasto común al que pertenece este item
+      const commonExpenses = await CommonExpensesService.getCommonExpenses(communityId);
+      console.log('📊 Gastos comunes obtenidos:', commonExpenses.length);
+
+      const expense = expenses.find((e) => e.id === expenseId);
+      console.log('🔍 Gasto encontrado:', expense);
+
+      if (!expense) {
+        throw new Error('Gasto no encontrado en la lista local');
+      }
+
+      // Buscar el gasto común que contiene este item
+      let commonExpenseId = '';
+      let targetItem = null;
+
+      for (const commonExpense of commonExpenses) {
+        console.log(
+          '🔍 Buscando en gasto común:',
+          commonExpense.id,
+          'con',
+          commonExpense.items.length,
+          'items',
+        );
+
+        const item = commonExpense.items.find((item) => {
+          const nameMatch = item.name === expense.title;
+          const descMatch = (item.description || '') === (expense.description || '');
+          console.log('🔍 Comparando item:', {
+            itemName: item.name,
+            expenseTitle: expense.title,
+            nameMatch,
+            itemDesc: item.description,
+            expenseDesc: expense.description,
+            descMatch,
+          });
+          return nameMatch && descMatch;
+        });
+
+        if (item) {
+          commonExpenseId = commonExpense.id;
+          targetItem = item;
+          console.log('✅ Item encontrado:', item);
+          break;
+        }
+      }
+
+      if (!commonExpenseId || !targetItem) {
+        console.error('❌ No se pudo encontrar el gasto común o item asociado');
+        console.log(
+          '📊 Gastos comunes disponibles:',
+          commonExpenses.map((ce) => ({
+            id: ce.id,
+            period: ce.period,
+            itemsCount: ce.items.length,
+            items: ce.items.map((item) => ({
+              id: item.id,
+              name: item.name,
+              description: item.description,
+            })),
+          })),
+        );
+        throw new Error('No se pudo encontrar el gasto común o item asociado');
+      }
+
+      console.log('🚀 Eliminando item:', targetItem.id, 'del gasto común:', commonExpenseId);
+
+      // Eliminar el item
+      const result = await CommonExpensesService.deleteExpenseItem(commonExpenseId, targetItem.id);
+      console.log('✅ Resultado de eliminación:', result);
+
+      // Recargar los datos
+      await loadExpenses();
+
+      // Invalidar caché y emitir evento
+      invalidateExpenseCache(communityId);
+      eventBus.emit(EVENTS.EXPENSE_DELETED, { communityId, expenseId });
+      eventBus.emit(EVENTS.DATA_REFRESH_NEEDED, { communityId });
+      console.log('📢 Eventos emitidos para actualizar datos (eliminación)');
+
+      showToast('Gasto eliminado exitosamente', 'success');
+    } catch (error) {
+      console.error('❌ Error al eliminar gasto:', error);
+      showToast(`Error al eliminar el gasto: ${error.message}`, 'error');
+    } finally {
+      setDeletingExpenseId(null);
+      setIsLoading(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -623,18 +767,47 @@ export default function ExpenseConfigModal({
             /* Lista de gastos de la categoría activa */
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                    {activeTab === 'no-category'
-                      ? 'Sin categoría'
-                      : categories.find((cat) => cat.id === activeTab)?.name || 'Gastos'}
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {activeTab === 'no-category'
-                      ? getExpensesWithoutCategory().length
-                      : getExpensesByCategory(activeTab).length}{' '}
-                    gastos registrados
-                  </p>
+                <div className="flex items-center space-x-3">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                      {activeTab === 'no-category'
+                        ? 'Sin categoría'
+                        : categories.find((cat) => cat.id === activeTab)?.name || 'Gastos'}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {activeTab === 'no-category'
+                        ? getExpensesWithoutCategory().length
+                        : getExpensesByCategory(activeTab).length}{' '}
+                      gastos registrados
+                    </p>
+                  </div>
+                  {/* Botón de eliminar categoría - solo para categorías reales, no para "Sin categoría" */}
+                  {activeTab !== 'no-category' && activeTab !== 'create-category' && (
+                    <button
+                      onClick={() => handleDeleteCategoryClick(activeTab)}
+                      disabled={deletingCategoryId === activeTab}
+                      className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors duration-200 disabled:opacity-50"
+                      title="Eliminar categoría"
+                    >
+                      {deletingCategoryId === activeTab ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-500"></div>
+                      ) : (
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  )}
                 </div>
                 <button
                   onClick={() => {
@@ -899,20 +1072,40 @@ export default function ExpenseConfigModal({
                                 />
                               </svg>
                             </button>
-                            <button className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                />
-                              </svg>
+                            <button
+                              onClick={() => handleDeleteExpense(expense.id)}
+                              disabled={deletingExpenseId === expense.id || isLoading}
+                              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {deletingExpenseId === expense.id ? (
+                                <svg
+                                  className="w-4 h-4 animate-spin"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                  />
+                                </svg>
+                              ) : (
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                  />
+                                </svg>
+                              )}
                             </button>
                           </div>
                         </div>
@@ -925,6 +1118,86 @@ export default function ExpenseConfigModal({
           )}
         </div>
       </div>
+
+      {/* Modal de confirmación para eliminar categoría */}
+      {showDeleteCategoryModal && categoryToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <div className="flex items-center mb-4">
+                <div className="flex-shrink-0">
+                  <svg
+                    className="w-8 h-8 text-red-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z"
+                    />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                    Eliminar Categoría
+                  </h3>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                  ¿Estás seguro de que quieres eliminar la categoría:
+                </p>
+                <p className="text-lg font-medium text-gray-900 dark:text-white">
+                  "{categoryToDelete.name}"
+                </p>
+                <p className="text-sm text-red-600 dark:text-red-400 mt-2">
+                  ⚠️ Esta acción no se puede deshacer y eliminará permanentemente la categoría.
+                </p>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={handleCancelDeleteCategory}
+                  disabled={deletingCategoryId === categoryToDelete.id}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmDeleteCategory}
+                  disabled={deletingCategoryId === categoryToDelete.id}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 flex items-center"
+                >
+                  {deletingCategoryId === categoryToDelete.id ? (
+                    <>
+                      <svg
+                        className="w-4 h-4 mr-2 animate-spin"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
+                      </svg>
+                      Eliminando...
+                    </>
+                  ) : (
+                    'Eliminar Categoría'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Container para las notificaciones toast */}
       <ToastContainer />

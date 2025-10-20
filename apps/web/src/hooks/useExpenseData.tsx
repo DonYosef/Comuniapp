@@ -7,9 +7,34 @@ import {
 } from '@/services/api/expense-categories.service';
 import { CommonExpensesService, CommonExpense } from '@/services/api/common-expenses.service';
 
-// Cache simple en memoria para optimizar las llamadas
+// Cache optimizado con TTL y limpieza automática
 const dataCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos (aumentado para mejor rendimiento)
+const MAX_CACHE_SIZE = 20; // Máximo 20 entradas en cache
+
+// Función para invalidar caché específico
+export const invalidateExpenseCache = (communityId: string) => {
+  const cacheKey = `expense-data-${communityId}`;
+  dataCache.delete(cacheKey);
+  console.log('🗑️ Cache invalidado para comunidad:', communityId);
+};
+
+// Limpiar cache automáticamente
+const cleanCache = () => {
+  const now = Date.now();
+  for (const [key, value] of dataCache.entries()) {
+    if (now - value.timestamp > CACHE_DURATION) {
+      dataCache.delete(key);
+    }
+  }
+  // Si el cache sigue siendo muy grande, eliminar las más antiguas
+  if (dataCache.size > MAX_CACHE_SIZE) {
+    const entries = Array.from(dataCache.entries());
+    entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+    const toDelete = entries.slice(0, dataCache.size - MAX_CACHE_SIZE);
+    toDelete.forEach(([key]) => dataCache.delete(key));
+  }
+};
 
 interface Expense {
   id: string;
@@ -40,6 +65,9 @@ export function useExpenseData(communityId: string): UseExpenseDataReturn {
   const loadData = useCallback(async () => {
     if (!communityId) return;
 
+    // Limpiar cache antes de verificar
+    cleanCache();
+
     setIsLoading(true);
     setError(null);
 
@@ -65,48 +93,30 @@ export function useExpenseData(communityId: string): UseExpenseDataReturn {
         CommonExpensesService.getCommonExpenses(communityId),
       ]);
 
-      // Transformar los gastos comunes a formato de gastos individuales
-      console.log('🔍 [useExpenseData] Transformando gastos comunes:', commonExpensesData);
-
+      // Transformación optimizada de datos (sin logging excesivo)
       const expensesData = commonExpensesData.flatMap((commonExpense) => {
-        console.log('📋 [useExpenseData] Procesando gasto común:', {
-          id: commonExpense.id,
-          period: commonExpense.period,
-          items: commonExpense.items,
-          itemsLength: commonExpense.items?.length || 0,
-        });
+        // Verificación defensiva más eficiente
+        if (!commonExpense.items || commonExpense.items.length === 0) {
+          return [];
+        }
 
-        const transformedItems = (commonExpense.items || []).map((item) => {
-          console.log('🔧 [useExpenseData] Transformando item:', {
-            id: item.id,
-            name: item.name,
-            amount: item.amount,
-            description: item.description,
-            categoryId: item.categoryId,
-          });
+        // Transformación optimizada sin logging individual
+        return commonExpense.items.map((item) => ({
+          id: item.id,
+          title: item.name,
+          amount: item.amount,
+          description: item.description || '',
+          categoryId: item.categoryId || '',
+          date: commonExpense.dueDate,
+          status: 'PENDING' as const,
+          createdAt: item.createdAt,
+        }));
+      });
 
-          return {
-            id: item.id,
-            title: item.name,
-            amount: item.amount,
-            description: item.description,
-            categoryId: item.categoryId || '',
-            date: commonExpense.dueDate,
-            status: 'PENDING' as const,
-            createdAt: item.createdAt,
-          };
-        });
-
-        console.log('✅ [useExpenseData] Items transformados:', transformedItems.length);
-        console.log(
-          '📊 [useExpenseData] Gastos cargados:',
-          transformedItems.map((item) => ({
-            id: item.id,
-            title: item.title,
-            categoryId: item.categoryId,
-          })),
-        );
-        return transformedItems;
+      console.log('✅ [useExpenseData] Datos transformados:', {
+        categorías: categoriesData.length,
+        gastos: expensesData.length,
+        gastosComunes: commonExpensesData.length,
       });
 
       // Guardar en cache
@@ -115,14 +125,7 @@ export function useExpenseData(communityId: string): UseExpenseDataReturn {
         timestamp: now,
       });
 
-      console.log('📋 [useExpenseData] Categorías cargadas:', categoriesData.length);
-      console.log(
-        '📋 [useExpenseData] Categorías:',
-        categoriesData.map((cat) => ({
-          id: cat.id,
-          name: cat.name,
-        })),
-      );
+      // Logging optimizado - solo información esencial
 
       setCategories(categoriesData);
       setExpenses(expensesData);

@@ -69,6 +69,26 @@ export class CommonExpensesService {
     await apiClient.delete(`${this.BASE_URL}/${expenseId}`);
   }
 
+  static async deleteExpenseItem(expenseId: string, itemId: string): Promise<{ message: string }> {
+    try {
+      console.log('🚀 Llamando a la API:', `${this.BASE_URL}/${expenseId}/items/${itemId}`);
+      const response = await apiClient.delete(`${this.BASE_URL}/${expenseId}/items/${itemId}`);
+      console.log('✅ Respuesta de la API:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error en la llamada a la API:', error);
+      console.error('❌ Detalles del error:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        method: error.config?.method,
+      });
+      throw error;
+    }
+  }
+
   // Método para calcular estadísticas (mantener compatibilidad con el frontend existente)
   static calculateStats(expense: CommonExpense) {
     // TODO: Implementar cálculo real basado en pagos

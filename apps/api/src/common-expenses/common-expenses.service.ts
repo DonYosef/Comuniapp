@@ -266,11 +266,23 @@ export class CommonExpensesService {
       );
     }
 
+    // Optimización: Limitar a los últimos 12 meses para mejor rendimiento
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
     const commonExpenses = await this.prisma.communityExpense.findMany({
-      where: { communityId },
+      where: {
+        communityId,
+        createdAt: {
+          gte: twelveMonthsAgo,
+        },
+      },
       orderBy: { period: 'desc' },
+      take: 24, // Máximo 24 períodos (2 años)
       include: {
-        items: true, // ← AGREGAR ITEMS
+        items: {
+          orderBy: { createdAt: 'desc' }, // Items más recientes primero
+        },
         expenses: {
           select: { status: true },
         },
@@ -515,5 +527,81 @@ export class CommonExpensesService {
       createdAt: updatedExpense.createdAt,
       updatedAt: updatedExpense.updatedAt,
     };
+  }
+
+  async deleteExpenseItem(
+    user: UserPayload,
+    commonExpenseId: string,
+    itemId: string,
+  ): Promise<{ message: string }> {
+    // 1. Verificar que el gasto común existe y el usuario tiene permisos
+    const commonExpense = await this.prisma.communityExpense.findUnique({
+      where: { id: commonExpenseId },
+      include: {
+        community: {
+          include: {
+            organization: {
+              include: {
+                users: {
+                  where: { id: user.id },
+                  include: {
+                    roles: {
+                      include: {
+                        role: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!commonExpense) {
+      throw new NotFoundException(`Common expense with ID ${commonExpenseId} not found`);
+    }
+
+    // 2. Verificar permisos del usuario
+    const hasPermission = commonExpense.community.organization.users.some((u) =>
+      u.roles.some((ur) => ur.role.permissions.includes(Permission.MANAGE_COMMUNITY_EXPENSES)),
+    );
+
+    if (!hasPermission) {
+      throw new UnauthorizedException('You do not have permission to delete expense items');
+    }
+
+    // 3. Verificar que el item existe
+    const item = await this.prisma.communityExpenseItem.findUnique({
+      where: { id: itemId },
+    });
+
+    if (!item) {
+      throw new NotFoundException(`Expense item with ID ${itemId} not found`);
+    }
+
+    if (item.communityExpenseId !== commonExpenseId) {
+      throw new ConflictException('Item does not belong to this common expense');
+    }
+
+    // 4. Eliminar el item
+    await this.prisma.communityExpenseItem.delete({
+      where: { id: itemId },
+    });
+
+    // 5. Recalcular el total del gasto común
+    const remainingItems = await this.prisma.communityExpenseItem.findMany({
+      where: { communityExpenseId: commonExpenseId },
+    });
+
+    const newTotalAmount = remainingItems.reduce((sum, item) => sum + Number(item.amount), 0);
+
+    await this.prisma.communityExpense.update({
+      where: { id: commonExpenseId },
+      data: { totalAmount: newTotalAmount },
+    });
+
+    return { message: 'Expense item deleted successfully' };
   }
 }

@@ -1,0 +1,314 @@
+# Guía de Estilos y Diseños - Comuniapp
+
+## 🎨 Reglas para Aplicación de Estilos y Diseños
+
+### 1. **Manejo de Temas (Light/Dark Mode)**
+
+#### **Estrategia Unificada de Temas:**
+
+- **CSS por defecto**: Usar tema oscuro como base para evitar flash
+- **Variables CSS**: Definir en `:root` con valores por defecto oscuros
+- **Clases específicas**: `html.light` y `html.dark` con `!important` para máxima prioridad
+- **Script inline**: Aplicar tema inmediatamente en `<head>` antes de cualquier renderizado
+- **Verificación SSR**: Siempre verificar `typeof window !== 'undefined'` antes de acceder a `document`
+
+#### **Estructura CSS Recomendada:**
+
+```css
+/* Variables por defecto - Tema oscuro para evitar flash */
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --primary: #0ea5e9;
+  --primary-foreground: #ffffff;
+}
+
+/* Aplicar tema oscuro por defecto */
+body {
+  background-color: #0a0a0a !important;
+  color: #ededed !important;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
+    'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Solo cambiar a claro cuando la clase .light esté presente */
+html.light body {
+  background-color: #ffffff !important;
+  color: #171717 !important;
+}
+
+html.dark body {
+  background-color: #0a0a0a !important;
+  color: #ededed !important;
+}
+```
+
+### 2. **Prevención de Flash de Tema (FOUC)**
+
+#### **Técnicas Anti-Flash:**
+
+- **Script inline en `<head>`**: Aplicar tema antes de CSS
+- **CSS por defecto oscuro**: Evitar flash claro→oscuro
+- **Sin transiciones**: Eliminar `transition` en elementos críticos
+- **Especificidad alta**: Usar `!important` en reglas críticas
+- **Verificación de cliente**: Manejar SSR correctamente
+
+#### **Script Inline Recomendado:**
+
+```javascript
+(function () {
+  try {
+    const storageKey = 'comuniapp-theme';
+    let resolvedTheme = 'dark'; // Tema oscuro por defecto
+
+    // Intentar leer el tema guardado
+    try {
+      const savedTheme = localStorage.getItem(storageKey);
+      if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
+        if (savedTheme === 'system') {
+          resolvedTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light';
+        } else {
+          resolvedTheme = savedTheme;
+        }
+      } else {
+        // No hay tema guardado, usar preferencia del sistema
+        resolvedTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light';
+      }
+    } catch (e) {
+      // Si hay error leyendo localStorage, mantener tema oscuro por defecto
+      resolvedTheme = 'dark';
+    }
+
+    // Aplicar inmediatamente ANTES de cualquier renderizado
+    const root = document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(resolvedTheme);
+    root.setAttribute('data-theme', resolvedTheme);
+
+    // Configurar variables CSS inmediatamente
+    const bgColor = resolvedTheme === 'dark' ? '#0a0a0a' : '#ffffff';
+    const textColor = resolvedTheme === 'dark' ? '#ededed' : '#171717';
+
+    root.style.setProperty('--background', bgColor);
+    root.style.setProperty('--foreground', textColor);
+  } catch (e) {
+    // Silenciar errores
+  }
+})();
+```
+
+### 3. **Manejo de Contextos de Tema**
+
+#### **Patrón de Fallback Seguro:**
+
+```typescript
+// Manejo seguro del tema con fallback
+let resolvedTheme: 'light' | 'dark' = 'dark'; // Tema oscuro por defecto
+let toggleTheme: () => void = () => {};
+
+try {
+  const themeContext = useTheme();
+  resolvedTheme = themeContext.resolvedTheme;
+  toggleTheme = themeContext.toggleTheme;
+} catch (error) {
+  // Verificar que estamos en el cliente antes de acceder a document
+  if (typeof window !== 'undefined' && document) {
+    resolvedTheme = document.documentElement.classList.contains('light') ? 'light' : 'dark';
+    toggleTheme = () => {
+      const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+      document.documentElement.classList.remove('light', 'dark');
+      document.documentElement.classList.add(newTheme);
+      document.documentElement.setAttribute('data-theme', newTheme);
+
+      // Actualizar variables CSS
+      const bgColor = newTheme === 'dark' ? '#0a0a0a' : '#ffffff';
+      const textColor = newTheme === 'dark' ? '#ededed' : '#171717';
+
+      document.documentElement.style.setProperty('--background', bgColor);
+      document.documentElement.style.setProperty('--foreground', textColor);
+
+      // Guardar en localStorage
+      try {
+        localStorage.setItem('comuniapp-theme', newTheme);
+      } catch (e) {
+        console.warn('No se pudo guardar el tema en localStorage:', e);
+      }
+    };
+  } else {
+    // En el servidor, mantener tema oscuro por defecto
+    console.warn('Ejecutándose en servidor, usando tema oscuro por defecto');
+  }
+}
+```
+
+### 4. **Principios de Diseño Consistente**
+
+#### **Unificación de Sistemas:**
+
+- **Un solo sistema de estado**: Evitar múltiples manejadores de tema
+- **Hook unificado**: Usar `useTheme` en todos los componentes
+- **Sincronización automática**: Cambios se reflejan en toda la app
+- **Persistencia consistente**: Una sola clave en localStorage
+
+#### **Estructura de Archivos:**
+
+```
+src/
+├── app/
+│   ├── layout.tsx (ThemeProvider + script inline)
+│   └── globals.css (variables + reglas específicas)
+├── hooks/
+│   └── useTheme.tsx (contexto unificado)
+└── components/
+    └── layout/
+        └── Topbar.tsx (fallback seguro)
+```
+
+### 5. **Reglas de CSS para Componentes**
+
+#### **Clases de Tema:**
+
+- **Específicas**: `html.light body`, `html.dark body`
+- **Prioridad alta**: Usar `!important` en reglas críticas
+- **Sin transiciones**: En elementos que causan flash
+- **Variables CSS**: Para colores dinámicos
+
+#### **Estructura de Reglas:**
+
+```css
+/* 1. Variables por defecto */
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+/* 2. Aplicación por defecto */
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* 3. Reglas específicas con prioridad */
+html.light body {
+  background-color: #ffffff !important;
+  color: #171717 !important;
+}
+html.dark body {
+  background-color: #0a0a0a !important;
+  color: #ededed !important;
+}
+```
+
+### 6. **Manejo de Errores y Fallbacks**
+
+#### **Patrones de Resiliencia:**
+
+- **Try-catch**: Para contextos y localStorage
+- **Verificación de entorno**: `typeof window !== 'undefined'`
+- **Fallbacks inteligentes**: Usar DOM como fuente de verdad
+- **Logging útil**: Advertir sobre problemas sin crashear
+
+### 7. **Optimización de Rendimiento**
+
+#### **Técnicas de Optimización:**
+
+- **Script inline**: Aplicación inmediata sin esperar JS
+- **CSS crítico**: Variables y reglas esenciales primero
+- **Sin transiciones**: En elementos que causan flash
+- **Especificidad mínima**: Solo `!important` donde sea necesario
+
+### 8. **Testing y Debugging**
+
+#### **Herramientas de Debug:**
+
+- **Console warnings**: Para identificar problemas
+- **Verificación de entorno**: Logs de SSR vs cliente
+- **Fallback detection**: Advertir cuando se usa fallback
+- **Tema consistency**: Verificar sincronización
+
+### 9. **Reglas de Implementación**
+
+#### **Orden de Implementación:**
+
+1. **CSS base** con tema oscuro por defecto
+2. **Script inline** para aplicación inmediata
+3. **ThemeProvider** para manejo de estado
+4. **Componentes** con fallback seguro
+5. **Testing** en diferentes entornos
+
+#### **Checklist de Implementación:**
+
+- [ ] CSS con tema oscuro por defecto
+- [ ] Script inline en `<head>`
+- [ ] ThemeProvider configurado
+- [ ] Componentes con fallback
+- [ ] Verificación SSR
+- [ ] Testing de flash
+- [ ] Persistencia funcionando
+
+### 10. **Casos de Uso Comunes**
+
+#### **Problemas Frecuentes y Soluciones:**
+
+**Flash de tema al recargar:**
+
+- ✅ Usar tema oscuro por defecto en CSS
+- ✅ Script inline para aplicación inmediata
+- ✅ Sin transiciones en elementos críticos
+
+**Error "document is not defined":**
+
+- ✅ Verificar `typeof window !== 'undefined'`
+- ✅ Manejar SSR con fallback
+- ✅ Try-catch para contextos
+
+**Botón de tema no funciona:**
+
+- ✅ Un solo sistema de estado
+- ✅ Hook unificado en componentes
+- ✅ Fallback seguro para errores
+
+**Inconsistencia de tema:**
+
+- ✅ Variables CSS consistentes
+- ✅ Clases específicas con prioridad
+- ✅ Sincronización automática
+
+### 11. **Mejores Prácticas**
+
+#### **DO (Hacer):**
+
+- ✅ Usar tema oscuro por defecto
+- ✅ Script inline para aplicación inmediata
+- ✅ Verificar entorno antes de acceder a DOM
+- ✅ Fallback seguro para errores
+- ✅ Una sola clave de localStorage
+- ✅ Especificidad alta en reglas críticas
+
+#### **DON'T (No hacer):**
+
+- ❌ Múltiples sistemas de tema
+- ❌ Acceso directo a DOM sin verificación
+- ❌ Transiciones en elementos críticos
+- ❌ Tema claro por defecto
+- ❌ Dependencias de contexto sin fallback
+- ❌ Reglas CSS sin especificidad
+
+---
+
+## 📝 Notas Importantes
+
+- **Siempre usar tema oscuro por defecto** para evitar flash
+- **Verificar entorno** antes de acceder a DOM
+- **Un solo sistema de estado** para consistencia
+- **Fallback seguro** para todos los casos de error
+- **Testing en SSR y cliente** para robustez

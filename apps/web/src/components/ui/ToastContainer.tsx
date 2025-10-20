@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useToast } from '@/contexts/ToastContext';
 
 interface ToastProps {
   message: string;
@@ -9,7 +10,7 @@ interface ToastProps {
   onClose?: () => void;
 }
 
-export default function Toast({ message, type, duration = 3000, onClose }: ToastProps) {
+function Toast({ message, type, duration = 3000, onClose }: ToastProps) {
   const [isVisible, setIsVisible] = useState(true);
 
   console.log('🎯 Toast component renderizando:', { message, type, isVisible });
@@ -53,7 +54,7 @@ export default function Toast({ message, type, duration = 3000, onClose }: Toast
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
         );
@@ -120,43 +121,24 @@ export default function Toast({ message, type, duration = 3000, onClose }: Toast
   );
 }
 
-// Hook para usar el toast
-export function useToast() {
-  const [toasts, setToasts] = useState<
-    Array<{ id: string; message: string; type: ToastProps['type'] }>
-  >([]);
+export default function ToastContainer() {
+  const { toasts, removeToast } = useToast();
 
-  console.log('🎯 useToast hook inicializado, toasts actuales:', toasts.length);
+  console.log('🎯 ToastContainer renderizando:', toasts.length, 'toasts');
 
-  const showToast = (message: string, type: ToastProps['type'] = 'info') => {
-    console.log('🎯 showToast llamado:', { message, type });
-    const id = Math.random().toString(36).substr(2, 9);
-    setToasts((prev) => [...prev, { id, message, type }]);
-    console.log('🎯 Toast agregado al estado');
-  };
-
-  const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  };
-
-  const ToastContainer = () => {
-    console.log('🎯 ToastContainer renderizando:', toasts.length, 'toasts');
-    return (
-      <div className="fixed top-4 right-4 z-50 space-y-2">
-        {toasts.map((toast) => {
-          console.log('🎯 Renderizando toast:', toast);
-          return (
-            <Toast
-              key={toast.id}
-              message={toast.message}
-              type={toast.type}
-              onClose={() => removeToast(toast.id)}
-            />
-          );
-        })}
-      </div>
-    );
-  };
-
-  return { showToast, ToastContainer };
+  return (
+    <div className="fixed top-4 right-4 z-50 space-y-2">
+      {toasts.map((toast) => {
+        console.log('🎯 Renderizando toast:', toast);
+        return (
+          <Toast
+            key={toast.id}
+            message={toast.message}
+            type={toast.type}
+            onClose={() => removeToast(toast.id)}
+          />
+        );
+      })}
+    </div>
+  );
 }

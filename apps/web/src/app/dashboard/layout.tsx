@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import Topbar from '@/components/layout/Topbar';
+import ToastContainer from '@/components/ui/ToastContainer';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
@@ -30,6 +31,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Contenido de la página */}
         <main className="p-4 lg:p-6">{children}</main>
       </div>
+
+      {/* Toast Container Global */}
+      <ToastContainer />
     </div>
   );
 }
