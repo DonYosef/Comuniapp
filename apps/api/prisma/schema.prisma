@@ -314,7 +314,7 @@ model Visitor {
   notes             String?
   entryDate         DateTime?     @map("entry_date")
   exitDate          DateTime?     @map("exit_date")
-  status            VisitorStatus @default(SCHEDULED)
+  status            VisitorStatus @default(REGISTERED)
   createdAt         DateTime      @default(now()) @map("created_at")
   updatedAt         DateTime      @updatedAt @map("updated_at")
   host              User          @relation("HostedVisitors", fields: [hostUserId], references: [id])
@@ -529,10 +529,10 @@ enum ParcelStatus {
 }
 
 enum VisitorStatus {
-  SCHEDULED
-  ARRIVED
-  COMPLETED
-  CANCELLED
+  REGISTERED
+  ENTERED
+  EXITED
+  EXPIRED
 }
 
 enum AnnouncementType {

@@ -217,7 +217,7 @@ export class VisitorsService {
     const updatedVisitor = await this.prisma.visitor.update({
       where: { id },
       data: {
-        status: VisitorStatus.ARRIVED,
+        status: VisitorStatus.ENTERED,
         entryDate: new Date(),
       },
       include: {
@@ -249,7 +249,7 @@ export class VisitorsService {
     const updatedVisitor = await this.prisma.visitor.update({
       where: { id },
       data: {
-        status: VisitorStatus.COMPLETED,
+        status: VisitorStatus.EXITED,
         exitDate: new Date(),
       },
       include: {
