@@ -12,6 +12,7 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { ChatbotService } from '../../services/chatbot.service';
+import { useAuth } from '../../hooks/useAuth';
 
 interface Message {
   id: string;
@@ -28,10 +29,24 @@ interface ChatbotWindowProps {
 }
 
 export default function ChatbotWindow({ isOpen, onClose, onMinimize }: ChatbotWindowProps) {
+  const { user, isAuthenticated, hasRole, hasPermission, isAdmin } = useAuth();
+
+  // Generar mensaje de bienvenida personalizado
+  const getWelcomeMessage = () => {
+    if (!isAuthenticated || !user) {
+      return '¡Hola! 👋 Soy el asistente virtual de Comuniapp. ¿En qué puedo ayudarte hoy?';
+    }
+
+    const userName = user.name || 'Usuario';
+    const userRoles = user.roles?.map((role) => role.name).join(', ') || '';
+
+    return `¡Hola ${userName}! 👋 Soy tu asistente virtual de Comuniapp. Como ${userRoles.toLowerCase()}, puedo ayudarte con información específica de tu rol. ¿En qué puedo asistirte hoy?`;
+  };
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: '¡Hola! 👋 Soy el asistente virtual de Comuniapp. ¿En qué puedo ayudarte hoy?',
+      text: getWelcomeMessage(),
       isUser: false,
       timestamp: new Date(),
       type: 'system',
@@ -58,6 +73,20 @@ export default function ChatbotWindow({ isOpen, onClose, onMinimize }: ChatbotWi
     }
   }, [isOpen]);
 
+  // Actualizar mensaje de bienvenida cuando cambie el estado de autenticación
+  useEffect(() => {
+    setMessages((prev) => {
+      const newMessages = [...prev];
+      if (newMessages.length > 0 && newMessages[0].type === 'system') {
+        newMessages[0] = {
+          ...newMessages[0],
+          text: getWelcomeMessage(),
+        };
+      }
+      return newMessages;
+    });
+  }, [isAuthenticated, user]);
+
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
 
@@ -74,8 +103,10 @@ export default function ChatbotWindow({ isOpen, onClose, onMinimize }: ChatbotWi
     setIsTyping(true);
 
     try {
-      // Llamar a la API real del chatbot
-      const response = await ChatbotService.sendMessage(currentInput);
+      // Llamar a la API del chatbot - usar endpoint autenticado si el usuario está logueado
+      const response = isAuthenticated
+        ? await ChatbotService.sendMessageAuth(currentInput)
+        : await ChatbotService.sendMessage(currentInput);
 
       const botResponse: Message = {
         id: (Date.now() + 1).toString(),
@@ -119,11 +150,85 @@ export default function ChatbotWindow({ isOpen, onClose, onMinimize }: ChatbotWi
     }
   };
 
-  const quickActions = [
-    { label: 'espacios comunes', icon: '🏢' },
-    { label: 'avisos', icon: '📢' },
-    { label: 'gastos comunes', icon: '💰' },
-  ];
+  // Función para generar acciones rápidas basadas en el rol y permisos del usuario
+  const getQuickActions = () => {
+    if (!isAuthenticated || !user) {
+      // Acciones para usuarios no autenticados
+      return [
+        { label: 'información general', icon: 'ℹ️' },
+        { label: 'cómo registrarse', icon: '📝' },
+        { label: 'contacto', icon: '📞' },
+      ];
+    }
+
+    const actions = [];
+
+    // Acciones básicas para todos los usuarios autenticados
+    actions.push({ label: 'avisos', icon: '📢' }, { label: 'mi perfil', icon: '👤' });
+
+    // Acciones específicas según roles y permisos
+    if (hasRole('SUPER_ADMIN')) {
+      actions.push(
+        { label: 'gestión de organizaciones', icon: '🏢' },
+        { label: 'usuarios del sistema', icon: '👥' },
+        { label: 'métricas del sistema', icon: '📊' },
+        { label: 'configuración global', icon: '⚙️' },
+      );
+    }
+
+    if (hasRole('COMMUNITY_ADMIN')) {
+      actions.push(
+        { label: 'gestión de comunidad', icon: '🏘️' },
+        { label: 'residentes', icon: '👥' },
+        { label: 'gastos comunes', icon: '💰' },
+        { label: 'reportes', icon: '📊' },
+      );
+    }
+
+    if (hasRole('CONCIERGE')) {
+      actions.push(
+        { label: 'visitantes', icon: '👥' },
+        { label: 'encomiendas', icon: '📦' },
+        { label: 'reservas', icon: '📅' },
+        { label: 'espacios comunes', icon: '🏢' },
+      );
+    }
+
+    if (hasRole('RESIDENT') || hasRole('OWNER') || hasRole('TENANT')) {
+      actions.push(
+        { label: 'mis gastos', icon: '💰' },
+        { label: 'mis visitantes', icon: '👥' },
+        { label: 'mis encomiendas', icon: '📦' },
+        { label: 'reportar problema', icon: '🚨' },
+      );
+    }
+
+    // Acciones adicionales basadas en permisos específicos
+    if (hasPermission('manage_community_expenses')) {
+      actions.push({ label: 'gastos comunes', icon: '💰' });
+    }
+
+    if (hasPermission('manage_visitors')) {
+      actions.push({ label: 'visitantes', icon: '👥' });
+    }
+
+    if (hasPermission('manage_parcels')) {
+      actions.push({ label: 'encomiendas', icon: '📦' });
+    }
+
+    if (hasPermission('manage_reservations')) {
+      actions.push({ label: 'reservas', icon: '📅' });
+    }
+
+    // Eliminar duplicados y limitar a 6 acciones máximo
+    const uniqueActions = actions
+      .filter((action, index, self) => index === self.findIndex((a) => a.label === action.label))
+      .slice(0, 6);
+
+    return uniqueActions;
+  };
+
+  const quickActions = getQuickActions();
 
   if (!isOpen) return null;
 
@@ -137,7 +242,11 @@ export default function ChatbotWindow({ isOpen, onClose, onMinimize }: ChatbotWi
           </div>
           <div>
             <h3 className="text-white font-semibold text-sm">Asistente Virtual</h3>
-            <p className="text-blue-100 text-xs">En línea</p>
+            <p className="text-blue-100 text-xs">
+              {isAuthenticated && user
+                ? `${user.name} - ${user.roles?.map((role) => role.name).join(', ') || 'Usuario'}`
+                : 'En línea'}
+            </p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -171,14 +280,14 @@ export default function ChatbotWindow({ isOpen, onClose, onMinimize }: ChatbotWi
                 ${
                   message.isUser
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white'
                 }
               `}
             >
-              <p>{message.text}</p>
+              {message.isUser ? <p>{message.text}</p> : <p>{message.text}</p>}
               <p
                 className={`text-xs mt-1 ${
-                  message.isUser ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                  message.isUser ? 'text-blue-100' : 'text-gray-500 dark:text-white'
                 }`}
               >
                 {message.timestamp.toLocaleTimeString('es-ES', {

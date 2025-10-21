@@ -54,8 +54,8 @@ model Community {
   commonSpaces      CommunityCommonSpace[]
   communityExpenses CommunityExpense[]
   communityIncome   CommunityIncome[]
-  expenseCategories ExpenseCategory[]
   documents         Document[]
+  expenseCategories ExpenseCategory[]
   units             Unit[]
 
   @@index([createdById])
@@ -201,7 +201,6 @@ model UserUnit {
 model Expense {
   id                 String            @id @default(cuid())
   unitId             String            @map("unit_id")
-  categoryId         String?           @map("category_id")
   amount             Decimal           @db.Decimal(10, 2)
   concept            String
   description        String?
@@ -210,9 +209,10 @@ model Expense {
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
   communityExpenseId String?           @map("community_expense_id")
+  categoryId         String?           @map("category_id")
+  category           ExpenseCategory?  @relation(fields: [categoryId], references: [id])
   communityExpense   CommunityExpense? @relation(fields: [communityExpenseId], references: [id])
   unit               Unit              @relation(fields: [unitId], references: [id])
-  category           ExpenseCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   payments           Payment[]
 
   @@index([status])
@@ -261,38 +261,30 @@ model CommunityExpense {
 model CommunityExpenseItem {
   id                 String           @id @default(cuid())
   communityExpenseId String           @map("community_expense_id")
-  categoryId         String?          @map("category_id")
   name               String
   amount             Decimal          @db.Decimal(10, 2)
   description        String?
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
+  categoryId         String?          @map("category_id")
+  category           ExpenseCategory? @relation(fields: [categoryId], references: [id])
   communityExpense   CommunityExpense @relation(fields: [communityExpenseId], references: [id], onDelete: Cascade)
-  category           ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@index([categoryId])
   @@map("community_expense_items")
 }
 
 model Parcel {
-  id                  String       @id @default(cuid())
-  unitId              String       @map("unit_id")
-  description         String
-  sender              String?
-  senderPhone         String?      @map("sender_phone")
-  recipientName       String?      @map("recipient_name")
-  recipientResidence  String?      @map("recipient_residence")
-  recipientPhone      String?      @map("recipient_phone")
-  recipientEmail      String?      @map("recipient_email")
-  conciergeName       String?      @map("concierge_name")
-  conciergePhone      String?      @map("concierge_phone")
-  notes               String?
-  receivedAt          DateTime     @default(now()) @map("received_at")
-  retrievedAt         DateTime?    @map("retrieved_at")
-  status              ParcelStatus @default(RECEIVED)
-  createdAt           DateTime     @default(now()) @map("created_at")
-  updatedAt           DateTime     @updatedAt @map("updated_at")
-  unit                Unit         @relation(fields: [unitId], references: [id])
+  id          String       @id @default(cuid())
+  unitId      String       @map("unit_id")
+  description String
+  sender      String?
+  receivedAt  DateTime     @default(now()) @map("received_at")
+  retrievedAt DateTime?    @map("retrieved_at")
+  status      ParcelStatus @default(RECEIVED)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  unit        Unit         @relation(fields: [unitId], references: [id])
 
   @@map("parcels")
 }
@@ -307,7 +299,7 @@ model Visitor {
   visitorEmail      String?       @map("visitor_email")
   residentName      String?       @map("resident_name")
   residentPhone     String?       @map("resident_phone")
-  visitPurpose      String        @map("visit_purpose") // personal, business, maintenance, delivery, other
+  visitPurpose      String        @map("visit_purpose")
   expectedArrival   DateTime      @map("expected_arrival")
   expectedDeparture DateTime      @map("expected_departure")
   vehicleInfo       String?       @map("vehicle_info")
@@ -415,17 +407,17 @@ model Incident {
 }
 
 model ExpenseCategory {
-  id          String                 @id @default(cuid())
-  name        String
-  description String?
-  isActive    Boolean                @default(true) @map("is_active")
-  communityId String                 @map("community_id")
-  createdAt   DateTime               @default(now()) @map("created_at")
-  updatedAt   DateTime               @updatedAt @map("updated_at")
-  community   Community              @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  expenses    Expense[]
+  id           String                 @id @default(cuid())
+  name         String
+  description  String?
+  isActive     Boolean                @default(true) @map("is_active")
+  communityId  String                 @map("community_id")
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
   expenseItems CommunityExpenseItem[]
-  incomeItems CommunityIncomeItem[]
+  incomeItems  CommunityIncomeItem[]
+  community    Community              @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  expenses     Expense[]
 
   @@unique([communityId, name])
   @@index([communityId])
@@ -434,15 +426,15 @@ model ExpenseCategory {
 }
 
 model CommunityIncome {
-  id             String                 @id @default(cuid())
-  communityId    String                 @map("community_id")
+  id             String                @id @default(cuid())
+  communityId    String                @map("community_id")
   period         String
-  totalAmount    Decimal                @map("total_amount") @db.Decimal(10, 2)
-  dueDate        DateTime               @map("due_date")
-  createdAt      DateTime               @default(now()) @map("created_at")
-  updatedAt      DateTime               @updatedAt @map("updated_at")
-  prorrateMethod ProrrateMethod         @default(EQUAL) @map("prorrate_method")
-  community      Community              @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  totalAmount    Decimal               @map("total_amount") @db.Decimal(10, 2)
+  dueDate        DateTime              @map("due_date")
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+  prorrateMethod ProrrateMethod        @default(EQUAL) @map("prorrate_method")
+  community      Community             @relation(fields: [communityId], references: [id], onDelete: Cascade)
   items          CommunityIncomeItem[]
 
   @@unique([communityId, period])
@@ -452,16 +444,16 @@ model CommunityIncome {
 }
 
 model CommunityIncomeItem {
-  id               String           @id @default(cuid())
+  id                String          @id @default(cuid())
   communityIncomeId String          @map("community_income_id")
-  categoryId       String
-  name             String
-  amount           Decimal          @db.Decimal(10, 2)
-  description      String?
-  createdAt        DateTime         @default(now()) @map("created_at")
-  updatedAt        DateTime         @updatedAt @map("updated_at")
-  communityIncome  CommunityIncome  @relation(fields: [communityIncomeId], references: [id], onDelete: Cascade)
-  category         ExpenseCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  categoryId        String
+  name              String
+  amount            Decimal         @db.Decimal(10, 2)
+  description       String?
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  category          ExpenseCategory @relation(fields: [categoryId], references: [id])
+  communityIncome   CommunityIncome @relation(fields: [communityIncomeId], references: [id], onDelete: Cascade)
 
   @@index([categoryId])
   @@map("community_income_items")

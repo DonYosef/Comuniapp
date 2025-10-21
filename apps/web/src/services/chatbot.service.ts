@@ -26,10 +26,20 @@ export class ChatbotService {
 
   static async sendMessage(question: string): Promise<ChatbotResponse> {
     try {
-      const response = await this.makeRequest(`/chatbot/auth?q=${encodeURIComponent(question)}`);
+      const response = await this.makeRequest(`/chatbot?q=${encodeURIComponent(question)}`);
       return response;
     } catch (error) {
       console.error('Error sending message to chatbot:', error);
+      throw error;
+    }
+  }
+
+  static async sendMessageAuth(question: string): Promise<ChatbotResponse> {
+    try {
+      const response = await this.makeRequest(`/chatbot/auth?q=${encodeURIComponent(question)}`);
+      return response;
+    } catch (error) {
+      console.error('Error sending authenticated message to chatbot:', error);
       throw error;
     }
   }
