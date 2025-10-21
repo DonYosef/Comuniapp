@@ -77,6 +77,7 @@ export class AuthService {
     const payload = {
       sub: user.id,
       email: user.email,
+      name: user.name,
       organizationId: user.organizationId,
       roles: userWithRoles.roles.map((ur) => ({
         id: ur.role.id,

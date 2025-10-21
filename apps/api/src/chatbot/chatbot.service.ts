@@ -6,19 +6,29 @@ import { ChatbotResponseDto } from './dto/chatbot.dto';
 @Injectable()
 export class ChatbotService {
   private readonly logger = new Logger(ChatbotService.name);
-  private readonly HF_API_URL = 'https://router.huggingface.co/v1/chat/completions';
+  private readonly OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
-  // Cache para respuestas frecuentes y control de rate limiting
+  // Cache para respuestas frecuentes y control de rate limiting inteligente
   private responseCache = new Map<string, { answer: string; timestamp: number }>();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutos
-  private readonly RATE_LIMIT_WINDOW = 60 * 1000; // 1 minuto
-  private requestTimestamps: number[] = [];
-  private readonly MAX_REQUESTS_PER_MINUTE = 10; // Límite conservador
+
+  // Control inteligente de rate limiting para OpenAI
+  private lastRequestTime: number = 0;
+  private readonly MIN_DELAY_BETWEEN_REQUESTS = 1000; // 1 segundo mínimo entre requests
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    // Verificar configuración de OpenAI al inicializar
+    this.verifyOpenAIConfiguration().then((isConfigured) => {
+      if (isConfigured) {
+        this.logger.log('🚀 Chatbot service initialized with OpenAI');
+      } else {
+        this.logger.warn('⚠️ Chatbot service initialized but OpenAI not configured');
+      }
+    });
+  }
 
   async processQuestion(question: string): Promise<ChatbotResponseDto> {
     const lowerQuestion = question.toLowerCase().trim();
@@ -52,18 +62,23 @@ export class ChatbotService {
       return await this.getCommonExpensesInfo();
     }
 
-    // --- 4) VISITANTES ---
+    // --- 4) RESIDENTES ---
+    if (lowerQuestion.includes('residentes') || lowerQuestion.includes('residente')) {
+      return await this.getResidentsInfo();
+    }
+
+    // --- 5) VISITANTES ---
     if (lowerQuestion.includes('visitantes') || lowerQuestion.includes('visitas')) {
       return await this.getVisitorsInfo();
     }
 
-    // --- 5) ENCOMIENDAS ---
+    // --- 6) ENCOMIENDAS ---
     if (lowerQuestion.includes('encomiendas') || lowerQuestion.includes('paquetes')) {
       return await this.getParcelsInfo();
     }
 
-    // --- 6) CONSULTA AL MODELO DE HUGGING FACE ---
-    return await this.queryHuggingFace(question);
+    // --- 6) CONSULTA AL MODELO DE OPENAI ---
+    return await this.queryOpenAI(question);
   }
 
   async processQuestionWithUserContext(question: string, user: any): Promise<ChatbotResponseDto> {
@@ -108,18 +123,23 @@ export class ChatbotService {
       return await this.getCommonExpensesInfoForUser(userInfo, userRoles);
     }
 
-    // --- 4) VISITANTES ---
+    // --- 4) RESIDENTES ---
+    if (lowerQuestion.includes('residentes') || lowerQuestion.includes('residente')) {
+      return await this.getResidentsInfoForUser(userInfo, userRoles);
+    }
+
+    // --- 5) VISITANTES ---
     if (lowerQuestion.includes('visitantes') || lowerQuestion.includes('visitas')) {
       return await this.getVisitorsInfoForUser(userInfo, userRoles);
     }
 
-    // --- 5) ENCOMIENDAS ---
+    // --- 6) ENCOMIENDAS ---
     if (lowerQuestion.includes('encomiendas') || lowerQuestion.includes('paquetes')) {
       return await this.getParcelsInfoForUser(userInfo, userRoles);
     }
 
-    // --- 6) CONSULTA AL MODELO DE HUGGING FACE CON CONTEXTO DE USUARIO ---
-    return await this.queryHuggingFaceWithUserContext(question, userInfo, userRoles);
+    // --- 6) CONSULTA AL MODELO DE OPENAI CON CONTEXTO DE USUARIO ---
+    return await this.queryOpenAIWithUserContext(question, userInfo, userRoles);
   }
 
   private async getCommonSpacesInfo(): Promise<ChatbotResponseDto> {
@@ -262,7 +282,7 @@ export class ChatbotService {
     }
   }
 
-  private async queryHuggingFace(question: string): Promise<ChatbotResponseDto> {
+  private async queryOpenAI(question: string): Promise<ChatbotResponseDto> {
     try {
       // Verificar cache primero
       const cachedResponse = this.getCachedResponse(question);
@@ -270,108 +290,90 @@ export class ChatbotService {
         return { answer: cachedResponse };
       }
 
-      // Verificar rate limiting
-      if (this.isRateLimited()) {
-        this.logger.warn('Rate limit exceeded, using fallback response');
-        return { answer: this.getFallbackResponse(question) };
-      }
+      // Rate limiting deshabilitado para testing
+      // if (this.isRateLimited()) {
+      //   this.logger.warn('Rate limit exceeded, using fallback response');
+      //   return { answer: this.getFallbackResponse(question) };
+      // }
 
-      const hfToken = this.configService.get<string>('HF_TOKEN');
+      const openaiKey = this.configService.get<string>('OPENAI_API_KEY');
 
-      if (!hfToken) {
-        this.logger.error('HF_TOKEN not configured');
+      if (!openaiKey) {
+        this.logger.error('OPENAI_API_KEY not configured');
         return { answer: 'El servicio de IA no está configurado correctamente.' };
       }
 
-      // Agregar timestamp de request
-      this.addRequestTimestamp();
+      // Aplicar delay inteligente para evitar rate limiting
+      await this.ensureRequestDelay();
 
       // Obtener información contextual del sistema
       const contextInfo = await this.getSystemContext();
 
       const payload = {
-        model: 'openai/gpt-oss-120b:cerebras',
+        model: 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
-            content: `Eres ComunIAssistant, el asistente virtual inteligente de Comuniapp, un sistema de gestión comunitaria integral.
+            content: `Eres ComunIAssistant, un asistente virtual inteligente y versátil.
 
-🎯 **TU IDENTIDAD:**
-- Eres un asistente especializado en gestión de comunidades residenciales
-- Tienes un tono profesional pero amigable y accesible
-- Respondes siempre en español (español latinoamericano)
-- Usas emojis moderadamente para hacer las respuestas más amigables
+## IDENTIDAD Y PERSONALIDAD
+- Asistente amigable, profesional y conocedor
+- Respondes preferentemente en español latinoamericano
+- Usas emojis estratégicamente para mejorar la comunicación
+- Eres útil, informativo y conversacional
+- Puedes responder sobre CUALQUIER TEMA con conocimiento y claridad
 
-🏢 **CONTEXTO DEL SISTEMA:**
-Comuniapp es una plataforma que gestiona:
-• Espacios comunes (gimnasios, piscinas, salas de eventos, etc.)
-• Gastos comunes y cuotas de mantenimiento
-• Registro de visitantes y control de acceso
-• Encomiendas y paquetes
-• Avisos y comunicaciones comunitarias
-• Reservas de espacios comunes
-• Gestión de residentes y administración
+## FLEXIBILIDAD TOTAL
+Aunque estás integrado en Comuniapp (una plataforma de gestión comunitaria), puedes responder sobre CUALQUIER TEMA que el usuario pregunte:
+✅ Preguntas generales sobre cualquier tema
+✅ Explicaciones técnicas o científicas
+✅ Programación y tecnología
+✅ Consejos y recomendaciones
+✅ Conversación casual
+✅ Historia, cultura, arte
+✅ Salud, deportes, entretenimiento
+✅ Educación y aprendizaje
+✅ Y CUALQUIER otro tema imaginable
 
-💡 **FUNCIONALIDADES DISPONIBLES:**
-El sistema puede consultar información específica usando estas palabras clave:
-- "espacios comunes" → Información sobre áreas compartidas y sus horarios
-- "avisos" → Últimos comunicados de la administración
-- "gastos comunes" → Información sobre cuotas y gastos de mantenimiento
-- "visitantes" → Registro de visitas y control de acceso
-- "encomiendas" → Estado de paquetes y entregas
-
-📊 **INFORMACIÓN CONTEXTUAL ACTUAL:**
+## INFORMACIÓN DEL SISTEMA (OPCIONAL)
+Si el usuario pregunta específicamente sobre Comuniapp:
 ${contextInfo}
 
-📋 **INSTRUCCIONES DE RESPUESTA:**
+Funcionalidades de Comuniapp:
+• Espacios comunes • Gastos comunes • Visitantes • Encomiendas • Avisos
 
-1. **SALUDOS:** Si el usuario saluda (hola, buenos días, etc.), responde cordialmente y presenta brevemente tus capacidades.
+## INSTRUCCIONES DE RESPUESTA
+- Responde CUALQUIER pregunta que te hagan, no solo sobre gestión comunitaria
+- Sé conversacional, natural y útil
+- No te limites a un solo tema o dominio
+- Proporciona información precisa y completa
+- Adapta tu tono según la pregunta
+- Usa emojis cuando sea apropiado
+- Estructura la información de forma clara
 
-2. **CONSULTAS ESPECÍFICAS:** Si menciona alguna palabra clave, explica qué información puede obtener y sugiere usar esa palabra clave para obtener datos actualizados.
-
-3. **PREGUNTAS GENERALES:** Para preguntas sobre gestión comunitaria, proporciona respuestas útiles y prácticas basadas en tu conocimiento y la información contextual disponible.
-
-4. **ORIENTACIÓN:** Siempre orienta al usuario sobre las funcionalidades disponibles del sistema.
-
-5. **DESPEDIDAS:** Si el usuario se despide, responde cordialmente y recuérdale que estás disponible para ayudar.
-
-🎨 **FORMATO DE RESPUESTAS:**
-- Usa emojis relevantes para hacer las respuestas más visuales
-- Estructura la información de manera clara y organizada
-- Mantén las respuestas concisas pero informativas
-- Incluye sugerencias prácticas cuando sea apropiado
-- Usa la información contextual para dar respuestas más precisas
-
-❌ **LIMITACIONES:**
-- No puedes realizar transacciones o cambios en el sistema
-- Para acciones específicas, siempre dirige al usuario a contactar la administración
-- No proporcionas información personal de otros residentes
-- Mantén la confidencialidad y privacidad
-
-Recuerda: Tu objetivo es ser útil, informativo y facilitar la experiencia del usuario con el sistema de gestión comunitaria.`,
+## OBJETIVO PRINCIPAL
+Ser un asistente útil, informativo y versátil que puede ayudar con CUALQUIER pregunta o tema, proporcionando respuestas claras, precisas y amigables.`,
           },
           {
             role: 'user',
             content: question,
           },
         ],
+        max_tokens: 500,
+        temperature: 0.7,
       };
 
-      const response = await fetch(this.HF_API_URL, {
+      const response = await fetch(this.OPENAI_API_URL, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${hfToken}`,
+          Authorization: `Bearer ${openaiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        if (response.status === 429) {
-          this.logger.warn('Rate limit exceeded from Hugging Face API');
-          return { answer: this.getFallbackResponse(question) };
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        return await this.handleOpenAIError(response, question);
       }
 
       const data = await response.json();
@@ -382,7 +384,7 @@ Recuerda: Tu objetivo es ser útil, informativo y facilitar la experiencia del u
 
       return { answer };
     } catch (error) {
-      this.logger.error('Error querying Hugging Face:', error);
+      this.logger.error('Error querying OpenAI:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
 
       // Si es error de rate limiting, usar fallback
@@ -599,6 +601,100 @@ Recuerda: Tu objetivo es ser útil, informativo y facilitar la experiencia del u
         answer:
           '❌ **Error del Sistema**\n\n' +
           'Ocurrió un error al obtener la información de visitantes.\n' +
+          'Por favor, intenta nuevamente o contacta a la administración.',
+      };
+    }
+  }
+
+  private async getResidentsInfo(): Promise<ChatbotResponseDto> {
+    try {
+      const residents = await this.prisma.user.findMany({
+        where: {
+          isActive: true,
+          roles: {
+            some: {
+              role: {
+                name: 'RESIDENT',
+              },
+            },
+          },
+        },
+        include: {
+          userUnits: {
+            include: {
+              unit: {
+                include: {
+                  community: true,
+                },
+              },
+            },
+          },
+          roles: {
+            include: {
+              role: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      });
+
+      if (residents.length === 0) {
+        return {
+          answer:
+            '👥 **Registro de Residentes**\n\n' +
+            '📭 No hay residentes registrados actualmente.\n\n' +
+            '💡 *Los residentes se registran a través del sistema de administración.*',
+        };
+      }
+
+      let response = '👥 RESIDENTES REGISTRADOS\n\n';
+      response += '─'.repeat(60) + '\n\n';
+
+      for (let i = 0; i < residents.length; i++) {
+        const resident = residents[i];
+        const registrationDate = resident.createdAt.toLocaleDateString('es-ES', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        });
+
+        response += `👤 ${resident.name}\n\n`;
+        response += `📧 Email: ${resident.email}\n`;
+        response += `📅 Registrado: ${registrationDate}\n`;
+
+        if (resident.phone) {
+          response += `📞 Teléfono: ${resident.phone}\n`;
+        }
+
+        if (resident.userUnits.length > 0) {
+          response += `🏠 Unidades: `;
+          const units = resident.userUnits.map(
+            (uu) => `${uu.unit.number} (${uu.unit.community.name})`,
+          );
+          response += units.join(', ') + '\n';
+        }
+
+        const roles = resident.roles.map((ur) => ur.role.name).join(', ');
+        response += `🔑 Roles: ${roles}\n\n`;
+
+        if (i < residents.length - 1) {
+          response += '─'.repeat(40) + '\n\n';
+        }
+      }
+
+      response += '\n💡 Información adicional:\n\n';
+      response += '• Los residentes tienen acceso a sus unidades asignadas\n';
+      response += '• Pueden gestionar visitantes y encomiendas\n';
+      response += '• Contacta a la administración para más detalles';
+
+      return { answer: response };
+    } catch (error) {
+      this.logger.error('Error getting residents info:', error);
+      return {
+        answer:
+          '❌ **Error del Sistema**\n\n' +
+          'Ocurrió un error al obtener la información de residentes.\n' +
           'Por favor, intenta nuevamente o contacta a la administración.',
       };
     }
@@ -1514,7 +1610,179 @@ ${this.getContextualSuggestions(totalCommunities, totalSpaces, recentAnnouncemen
     }
   }
 
-  private async queryHuggingFaceWithUserContext(
+  private async getResidentsInfoForUser(
+    userInfo: any,
+    userRoles: string[],
+  ): Promise<ChatbotResponseDto> {
+    try {
+      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
+      const isCommunityAdmin = userRoles.includes('COMMUNITY_ADMIN');
+      const isConcierge = userRoles.includes('CONCIERGE');
+      const isResident = userRoles.includes('RESIDENT');
+
+      let whereClause: any = {
+        isActive: true,
+        roles: {
+          some: {
+            role: {
+              name: 'RESIDENT',
+            },
+          },
+        },
+      };
+      let communityContext = '';
+
+      if (isSuperAdmin) {
+        // Super Admin ve todos los residentes
+        communityContext = 'todas las comunidades';
+      } else if (isCommunityAdmin) {
+        // Community Admin ve residentes de sus comunidades
+        const communityIds = userInfo?.communityAdmins?.map((ca: any) => ca.community.id) || [];
+        if (communityIds.length > 0) {
+          whereClause.userUnits = {
+            some: {
+              unit: {
+                community: {
+                  isActive: true,
+                  id: { in: communityIds },
+                },
+              },
+            },
+          };
+          communityContext = `sus comunidades administradas`;
+        }
+      } else if (isConcierge) {
+        // Concierge ve residentes de su comunidad
+        const communityId = userInfo?.userUnits?.[0]?.unit?.community?.id;
+        if (communityId) {
+          whereClause.userUnits = {
+            some: {
+              unit: {
+                community: {
+                  isActive: true,
+                  id: communityId,
+                },
+              },
+            },
+          };
+          communityContext = `su comunidad (${userInfo?.userUnits?.[0]?.unit?.community?.name})`;
+        }
+      } else if (isResident) {
+        // Resident ve solo información básica de otros residentes (sin datos sensibles)
+        communityContext = `su comunidad`;
+      }
+
+      const residents = await this.prisma.user.findMany({
+        where: whereClause,
+        include: {
+          userUnits: {
+            include: {
+              unit: {
+                include: {
+                  community: true,
+                },
+              },
+            },
+          },
+          roles: {
+            include: {
+              role: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      });
+
+      if (residents.length === 0) {
+        return {
+          answer:
+            `👥 **Residentes - ${this.getUserRoleDisplayName(userRoles)}**\n\n` +
+            `📭 No hay residentes registrados en ${communityContext}.\n\n` +
+            `💡 *Los residentes se registran a través del sistema de administración.*`,
+        };
+      }
+
+      let response = '👥 RESIDENTES REGISTRADOS\n\n';
+      response += `👤 Vista de: ${this.getUserRoleDisplayName(userRoles)}\n`;
+      response += `🏢 Contexto: ${communityContext}\n\n`;
+      response += '─'.repeat(60) + '\n\n';
+
+      for (let i = 0; i < residents.length; i++) {
+        const resident = residents[i];
+        const registrationDate = resident.createdAt.toLocaleDateString('es-ES', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        });
+
+        response += `👤 ${resident.name}\n\n`;
+
+        // Mostrar email solo si es admin o conserje
+        if (isSuperAdmin || isCommunityAdmin || isConcierge) {
+          response += `📧 Email: ${resident.email}\n`;
+        }
+
+        response += `📅 Registrado: ${registrationDate}\n`;
+
+        // Mostrar teléfono solo si es admin o conserje
+        if ((isSuperAdmin || isCommunityAdmin || isConcierge) && resident.phone) {
+          response += `📞 Teléfono: ${resident.phone}\n`;
+        }
+
+        if (resident.userUnits.length > 0) {
+          response += `🏠 Unidades: `;
+          const units = resident.userUnits.map(
+            (uu) => `${uu.unit.number} (${uu.unit.community.name})`,
+          );
+          response += units.join(', ') + '\n';
+        }
+
+        // Mostrar roles solo si es admin
+        if (isSuperAdmin || isCommunityAdmin) {
+          const roles = resident.roles.map((ur) => ur.role.name).join(', ');
+          response += `🔑 Roles: ${roles}\n`;
+        }
+
+        response += '\n';
+
+        if (i < residents.length - 1) {
+          response += '─'.repeat(40) + '\n\n';
+        }
+      }
+
+      response += '\n💡 Información adicional:\n\n';
+      if (isConcierge) {
+        response += '• Como conserje, puedes ver información de contacto de los residentes\n';
+        response += '• Mantén actualizada la información de contacto\n';
+        response += '• Contacta a la administración para cambios en roles\n';
+      } else if (isResident) {
+        response += '• Los residentes tienen acceso a sus unidades asignadas\n';
+        response += '• Pueden gestionar visitantes y encomiendas\n';
+        response += '• Contacta a la administración para más detalles\n';
+      } else if (isCommunityAdmin) {
+        response += '• Puedes gestionar residentes desde el panel de administración\n';
+        response += '• Asigna y modifica roles según sea necesario\n';
+        response += '• Mantén actualizada la información de contacto\n';
+      } else {
+        response += '• Los residentes tienen acceso a sus unidades asignadas\n';
+        response += '• Pueden gestionar visitantes y encomiendas\n';
+        response += '• Contacta a la administración para más detalles\n';
+      }
+
+      return { answer: response };
+    } catch (error) {
+      this.logger.error('Error getting residents info for user:', error);
+      return {
+        answer:
+          '❌ **Error del Sistema**\n\n' +
+          'Ocurrió un error al obtener la información de residentes.\n' +
+          'Por favor, intenta nuevamente o contacta a la administración.',
+      };
+    }
+  }
+
+  private async queryOpenAIWithUserContext(
     question: string,
     userInfo: any,
     userRoles: string[],
@@ -1527,114 +1795,94 @@ ${this.getContextualSuggestions(totalCommunities, totalSpaces, recentAnnouncemen
         return { answer: cachedResponse };
       }
 
-      // Verificar rate limiting
-      if (this.isRateLimited()) {
-        this.logger.warn('Rate limit exceeded, using fallback response for authenticated user');
-        return { answer: this.getFallbackResponse(question) };
-      }
+      // Rate limiting deshabilitado para testing
+      // if (this.isRateLimited()) {
+      //   this.logger.warn('Rate limit exceeded, using fallback response for authenticated user');
+      //   return { answer: this.getFallbackResponse(question) };
+      // }
 
-      const hfToken = this.configService.get<string>('HF_TOKEN');
+      const openaiKey = this.configService.get<string>('OPENAI_API_KEY');
 
-      if (!hfToken) {
-        this.logger.error('HF_TOKEN not configured');
+      if (!openaiKey) {
+        this.logger.error('OPENAI_API_KEY not configured');
         return { answer: 'El servicio de IA no está configurado correctamente.' };
       }
 
-      // Agregar timestamp de request
-      this.addRequestTimestamp();
+      // Aplicar delay inteligente para evitar rate limiting
+      await this.ensureRequestDelay();
 
       // Obtener información contextual del sistema y usuario
       const systemContext = await this.getSystemContext();
       const userContext = this.getUserContextForAI(userInfo, userRoles);
 
       const payload = {
-        model: 'openai/gpt-oss-120b:cerebras',
+        model: 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
-            content: `Eres ComunIAssistant, el asistente virtual inteligente de Comuniapp, un sistema de gestión comunitaria integral.
+            content: `Eres ComunIAssistant, un asistente virtual inteligente y versátil.
 
-🎯 **TU IDENTIDAD:**
-- Eres un asistente especializado en gestión de comunidades residenciales
-- Tienes un tono profesional pero amigable y accesible
-- Respondes siempre en español (español latinoamericano)
-- Usas emojis moderadamente para hacer las respuestas más amigables
+## IDENTIDAD Y PERSONALIDAD
+- Asistente amigable, profesional y conocedor
+- Respondes preferentemente en español latinoamericano
+- Usas emojis estratégicamente para mejorar la comunicación
+- Eres útil, informativo y conversacional
+- Puedes responder sobre CUALQUIER TEMA con conocimiento y claridad
+- Te adaptas al usuario para proporcionar respuestas personalizadas
 
-🏢 **CONTEXTO DEL SISTEMA:**
-Comuniapp es una plataforma que gestiona:
-• Espacios comunes (gimnasios, piscinas, salas de eventos, etc.)
-• Gastos comunes y cuotas de mantenimiento
-• Registro de visitantes y control de acceso
-• Encomiendas y paquetes
-• Avisos y comunicaciones comunitarias
-• Reservas de espacios comunes
-• Gestión de residentes y administración
+## FLEXIBILIDAD TOTAL
+Aunque estás integrado en Comuniapp (una plataforma de gestión comunitaria), puedes responder sobre CUALQUIER TEMA que el usuario pregunte:
+✅ Preguntas generales sobre cualquier tema
+✅ Explicaciones técnicas o científicas
+✅ Programación y tecnología
+✅ Consejos y recomendaciones
+✅ Conversación casual
+✅ Historia, cultura, arte
+✅ Salud, deportes, entretenimiento
+✅ Educación y aprendizaje
+✅ Y CUALQUIER otro tema imaginable
 
-💡 **FUNCIONALIDADES DISPONIBLES:**
-El sistema puede consultar información específica usando estas palabras clave:
-- "espacios comunes" → Información sobre áreas compartidas y sus horarios
-- "avisos" → Últimos comunicados de la administración
-- "gastos comunes" → Información sobre cuotas y gastos de mantenimiento
-- "visitantes" → Registro de visitas y control de acceso
-- "encomiendas" → Estado de paquetes y entregas
-
-📊 **INFORMACIÓN CONTEXTUAL ACTUAL:**
+## INFORMACIÓN DEL SISTEMA (OPCIONAL)
+Si el usuario pregunta específicamente sobre Comuniapp:
 ${systemContext}
 
-👤 **INFORMACIÓN DEL USUARIO ACTUAL:**
+## INFORMACIÓN DEL USUARIO ACTUAL
 ${userContext}
 
-📋 **INSTRUCCIONES DE RESPUESTA:**
+## INSTRUCCIONES DE RESPUESTA
+- Responde CUALQUIER pregunta que te hagan, no solo sobre gestión comunitaria
+- Saluda al usuario por su nombre si está disponible
+- Sé conversacional, natural y útil
+- No te limites a un solo tema o dominio
+- Proporciona información precisa y completa
+- Adapta tu tono según la pregunta y el usuario
+- Usa emojis cuando sea apropiado
+- Estructura la información de forma clara
+- Personaliza las respuestas según el rol del usuario cuando sea relevante
 
-1. **SALUDOS:** Si el usuario saluda (hola, buenos días, etc.), responde cordialmente y presenta brevemente tus capacidades según su rol.
-
-2. **CONSULTAS ESPECÍFICAS:** Si menciona alguna palabra clave, explica qué información puede obtener según su rol y sugiere usar esa palabra clave para obtener datos actualizados.
-
-3. **PREGUNTAS GENERALES:** Para preguntas sobre gestión comunitaria, proporciona respuestas útiles y prácticas basadas en tu conocimiento, la información contextual disponible y los permisos del usuario.
-
-4. **ORIENTACIÓN:** Siempre orienta al usuario sobre las funcionalidades disponibles del sistema según su rol específico.
-
-5. **DESPEDIDAS:** Si el usuario se despide, responde cordialmente y recuérdale que estás disponible para ayudar.
-
-🎨 **FORMATO DE RESPUESTAS:**
-- Usa emojis relevantes para hacer las respuestas más visuales
-- Estructura la información de manera clara y organizada
-- Mantén las respuestas concisas pero informativas
-- Incluye sugerencias prácticas cuando sea apropiado
-- Usa la información contextual para dar respuestas más precisas
-- Personaliza las respuestas según el rol del usuario
-
-❌ **LIMITACIONES:**
-- No puedes realizar transacciones o cambios en el sistema
-- Para acciones específicas, siempre dirige al usuario a contactar la administración
-- No proporcionas información personal de otros residentes
-- Mantén la confidencialidad y privacidad
-- Respeta los permisos y accesos del usuario según su rol
-
-Recuerda: Tu objetivo es ser útil, informativo y facilitar la experiencia del usuario con el sistema de gestión comunitaria, adaptándote a su rol específico.`,
+## OBJETIVO PRINCIPAL
+Ser un asistente útil, informativo y versátil que puede ayudar con CUALQUIER pregunta o tema, proporcionando respuestas claras, precisas y amigables adaptadas al usuario.`,
           },
           {
             role: 'user',
             content: question,
           },
         ],
+        max_tokens: 500,
+        temperature: 0.7,
       };
 
-      const response = await fetch(this.HF_API_URL, {
+      const response = await fetch(this.OPENAI_API_URL, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${hfToken}`,
+          Authorization: `Bearer ${openaiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        if (response.status === 429) {
-          this.logger.warn('Rate limit exceeded from Hugging Face API for authenticated user');
-          return { answer: this.getFallbackResponse(question) };
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        return await this.handleOpenAIError(response, question);
       }
 
       const data = await response.json();
@@ -1645,7 +1893,7 @@ Recuerda: Tu objetivo es ser útil, informativo y facilitar la experiencia del u
 
       return { answer };
     } catch (error) {
-      this.logger.error('Error querying Hugging Face with user context:', error);
+      this.logger.error('Error querying OpenAI with user context:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
 
       // Si es error de rate limiting, usar fallback
@@ -1706,11 +1954,15 @@ Recuerda: Tu objetivo es ser útil, informativo y facilitar la experiencia del u
   // === MÉTODOS PARA RESPUESTAS RÁPIDAS ===
 
   private getQuickResponse(lowerQuestion: string): string | null {
-    // Saludos - Respuestas instantáneas
+    // Saludos - Solo responder si es un saludo directo sin palabras clave
     if (
-      lowerQuestion.includes('hola') ||
-      lowerQuestion.includes('hi') ||
-      lowerQuestion.includes('hey')
+      (lowerQuestion === 'hola' || lowerQuestion === 'hi' || lowerQuestion === 'hey') &&
+      !lowerQuestion.includes('residentes') &&
+      !lowerQuestion.includes('visitantes') &&
+      !lowerQuestion.includes('gastos') &&
+      !lowerQuestion.includes('espacios') &&
+      !lowerQuestion.includes('avisos') &&
+      !lowerQuestion.includes('encomiendas')
     ) {
       return (
         `👋 ¡Hola! Soy ComunIAssistant, tu asistente virtual para gestión comunitaria.\n\n` +
@@ -1719,7 +1971,8 @@ Recuerda: Tu objetivo es ser útil, informativo y facilitar la experiencia del u
         `• 📢 Avisos comunitarios\n` +
         `• 💰 Gastos comunes\n` +
         `• 👥 Visitantes\n` +
-        `• 📦 Encomiendas\n\n` +
+        `• 📦 Encomiendas\n` +
+        `• 👤 Residentes\n\n` +
         `💡 *Usa palabras clave específicas para obtener información actualizada.*`
       );
     }
@@ -1869,22 +2122,20 @@ Recuerda: Tu objetivo es ser útil, informativo y facilitar la experiencia del u
     return null; // No es una respuesta rápida
   }
 
-  // === MÉTODOS PARA MANEJO DE RATE LIMITING Y CACHE ===
+  // === MÉTODOS PARA MANEJO DE CACHE (RATE LIMITING DESHABILITADO) ===
 
-  private isRateLimited(): boolean {
-    const now = Date.now();
+  // Rate limiting deshabilitado para testing
+  // private isRateLimited(): boolean {
+  //   const now = Date.now();
+  //   this.requestTimestamps = this.requestTimestamps.filter(
+  //     (timestamp) => now - timestamp < this.RATE_LIMIT_WINDOW,
+  //   );
+  //   return this.requestTimestamps.length >= this.MAX_REQUESTS_PER_MINUTE;
+  // }
 
-    // Limpiar timestamps antiguos
-    this.requestTimestamps = this.requestTimestamps.filter(
-      (timestamp) => now - timestamp < this.RATE_LIMIT_WINDOW,
-    );
-
-    return this.requestTimestamps.length >= this.MAX_REQUESTS_PER_MINUTE;
-  }
-
-  private addRequestTimestamp(): void {
-    this.requestTimestamps.push(Date.now());
-  }
+  // private addRequestTimestamp(): void {
+  //   this.requestTimestamps.push(Date.now());
+  // }
 
   private getCachedResponse(question: string): string | null {
     const cacheKey = question.toLowerCase().trim();
@@ -1982,5 +2233,230 @@ Recuerda: Tu objetivo es ser útil, informativo y facilitar la experiencia del u
 
   private async delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  // Método para controlar delay inteligente entre requests
+  private async ensureRequestDelay(): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+
+    if (timeSinceLastRequest < this.MIN_DELAY_BETWEEN_REQUESTS) {
+      const delayNeeded = this.MIN_DELAY_BETWEEN_REQUESTS - timeSinceLastRequest;
+      this.logger.log(`⏳ Aplicando delay inteligente: ${delayNeeded}ms`);
+      await this.delay(delayNeeded);
+    }
+
+    this.lastRequestTime = Date.now();
+  }
+
+  // Método para verificar configuración de OpenAI
+  private async verifyOpenAIConfiguration(): Promise<boolean> {
+    const openaiKey = this.configService.get<string>('OPENAI_API_KEY');
+
+    if (!openaiKey) {
+      this.logger.error('OPENAI_API_KEY not configured');
+      return false;
+    }
+
+    try {
+      // Verificar que la API key es válida haciendo una request simple
+      const response = await fetch('https://api.openai.com/v1/models', {
+        headers: {
+          Authorization: `Bearer ${openaiKey}`,
+        },
+      });
+
+      if (response.ok) {
+        this.logger.log('✅ OpenAI API configuration verified successfully');
+        return true;
+      } else {
+        this.logger.error(`❌ OpenAI API verification failed: ${response.status}`);
+        return false;
+      }
+    } catch (error) {
+      this.logger.error('❌ Error verifying OpenAI configuration:', error);
+      return false;
+    }
+  }
+
+  private async handleOpenAIError(
+    response: Response,
+    question: string,
+  ): Promise<ChatbotResponseDto> {
+    const status = response.status;
+    let errorMessage = '';
+    let fallbackResponse = '';
+
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData?.error?.message || 'Error desconocido de OpenAI';
+    } catch {
+      errorMessage = `Error HTTP ${status}`;
+    }
+
+    switch (status) {
+      case 400:
+        this.logger.error('OpenAI Bad Request:', errorMessage);
+        fallbackResponse =
+          '❌ **Error de Solicitud**\n\nLa consulta no pudo ser procesada correctamente. Por favor, reformula tu pregunta de manera más clara.';
+        break;
+
+      case 401:
+        this.logger.error('OpenAI Unauthorized - API Key inválida');
+        fallbackResponse =
+          '❌ **Error de Configuración**\n\nEl servicio de IA no está configurado correctamente. Contacta al administrador del sistema.';
+        break;
+
+      case 403:
+        this.logger.error('OpenAI Forbidden - Acceso denegado');
+        fallbackResponse =
+          '❌ **Acceso Denegado**\n\nNo tienes permisos para usar el servicio de IA. Contacta al administrador.';
+        break;
+
+      case 429:
+        this.logger.warn('OpenAI Rate Limit Exceeded - Implementando retry automático...');
+        // Intentar retry automático con backoff exponencial
+        return await this.retryWithBackoff(question);
+        break;
+
+      case 500:
+        this.logger.error('OpenAI Internal Server Error:', errorMessage);
+        fallbackResponse =
+          '❌ **Error del Servidor de IA**\n\nEl servicio de IA está experimentando problemas temporales. Por favor, intenta nuevamente en unos minutos.';
+        break;
+
+      case 503:
+        this.logger.error('OpenAI Service Unavailable');
+        fallbackResponse =
+          '❌ **Servicio No Disponible**\n\nEl servicio de IA está temporalmente fuera de servicio. Por favor, intenta más tarde.';
+        break;
+
+      default:
+        this.logger.error(`OpenAI Error ${status}:`, errorMessage);
+        fallbackResponse = `❌ **Error del Servicio de IA**\n\nOcurrió un error inesperado (${status}). Por favor, intenta nuevamente o contacta al administrador.`;
+    }
+
+    return { answer: fallbackResponse };
+  }
+
+  // Método para retry automático con backoff exponencial
+  private async retryWithBackoff(
+    question: string,
+    maxRetries: number = 3,
+  ): Promise<ChatbotResponseDto> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const delay = Math.pow(2, attempt) * 1000; // Backoff exponencial: 2s, 4s, 8s
+
+      this.logger.log(`🔄 Intento ${attempt}/${maxRetries} - Esperando ${delay}ms...`);
+      await this.delay(delay);
+
+      try {
+        const openaiKey = this.configService.get<string>('OPENAI_API_KEY');
+
+        if (!openaiKey) {
+          return { answer: '❌ **Error de Configuración**\n\nAPI Key no configurada.' };
+        }
+
+        // Obtener información contextual del sistema
+        const contextInfo = await this.getSystemContext();
+
+        const payload = {
+          model: 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: `Eres ComunIAssistant, un asistente virtual inteligente y versátil.
+
+## IDENTIDAD Y PERSONALIDAD
+- Asistente amigable, profesional y conocedor
+- Respondes preferentemente en español latinoamericano
+- Usas emojis estratégicamente para mejorar la comunicación
+- Eres útil, informativo y conversacional
+- Puedes responder sobre CUALQUIER TEMA con conocimiento y claridad
+
+## FLEXIBILIDAD TOTAL
+Aunque estás integrado en Comuniapp (una plataforma de gestión comunitaria), puedes responder sobre CUALQUIER TEMA que el usuario pregunte:
+✅ Preguntas generales sobre cualquier tema
+✅ Explicaciones técnicas o científicas
+✅ Programación y tecnología
+✅ Consejos y recomendaciones
+✅ Conversación casual
+✅ Historia, cultura, arte
+✅ Salud, deportes, entretenimiento
+✅ Educación y aprendizaje
+✅ Y CUALQUIER otro tema imaginable
+
+## INFORMACIÓN DEL SISTEMA (OPCIONAL)
+Si el usuario pregunta específicamente sobre Comuniapp:
+${contextInfo}
+
+Funcionalidades de Comuniapp:
+• Espacios comunes • Gastos comunes • Visitantes • Encomiendas • Avisos
+
+## INSTRUCCIONES DE RESPUESTA
+- Responde CUALQUIER pregunta que te hagan, no solo sobre gestión comunitaria
+- Sé conversacional, natural y útil
+- No te limites a un solo tema o dominio
+- Proporciona información precisa y completa
+- Adapta tu tono según la pregunta
+- Usa emojis cuando sea apropiado
+- Estructura la información de forma clara
+
+## OBJETIVO PRINCIPAL
+Ser un asistente útil, informativo y versátil que puede ayudar con CUALQUIER pregunta o tema, proporcionando respuestas claras, precisas y amigables.`,
+            },
+            {
+              role: 'user',
+              content: question,
+            },
+          ],
+          max_tokens: 500,
+          temperature: 0.7,
+        };
+
+        const response = await fetch(this.OPENAI_API_URL, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${openaiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const answer =
+            data?.choices?.[0]?.message?.content || 'No se pudo obtener una respuesta.';
+
+          this.logger.log(`✅ Retry exitoso en intento ${attempt}`);
+
+          // Guardar en cache
+          this.setCachedResponse(question, answer);
+
+          return { answer };
+        } else if (response.status === 429 && attempt < maxRetries) {
+          this.logger.warn(
+            `⚠️ Rate limit en intento ${attempt}, continuando con siguiente intento...`,
+          );
+          continue;
+        } else {
+          return await this.handleOpenAIError(response, question);
+        }
+      } catch (error) {
+        this.logger.error(`❌ Error en intento ${attempt}:`, error);
+        if (attempt === maxRetries) {
+          return {
+            answer:
+              '❌ **Error de Conexión**\n\nNo se pudo conectar con el servicio de IA después de varios intentos. Por favor, intenta más tarde.',
+          };
+        }
+      }
+    }
+
+    // Si llegamos aquí, todos los intentos fallaron
+    return {
+      answer:
+        '❌ **Servicio Temporalmente No Disponible**\n\nEl servicio de IA está experimentando alta demanda. Por favor, intenta nuevamente en unos minutos.',
+    };
   }
 }

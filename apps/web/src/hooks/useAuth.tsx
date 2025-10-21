@@ -70,10 +70,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Decodificar el token para obtener información del usuario
       try {
         const payload = JSON.parse(atob(storedToken.split('.')[1]));
+        console.log('🔐 [useAuth] Payload del token:', payload);
+        console.log('🔐 [useAuth] Nombre en payload:', payload.name);
+        console.log('🔐 [useAuth] Email en payload:', payload.email);
+
         const userData = {
           id: payload.sub,
           email: payload.email,
-          name: payload.name || 'Usuario',
+          name: payload.name || payload.email?.split('@')[0] || 'Usuario',
           organizationId: payload.organizationId,
           roles: payload.roles || [],
           communities: payload.communities || [],

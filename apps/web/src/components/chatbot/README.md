@@ -96,27 +96,43 @@ Los estilos están implementados con Tailwind CSS y son completamente personaliz
 
 ## Integración con Backend
 
-Para conectar con un backend real, modifica la función `handleSendMessage()` en `ChatbotWindow.tsx`:
+El chatbot está conectado con el backend que utiliza **OpenAI GPT-3.5-turbo** para generar respuestas inteligentes.
 
-```typescript
-const handleSendMessage = async () => {
-  // ... código existente ...
+### Configuración del Backend
 
-  // Reemplazar la simulación con llamada real a la API
-  try {
-    const response = await fetch('/api/chatbot', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: inputText.trim() }),
-    });
+El backend requiere la variable de entorno:
 
-    const data = await response.json();
-    // Procesar respuesta del backend
-  } catch (error) {
-    // Manejar errores
-  }
-};
+```bash
+OPENAI_API_KEY=tu_api_key_de_openai
 ```
+
+### Endpoints Disponibles
+
+1. **Público** (sin autenticación):
+
+   ```
+   GET /chatbot?q=pregunta
+   ```
+
+2. **Autenticado** (con contexto de usuario):
+   ```
+   GET /chatbot/auth?q=pregunta
+   Authorization: Bearer <jwt_token>
+   ```
+
+### Funcionalidades del Chatbot
+
+- **Respuestas inteligentes** usando OpenAI GPT-3.5-turbo
+- **Contexto de usuario** para respuestas personalizadas según rol
+- **Palabras clave específicas** para consultas directas:
+  - "espacios comunes" → Información de espacios y horarios
+  - "avisos" → Últimos comunicados
+  - "gastos comunes" → Información de cuotas
+  - "visitantes" → Registro de visitas
+  - "encomiendas" → Estado de paquetes
+- **Cache inteligente** para optimizar respuestas
+- **Rate limiting** para control de uso
+- **Fallback responses** cuando la IA no está disponible
 
 ## Accesibilidad
 

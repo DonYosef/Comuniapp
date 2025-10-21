@@ -284,7 +284,7 @@ export default function ChatbotWindow({ isOpen, onClose, onMinimize }: ChatbotWi
                 }
               `}
             >
-              {message.isUser ? <p>{message.text}</p> : <p>{message.text}</p>}
+              <p className="whitespace-pre-wrap">{message.text}</p>
               <p
                 className={`text-xs mt-1 ${
                   message.isUser ? 'text-blue-100' : 'text-gray-500 dark:text-white'

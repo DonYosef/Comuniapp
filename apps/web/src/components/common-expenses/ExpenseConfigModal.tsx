@@ -60,6 +60,7 @@ export default function ExpenseConfigModal({
   const [newExpenseData, setNewExpenseData] = useState({
     title: '',
     description: '',
+    amount: '',
   });
   const [expenseErrors, setExpenseErrors] = useState<Record<string, string>>({});
 
@@ -68,6 +69,7 @@ export default function ExpenseConfigModal({
   const [editExpenseData, setEditExpenseData] = useState({
     title: '',
     description: '',
+    amount: '',
   });
   const [editExpenseErrors, setEditExpenseErrors] = useState<Record<string, string>>({});
 
@@ -93,8 +95,8 @@ export default function ExpenseConfigModal({
       setShowCreateForm(false);
       setShowNewExpenseForm(false);
       setEditingExpenseId(null);
-      setNewExpenseData({ title: '', description: '' });
-      setEditExpenseData({ title: '', description: '' });
+      setNewExpenseData({ title: '', description: '', amount: '' });
+      setEditExpenseData({ title: '', description: '', amount: '' });
       setExpenseErrors({});
       setEditExpenseErrors({});
     }
@@ -325,7 +327,7 @@ export default function ExpenseConfigModal({
 
       const newItem = {
         name: newExpenseData.title,
-        amount: 0.01, // Mínimo requerido por la validación
+        amount: parseFloat(newExpenseData.amount),
         description: newExpenseData.description,
         categoryId: activeTab !== 'no-category' ? activeTab : null,
       };
@@ -433,6 +435,15 @@ export default function ExpenseConfigModal({
       newErrors.title = 'El título es requerido';
     }
 
+    if (!newExpenseData.amount.trim()) {
+      newErrors.amount = 'El monto es requerido';
+    } else {
+      const amount = parseFloat(newExpenseData.amount);
+      if (isNaN(amount) || amount <= 0) {
+        newErrors.amount = 'El monto debe ser un número mayor a 0';
+      }
+    }
+
     setExpenseErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -443,6 +454,7 @@ export default function ExpenseConfigModal({
     setEditExpenseData({
       title: expense.title,
       description: expense.description || '',
+      amount: expense.amount.toString(),
     });
     setEditExpenseErrors({});
   };
@@ -459,13 +471,18 @@ export default function ExpenseConfigModal({
       setExpenses((prev) =>
         prev.map((expense) =>
           expense.id === editingExpenseId
-            ? { ...expense, title: editExpenseData.title, description: editExpenseData.description }
+            ? {
+                ...expense,
+                title: editExpenseData.title,
+                description: editExpenseData.description,
+                amount: parseFloat(editExpenseData.amount),
+              }
             : expense,
         ),
       );
 
       setEditingExpenseId(null);
-      setEditExpenseData({ title: '', description: '' });
+      setEditExpenseData({ title: '', description: '', amount: '' });
       setEditExpenseErrors({});
     } catch (error) {
       console.error('Error al actualizar gasto:', error);
@@ -485,6 +502,15 @@ export default function ExpenseConfigModal({
 
     if (!editExpenseData.title.trim()) {
       newErrors.title = 'El título es requerido';
+    }
+
+    if (!editExpenseData.amount.trim()) {
+      newErrors.amount = 'El monto es requerido';
+    } else {
+      const amount = parseFloat(editExpenseData.amount);
+      if (isNaN(amount) || amount <= 0) {
+        newErrors.amount = 'El monto debe ser un número mayor a 0';
+      }
     }
 
     setEditExpenseErrors(newErrors);
@@ -990,6 +1016,28 @@ export default function ExpenseConfigModal({
                       />
                     </div>
 
+                    <div>
+                      <label className="block text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
+                        Monto *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={newExpenseData.amount}
+                        onChange={(e) =>
+                          setNewExpenseData((prev) => ({ ...prev, amount: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 text-sm border border-blue-300 dark:border-blue-600 rounded-md bg-white dark:bg-blue-900/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0.00"
+                      />
+                      {expenseErrors.amount && (
+                        <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                          {expenseErrors.amount}
+                        </p>
+                      )}
+                    </div>
+
                     <div className="flex justify-end space-x-2 pt-2">
                       <button
                         onClick={handleCancelExpense}
@@ -1128,6 +1176,28 @@ export default function ExpenseConfigModal({
                             />
                           </div>
 
+                          <div>
+                            <label className="block text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
+                              Monto *
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editExpenseData.amount}
+                              onChange={(e) =>
+                                setEditExpenseData((prev) => ({ ...prev, amount: e.target.value }))
+                              }
+                              className="w-full px-3 py-2 text-sm border border-blue-300 dark:border-blue-600 rounded-md bg-white dark:bg-blue-900/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="0.00"
+                            />
+                            {editExpenseErrors.amount && (
+                              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                                {editExpenseErrors.amount}
+                              </p>
+                            )}
+                          </div>
+
                           <div className="flex justify-end space-x-2 pt-2">
                             <button
                               onClick={handleCancelEditExpense}
@@ -1148,9 +1218,14 @@ export default function ExpenseConfigModal({
                         /* Modo de visualización */
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
-                            <h4 className="text-sm font-medium text-gray-900 dark:text-white">
-                              {expense.title}
-                            </h4>
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                                {expense.title}
+                              </h4>
+                              <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                                ${expense.amount.toFixed(2)}
+                              </span>
+                            </div>
                             {expense.description && (
                               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                 {expense.description}
