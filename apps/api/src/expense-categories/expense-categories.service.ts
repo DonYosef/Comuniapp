@@ -21,11 +21,12 @@ export class ExpenseCategoriesService {
     // Verificar que el usuario tenga acceso a la comunidad
     await this.verifyCommunityAccess(user, dto.communityId);
 
-    // Verificar si existe una categoría activa con el mismo nombre
+    // Verificar si existe una categoría activa con el mismo nombre y tipo
     const existingActiveCategory = await this.prisma.expenseCategory.findFirst({
       where: {
         communityId: dto.communityId,
         name: dto.name,
+        type: dto.type || 'EXPENSE',
         isActive: true,
       },
     });
@@ -36,11 +37,12 @@ export class ExpenseCategoriesService {
       );
     }
 
-    // Verificar si existe una categoría inactiva con el mismo nombre
+    // Verificar si existe una categoría inactiva con el mismo nombre y tipo
     const existingInactiveCategory = await this.prisma.expenseCategory.findFirst({
       where: {
         communityId: dto.communityId,
         name: dto.name,
+        type: dto.type || 'EXPENSE',
         isActive: false,
       },
     });
@@ -56,6 +58,7 @@ export class ExpenseCategoriesService {
         data: {
           name: dto.name,
           description: dto.description,
+          type: dto.type || 'EXPENSE',
           isActive: true,
         },
         include: {
@@ -74,6 +77,7 @@ export class ExpenseCategoriesService {
           name: dto.name,
           description: dto.description,
           communityId: dto.communityId,
+          type: dto.type || 'EXPENSE',
         },
         include: {
           community: {
@@ -92,15 +96,23 @@ export class ExpenseCategoriesService {
   async getCategoriesByCommunity(
     user: UserPayload,
     communityId: string,
+    type?: 'EXPENSE' | 'INCOME',
   ): Promise<ExpenseCategoryResponseDto[]> {
     // Verificar que el usuario tenga acceso a la comunidad
     await this.verifyCommunityAccess(user, communityId);
 
+    const whereClause: any = {
+      communityId,
+      isActive: true,
+    };
+
+    // Filtrar por tipo si se especifica
+    if (type) {
+      whereClause.type = type;
+    }
+
     const categories = await this.prisma.expenseCategory.findMany({
-      where: {
-        communityId,
-        isActive: true,
-      },
+      where: whereClause,
       include: {
         community: {
           select: {

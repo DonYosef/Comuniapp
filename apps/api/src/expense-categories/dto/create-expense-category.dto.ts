@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, MaxLength, IsEnum } from 'class-validator';
 
 export class CreateExpenseCategoryDto {
   @IsString()
@@ -14,4 +14,8 @@ export class CreateExpenseCategoryDto {
   @IsString()
   @IsNotEmpty()
   communityId: string;
+
+  @IsOptional()
+  @IsEnum(['EXPENSE', 'INCOME'])
+  type?: 'EXPENSE' | 'INCOME';
 }

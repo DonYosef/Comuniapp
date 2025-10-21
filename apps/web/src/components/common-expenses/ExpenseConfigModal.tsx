@@ -6,6 +6,7 @@ import {
   ExpenseCategory,
 } from '@/services/api/expense-categories.service';
 import { CommonExpensesService, CommonExpense } from '@/services/api/common-expenses.service';
+import { CommunityIncomeService } from '@/services/communityIncomeService';
 import { useToast } from '@/components/ui/Toast';
 import { invalidateExpenseCache } from '@/hooks/useExpenseData';
 import { eventBus, EVENTS } from '@/utils/eventBus';
@@ -28,6 +29,7 @@ interface ExpenseConfigModalProps {
   onClose: () => void;
   communityId: string;
   onDataChange?: () => void; // Callback para notificar cambios
+  type?: 'expenses' | 'income'; // Tipo de configuración: egresos o ingresos
 }
 
 export default function ExpenseConfigModal({
@@ -35,6 +37,7 @@ export default function ExpenseConfigModal({
   onClose,
   communityId,
   onDataChange,
+  type = 'expenses',
 }: ExpenseConfigModalProps) {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -74,13 +77,28 @@ export default function ExpenseConfigModal({
   const [showDeleteCategoryModal, setShowDeleteCategoryModal] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<ExpenseCategory | null>(null);
 
-  // Cargar categorías al abrir el modal
+  // Cargar categorías al abrir el modal o cuando cambia el tipo
   useEffect(() => {
     if (isOpen) {
       loadCategories();
       loadExpenses();
     }
-  }, [isOpen, communityId]);
+  }, [isOpen, communityId, type]);
+
+  // Resetear estado cuando cambia el tipo
+  useEffect(() => {
+    if (isOpen) {
+      setExpenses([]);
+      setActiveTab('');
+      setShowCreateForm(false);
+      setShowNewExpenseForm(false);
+      setEditingExpenseId(null);
+      setNewExpenseData({ title: '', description: '' });
+      setEditExpenseData({ title: '', description: '' });
+      setExpenseErrors({});
+      setEditExpenseErrors({});
+    }
+  }, [type, isOpen]);
 
   // Establecer pestaña activa cuando se cargan las categorías
   useEffect(() => {
@@ -91,64 +109,117 @@ export default function ExpenseConfigModal({
 
   const loadCategories = async () => {
     try {
-      // Cargar categorías desde la API
-      const categoriesData = await ExpenseCategoriesService.getCategoriesByCommunity(communityId);
+      // Cargar categorías desde la API filtradas por tipo
+      const categoryType = type === 'expenses' ? 'EXPENSE' : 'INCOME';
+      const categoriesData = await ExpenseCategoriesService.getCategoriesByCommunity(
+        communityId,
+        categoryType,
+      );
       setCategories(categoriesData);
     } catch (error) {
       console.error('Error loading categories:', error);
       // En caso de error, mostrar datos de ejemplo para desarrollo
-      const fallbackCategories = [
-        {
-          id: '1',
-          name: 'Servicios Básicos',
-          description: 'Agua, luz, gas, internet',
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          name: 'Mantenimiento',
-          description: 'Gastos de mantenimiento general del edificio',
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '3',
-          name: 'Remuneraciones',
-          description: 'Salarios y honorarios del personal',
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ];
+      const fallbackCategories =
+        type === 'expenses'
+          ? [
+              {
+                id: '1',
+                name: 'Servicios Básicos',
+                description: 'Agua, luz, gas, internet',
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+              {
+                id: '2',
+                name: 'Mantenimiento',
+                description: 'Gastos de mantenimiento general del edificio',
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+              {
+                id: '3',
+                name: 'Remuneraciones',
+                description: 'Salarios y honorarios del personal',
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+            ]
+          : [
+              {
+                id: '1',
+                name: 'Cuotas de Administración',
+                description: 'Cuotas mensuales de administración',
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+              {
+                id: '2',
+                name: 'Fondos de Reserva',
+                description: 'Aportes a fondos de reserva',
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+              {
+                id: '3',
+                name: 'Multas y Recargos',
+                description: 'Multas por mora y recargos',
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+            ];
       setCategories(fallbackCategories);
     }
   };
 
   const loadExpenses = async () => {
     try {
-      // Cargar gastos comunes desde la API
-      const commonExpensesData = await CommonExpensesService.getCommonExpenses(communityId);
+      if (type === 'expenses') {
+        // Cargar gastos comunes desde la API
+        const commonExpensesData = await CommonExpensesService.getCommonExpenses(communityId);
 
-      // Transformar los gastos comunes a formato de gastos individuales (optimizado)
-      const expensesData = commonExpensesData.flatMap((commonExpense) =>
-        (commonExpense.items || []).map((item) => ({
-          id: item.id,
-          title: item.name,
-          amount: item.amount,
-          description: item.description,
-          categoryId: item.categoryId || '',
-          date: commonExpense.dueDate,
-          status: 'PENDING' as const,
-          createdAt: item.createdAt,
-        })),
-      );
+        // Transformar los gastos comunes a formato de gastos individuales (optimizado)
+        const expensesData = commonExpensesData.flatMap((commonExpense) =>
+          (commonExpense.items || []).map((item) => ({
+            id: item.id,
+            title: item.name,
+            amount: item.amount,
+            description: item.description,
+            categoryId: item.categoryId || '',
+            date: commonExpense.dueDate,
+            status: 'PENDING' as const,
+            createdAt: item.createdAt,
+          })),
+        );
 
-      setExpenses(expensesData);
+        setExpenses(expensesData);
+      } else {
+        // Cargar ingresos comunes desde la API
+        const communityIncomesData = await CommunityIncomeService.getCommunityIncomes(communityId);
+
+        // Transformar los ingresos comunes a formato de gastos individuales (para reutilizar la UI)
+        const incomesData = communityIncomesData.flatMap((communityIncome) =>
+          (communityIncome.items || []).map((item) => ({
+            id: item.id,
+            title: item.name,
+            amount: item.amount,
+            description: item.description,
+            categoryId: item.categoryId || '',
+            date: communityIncome.dueDate,
+            status: 'PENDING' as const,
+            createdAt: item.createdAt,
+          })),
+        );
+
+        setExpenses(incomesData);
+      }
     } catch (error) {
-      console.error('Error loading expenses:', error);
+      console.error(`Error loading ${type}:`, error);
       setExpenses([]);
     }
   };
@@ -159,10 +230,12 @@ export default function ExpenseConfigModal({
     setIsLoading(true);
     try {
       // Crear categoría en la base de datos
+      const categoryType = type === 'expenses' ? 'EXPENSE' : 'INCOME';
       const newCategory = await ExpenseCategoriesService.createCategory({
         name: formData.name,
         description: formData.description,
         communityId: communityId,
+        type: categoryType,
       });
 
       setCategories((prev) => [...prev, newCategory]);
@@ -240,7 +313,7 @@ export default function ExpenseConfigModal({
     setErrors({});
   };
 
-  // Funciones para manejar nuevo gasto
+  // Funciones para manejar nuevo gasto o ingreso
   const handleCreateExpense = async () => {
     if (!validateExpenseForm()) return;
 
@@ -250,58 +323,67 @@ export default function ExpenseConfigModal({
       const now = new Date();
       const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-      // Verificar si ya existe un CommonExpense para este período
-      const existingExpenses = await CommonExpensesService.getCommonExpenses(communityId);
-      const currentPeriodExpense = existingExpenses.find(
-        (expense) => expense.period === currentPeriod,
-      );
+      const newItem = {
+        name: newExpenseData.title,
+        amount: 0.01, // Mínimo requerido por la validación
+        description: newExpenseData.description,
+        categoryId: activeTab !== 'no-category' ? activeTab : null,
+      };
 
-      if (currentPeriodExpense) {
-        // Si existe, actualizar agregando el nuevo item
-        const updatedItems = [
-          ...(currentPeriodExpense.items || []),
-          {
-            name: newExpenseData.title,
-            amount: 0.01, // Mínimo requerido por la validación
-            description: newExpenseData.description,
-            categoryId: activeTab !== 'no-category' ? activeTab : null, // ← AGREGAR CATEGORYID
-          },
-        ];
-
-        console.log(
-          '🔄 Actualizando gasto común existente:',
-          currentPeriodExpense.id,
-          'con items:',
-          updatedItems.length,
+      if (type === 'expenses') {
+        // Manejo de gastos (egresos)
+        const existingExpenses = await CommonExpensesService.getCommonExpenses(communityId);
+        const currentPeriodExpense = existingExpenses.find(
+          (expense) => expense.period === currentPeriod,
         );
-        await CommonExpensesService.updateCommonExpense(currentPeriodExpense.id, {
-          items: updatedItems,
-        });
-        console.log('✅ Gasto común actualizado exitosamente');
-      } else {
-        // Si no existe, crear un nuevo CommonExpense
-        const newCommonExpense = {
-          communityId: communityId,
-          period: currentPeriod,
-          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días desde ahora
-          items: [
-            {
-              name: newExpenseData.title,
-              amount: 0.01, // Mínimo requerido por la validación
-              description: newExpenseData.description,
-              categoryId: activeTab !== 'no-category' ? activeTab : null, // ← AGREGAR CATEGORYID
-            },
-          ],
-          prorrateMethod: 'EQUAL' as const,
-        };
 
-        console.log('🚀 Creando nuevo gasto común:', newCommonExpense);
-        await CommonExpensesService.createCommonExpense(newCommonExpense);
-        console.log('✅ Gasto común creado exitosamente');
+        if (currentPeriodExpense) {
+          const updatedItems = [...(currentPeriodExpense.items || []), newItem];
+          console.log('🔄 Actualizando gasto común existente:', currentPeriodExpense.id);
+          await CommonExpensesService.updateCommonExpense(currentPeriodExpense.id, {
+            items: updatedItems,
+          });
+        } else {
+          const newCommonExpense = {
+            communityId: communityId,
+            period: currentPeriod,
+            dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            items: [newItem],
+            prorrateMethod: 'EQUAL' as const,
+          };
+          console.log('🚀 Creando nuevo gasto común:', newCommonExpense);
+          await CommonExpensesService.createCommonExpense(newCommonExpense);
+        }
+      } else {
+        // Manejo de ingresos
+        const existingIncomes = await CommunityIncomeService.getCommunityIncomes(communityId);
+        const currentPeriodIncome = existingIncomes.find(
+          (income) => income.period === currentPeriod,
+        );
+
+        if (currentPeriodIncome) {
+          const updatedItems = [...(currentPeriodIncome.items || []), newItem];
+          console.log('🔄 Actualizando ingreso común existente:', currentPeriodIncome.id);
+          await CommunityIncomeService.updateCommunityIncome(currentPeriodIncome.id, {
+            items: updatedItems,
+          });
+        } else {
+          const newCommunityIncome = {
+            communityId: communityId,
+            period: currentPeriod,
+            dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            items: [newItem],
+            prorrateMethod: 'EQUAL' as const,
+          };
+          console.log('🚀 Creando nuevo ingreso común:', newCommunityIncome);
+          await CommunityIncomeService.createCommunityIncome(newCommunityIncome);
+        }
       }
 
-      // Recargar los datos para mostrar el nuevo gasto
-      console.log('🔄 Recargando datos después de crear gasto...');
+      // Recargar los datos
+      console.log(
+        `🔄 Recargando datos después de crear ${type === 'expenses' ? 'gasto' : 'ingreso'}...`,
+      );
       await loadExpenses();
       console.log('✅ Datos recargados exitosamente');
 
@@ -316,20 +398,17 @@ export default function ExpenseConfigModal({
       setExpenseErrors({});
 
       // Mostrar mensaje de éxito
-      showToast('Gasto creado exitosamente', 'success');
+      showToast(`${type === 'expenses' ? 'Gasto' : 'Ingreso'} creado exitosamente`, 'success');
     } catch (error: any) {
-      console.error('Error al crear gasto:', error);
+      console.error(`Error al crear ${type === 'expenses' ? 'gasto' : 'ingreso'}:`, error);
 
-      // Mostrar mensaje de error más específico
-      let errorMessage = 'Error al crear el gasto. Por favor, inténtalo de nuevo.';
+      let errorMessage = `Error al crear el ${type === 'expenses' ? 'gasto' : 'ingreso'}. Por favor, inténtalo de nuevo.`;
 
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
 
-        // Manejar caso específico de no hay unidades
         if (errorMessage.includes('No active units found')) {
-          errorMessage =
-            'No se pueden crear gastos comunes porque la comunidad no tiene unidades activas. Por favor, contacta al administrador para agregar unidades a la comunidad.';
+          errorMessage = `No se pueden crear ${type === 'expenses' ? 'gastos' : 'ingresos'} comunes porque la comunidad no tiene unidades activas. Por favor, contacta al administrador para agregar unidades a la comunidad.`;
         }
       } else if (error.message) {
         errorMessage = error.message;
@@ -496,83 +575,88 @@ export default function ExpenseConfigModal({
     setCategoryToDelete(null);
   };
 
-  // Función para eliminar un gasto
+  // Función para eliminar un gasto o ingreso
   const handleDeleteExpense = async (expenseId: string) => {
     setDeletingExpenseId(expenseId);
     setIsLoading(true);
 
     try {
-      console.log('🗑️ Iniciando eliminación del gasto:', expenseId);
-
-      // Encontrar el gasto común al que pertenece este item
-      const commonExpenses = await CommonExpensesService.getCommonExpenses(communityId);
-      console.log('📊 Gastos comunes obtenidos:', commonExpenses.length);
+      const itemType = type === 'expenses' ? 'gasto' : 'ingreso';
+      console.log(`🗑️ Iniciando eliminación del ${itemType}:`, expenseId);
 
       const expense = expenses.find((e) => e.id === expenseId);
-      console.log('🔍 Gasto encontrado:', expense);
+      console.log(
+        `🔍 ${itemType.charAt(0).toUpperCase() + itemType.slice(1)} encontrado:`,
+        expense,
+      );
 
       if (!expense) {
-        throw new Error('Gasto no encontrado en la lista local');
+        throw new Error(
+          `${itemType.charAt(0).toUpperCase() + itemType.slice(1)} no encontrado en la lista local`,
+        );
       }
 
-      // Buscar el gasto común que contiene este item
-      let commonExpenseId = '';
-      let targetItem = null;
+      if (type === 'expenses') {
+        // Manejo de gastos (egresos)
+        const commonExpenses = await CommonExpensesService.getCommonExpenses(communityId);
+        console.log('📊 Gastos comunes obtenidos:', commonExpenses.length);
 
-      for (const commonExpense of commonExpenses) {
-        console.log(
-          '🔍 Buscando en gasto común:',
-          commonExpense.id,
-          'con',
-          commonExpense.items.length,
-          'items',
-        );
+        let commonExpenseId = '';
+        let targetItem = null;
 
-        const item = commonExpense.items.find((item) => {
-          const nameMatch = item.name === expense.title;
-          const descMatch = (item.description || '') === (expense.description || '');
-          console.log('🔍 Comparando item:', {
-            itemName: item.name,
-            expenseTitle: expense.title,
-            nameMatch,
-            itemDesc: item.description,
-            expenseDesc: expense.description,
-            descMatch,
+        for (const commonExpense of commonExpenses) {
+          const item = commonExpense.items.find((item) => {
+            const nameMatch = item.name === expense.title;
+            const descMatch = (item.description || '') === (expense.description || '');
+            return nameMatch && descMatch;
           });
-          return nameMatch && descMatch;
-        });
 
-        if (item) {
-          commonExpenseId = commonExpense.id;
-          targetItem = item;
-          console.log('✅ Item encontrado:', item);
-          break;
+          if (item) {
+            commonExpenseId = commonExpense.id;
+            targetItem = item;
+            console.log('✅ Item encontrado:', item);
+            break;
+          }
         }
+
+        if (!commonExpenseId || !targetItem) {
+          throw new Error('No se pudo encontrar el gasto común o item asociado');
+        }
+
+        console.log('🚀 Eliminando item:', targetItem.id, 'del gasto común:', commonExpenseId);
+        await CommonExpensesService.deleteExpenseItem(commonExpenseId, targetItem.id);
+      } else {
+        // Manejo de ingresos
+        const communityIncomes = await CommunityIncomeService.getCommunityIncomes(communityId);
+        console.log('📊 Ingresos comunes obtenidos:', communityIncomes.length);
+
+        let communityIncomeId = '';
+        let targetItem = null;
+
+        for (const communityIncome of communityIncomes) {
+          const item = communityIncome.items.find((item) => {
+            const nameMatch = item.name === expense.title;
+            const descMatch = (item.description || '') === (expense.description || '');
+            return nameMatch && descMatch;
+          });
+
+          if (item) {
+            communityIncomeId = communityIncome.id;
+            targetItem = item;
+            console.log('✅ Item encontrado:', item);
+            break;
+          }
+        }
+
+        if (!communityIncomeId || !targetItem) {
+          throw new Error('No se pudo encontrar el ingreso común o item asociado');
+        }
+
+        console.log('🚀 Eliminando item:', targetItem.id, 'del ingreso común:', communityIncomeId);
+        await CommunityIncomeService.deleteIncomeItem(communityIncomeId, targetItem.id);
       }
 
-      if (!commonExpenseId || !targetItem) {
-        console.error('❌ No se pudo encontrar el gasto común o item asociado');
-        console.log(
-          '📊 Gastos comunes disponibles:',
-          commonExpenses.map((ce) => ({
-            id: ce.id,
-            period: ce.period,
-            itemsCount: ce.items.length,
-            items: ce.items.map((item) => ({
-              id: item.id,
-              name: item.name,
-              description: item.description,
-            })),
-          })),
-        );
-        throw new Error('No se pudo encontrar el gasto común o item asociado');
-      }
-
-      console.log('🚀 Eliminando item:', targetItem.id, 'del gasto común:', commonExpenseId);
-
-      // Eliminar el item
-      const result = await CommonExpensesService.deleteExpenseItem(commonExpenseId, targetItem.id);
-      console.log('✅ Resultado de eliminación:', result);
+      console.log('✅ Eliminación exitosa');
 
       // Recargar los datos
       await loadExpenses();
@@ -583,10 +667,14 @@ export default function ExpenseConfigModal({
       eventBus.emit(EVENTS.DATA_REFRESH_NEEDED, { communityId });
       console.log('📢 Eventos emitidos para actualizar datos (eliminación)');
 
-      showToast('Gasto eliminado exitosamente', 'success');
+      showToast(
+        `${itemType.charAt(0).toUpperCase() + itemType.slice(1)} eliminado exitosamente`,
+        'success',
+      );
     } catch (error) {
-      console.error('❌ Error al eliminar gasto:', error);
-      showToast(`Error al eliminar el gasto: ${error.message}`, 'error');
+      const itemType = type === 'expenses' ? 'gasto' : 'ingreso';
+      console.error(`❌ Error al eliminar ${itemType}:`, error);
+      showToast(`Error al eliminar el ${itemType}: ${error.message}`, 'error');
     } finally {
       setDeletingExpenseId(null);
       setIsLoading(false);
@@ -602,7 +690,7 @@ export default function ExpenseConfigModal({
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Configuración de Gastos Comunes
+              Configuración de {type === 'expenses' ? 'Egresos' : 'Ingresos'}
             </h2>
             <button
               onClick={onClose}
@@ -778,7 +866,7 @@ export default function ExpenseConfigModal({
                       {activeTab === 'no-category'
                         ? getExpensesWithoutCategory().length
                         : getExpensesByCategory(activeTab).length}{' '}
-                      gastos registrados
+                      {type === 'expenses' ? 'gastos' : 'ingresos'} registrados
                     </p>
                   </div>
                   {/* Botón de eliminar categoría - solo para categorías reales, no para "Sin categoría" */}
@@ -829,16 +917,16 @@ export default function ExpenseConfigModal({
                       d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                     />
                   </svg>
-                  Nuevo Gasto
+                  Nuevo {type === 'expenses' ? 'Gasto' : 'Ingreso'}
                 </button>
               </div>
 
-              {/* Formulario de nuevo gasto */}
+              {/* Formulario de nuevo gasto/ingreso */}
               {showNewExpenseForm && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                      Nuevo Gasto
+                      Nuevo {type === 'expenses' ? 'Gasto' : 'Ingreso'}
                     </h4>
                     <button
                       onClick={handleCancelExpense}
@@ -863,7 +951,7 @@ export default function ExpenseConfigModal({
                   <div className="space-y-3">
                     <div>
                       <label className="block text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
-                        Título del Gasto *
+                        Título del {type === 'expenses' ? 'Gasto' : 'Ingreso'} *
                       </label>
                       <input
                         type="text"
@@ -872,7 +960,11 @@ export default function ExpenseConfigModal({
                           setNewExpenseData((prev) => ({ ...prev, title: e.target.value }))
                         }
                         className="w-full px-3 py-2 text-sm border border-blue-300 dark:border-blue-600 rounded-md bg-white dark:bg-blue-900/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Ej: Factura de Agua, Reparación Ascensor..."
+                        placeholder={
+                          type === 'expenses'
+                            ? 'Ej: Factura de Agua, Reparación Ascensor...'
+                            : 'Ej: Cuota de Administración, Fondos de Reserva...'
+                        }
                       />
                       {expenseErrors.title && (
                         <p className="mt-1 text-xs text-red-600 dark:text-red-400">
@@ -892,7 +984,9 @@ export default function ExpenseConfigModal({
                         }
                         rows={2}
                         className="w-full px-3 py-2 text-sm border border-blue-300 dark:border-blue-600 rounded-md bg-white dark:bg-blue-900/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Describe el gasto..."
+                        placeholder={
+                          type === 'expenses' ? 'Describe el gasto...' : 'Describe el ingreso...'
+                        }
                       />
                     </div>
 
@@ -908,7 +1002,9 @@ export default function ExpenseConfigModal({
                         disabled={isLoading}
                         className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                       >
-                        {isLoading ? 'Creando...' : 'Crear Gasto'}
+                        {isLoading
+                          ? 'Creando...'
+                          : `Crear ${type === 'expenses' ? 'Gasto' : 'Ingreso'}`}
                       </button>
                     </div>
                   </div>
@@ -939,10 +1035,10 @@ export default function ExpenseConfigModal({
                     />
                   </svg>
                   <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-                    No hay gastos
+                    No hay {type === 'expenses' ? 'gastos' : 'ingresos'}
                   </h3>
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Comienza agregando un nuevo gasto.
+                    Comienza agregando un nuevo {type === 'expenses' ? 'gasto' : 'ingreso'}.
                   </p>
                 </div>
               ) : (
@@ -964,7 +1060,7 @@ export default function ExpenseConfigModal({
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
                             <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                              Editando Gasto
+                              Editando {type === 'expenses' ? 'Gasto' : 'Ingreso'}
                             </h4>
                             <button
                               onClick={handleCancelEditExpense}
@@ -988,7 +1084,7 @@ export default function ExpenseConfigModal({
 
                           <div>
                             <label className="block text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
-                              Título del Gasto *
+                              Título del {type === 'expenses' ? 'Gasto' : 'Ingreso'} *
                             </label>
                             <input
                               type="text"
@@ -997,7 +1093,11 @@ export default function ExpenseConfigModal({
                                 setEditExpenseData((prev) => ({ ...prev, title: e.target.value }))
                               }
                               className="w-full px-3 py-2 text-sm border border-blue-300 dark:border-blue-600 rounded-md bg-white dark:bg-blue-900/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              placeholder="Ej: Factura de Agua, Reparación Ascensor..."
+                              placeholder={
+                                type === 'expenses'
+                                  ? 'Ej: Factura de Agua, Reparación Ascensor...'
+                                  : 'Ej: Cuota de Administración, Fondos de Reserva...'
+                              }
                             />
                             {editExpenseErrors.title && (
                               <p className="mt-1 text-xs text-red-600 dark:text-red-400">
@@ -1020,7 +1120,11 @@ export default function ExpenseConfigModal({
                               }
                               rows={2}
                               className="w-full px-3 py-2 text-sm border border-blue-300 dark:border-blue-600 rounded-md bg-white dark:bg-blue-900/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              placeholder="Describe el gasto..."
+                              placeholder={
+                                type === 'expenses'
+                                  ? 'Describe el gasto...'
+                                  : 'Describe el ingreso...'
+                              }
                             />
                           </div>
 

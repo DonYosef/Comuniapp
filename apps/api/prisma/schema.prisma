@@ -412,6 +412,7 @@ model ExpenseCategory {
   description  String?
   isActive     Boolean                @default(true) @map("is_active")
   communityId  String                 @map("community_id")
+  type         ExpenseType            @default(EXPENSE) @map("type")
   createdAt    DateTime               @default(now()) @map("created_at")
   updatedAt    DateTime               @updatedAt @map("updated_at")
   expenseItems CommunityExpenseItem[]
@@ -419,9 +420,10 @@ model ExpenseCategory {
   community    Community              @relation(fields: [communityId], references: [id], onDelete: Cascade)
   expenses     Expense[]
 
-  @@unique([communityId, name])
+  @@unique([communityId, name, type])
   @@index([communityId])
   @@index([isActive])
+  @@index([type])
   @@map("expense_categories")
 }
 
