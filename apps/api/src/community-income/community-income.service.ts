@@ -38,7 +38,7 @@ export class CommunityIncomeService {
     }
 
     // Calcular totalAmount
-    const totalAmount = dto.items.reduce((sum, item) => sum + item.amount, 0);
+    const totalAmount = dto.items.reduce((sum, item) => sum + Number(item.amount), 0);
 
     // Obtener unidades activas y sus coeficientes
     const units = await this.prisma.unit.findMany({
@@ -239,6 +239,143 @@ export class CommunityIncomeService {
     await this.verifyCommunityAccess(user, income.communityId);
 
     return this.mapToResponseDto(income);
+  }
+
+  async updateCommunityIncome(
+    user: UserPayload,
+    incomeId: string,
+    updateData: { items?: any[]; totalAmount?: number; dueDate?: string },
+  ): Promise<CommunityIncomeResponseDto> {
+    // Verificar que el ingreso existe
+    const existingIncome = await this.prisma.communityIncome.findUnique({
+      where: { id: incomeId },
+      include: {
+        items: true,
+      },
+    });
+
+    if (!existingIncome) {
+      throw new NotFoundException('Ingreso común no encontrado.');
+    }
+
+    // Verificar que el usuario tenga acceso a la comunidad
+    await this.verifyCommunityAccess(user, existingIncome.communityId);
+
+    // Si se proporcionan items, actualizar la lista
+    if (updateData.items) {
+      // Eliminar items existentes
+      await this.prisma.communityIncomeItem.deleteMany({
+        where: { communityIncomeId: incomeId },
+      });
+
+      // Crear nuevos items
+      await this.prisma.communityIncomeItem.createMany({
+        data: updateData.items.map((item) => ({
+          communityIncomeId: incomeId,
+          name: item.name,
+          amount: item.amount,
+          description: item.description,
+          categoryId: item.categoryId,
+        })),
+      });
+
+      // Recalcular totalAmount
+      const totalAmount = updateData.items.reduce((sum, item) => sum + Number(item.amount), 0);
+      updateData.totalAmount = totalAmount;
+    }
+
+    // Actualizar el ingreso
+    const updatedIncome = await this.prisma.communityIncome.update({
+      where: { id: incomeId },
+      data: {
+        totalAmount: updateData.totalAmount,
+        dueDate: updateData.dueDate ? new Date(updateData.dueDate) : undefined,
+      },
+      include: {
+        community: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        items: {
+          include: {
+            category: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return this.mapToResponseDto(updatedIncome);
+  }
+
+  async deleteIncomeItem(
+    user: UserPayload,
+    incomeId: string,
+    itemId: string,
+  ): Promise<CommunityIncomeResponseDto> {
+    // Verificar que el ingreso existe
+    const existingIncome = await this.prisma.communityIncome.findUnique({
+      where: { id: incomeId },
+      include: {
+        items: true,
+      },
+    });
+
+    if (!existingIncome) {
+      throw new NotFoundException('Ingreso común no encontrado.');
+    }
+
+    // Verificar que el usuario tenga acceso a la comunidad
+    await this.verifyCommunityAccess(user, existingIncome.communityId);
+
+    // Verificar que el item existe
+    const item = existingIncome.items.find((item) => item.id === itemId);
+    if (!item) {
+      throw new NotFoundException('Item de ingreso no encontrado.');
+    }
+
+    // Eliminar el item
+    await this.prisma.communityIncomeItem.delete({
+      where: { id: itemId },
+    });
+
+    // Recalcular totalAmount
+    const remainingItems = existingIncome.items.filter((item) => item.id !== itemId);
+    const newTotalAmount = remainingItems.reduce((sum, item) => sum + Number(item.amount), 0);
+
+    // Actualizar el ingreso con el nuevo totalAmount
+    const updatedIncome = await this.prisma.communityIncome.update({
+      where: { id: incomeId },
+      data: {
+        totalAmount: newTotalAmount,
+      },
+      include: {
+        community: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        items: {
+          include: {
+            category: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return this.mapToResponseDto(updatedIncome);
   }
 
   private async verifyCommunityAccess(user: UserPayload, communityId: string): Promise<void> {

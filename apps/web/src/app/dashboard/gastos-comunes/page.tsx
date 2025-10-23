@@ -164,8 +164,7 @@ export default function GastosComunesPage() {
             isOpen={isConfigModalOpen}
             onClose={() => {
               setIsConfigModalOpen(false);
-              // Invalidar caché para forzar recarga de datos
-              invalidateExpenseCache(currentCommunity.id);
+              // Los eventos del modal se encargan de actualizar los datos
             }}
             communityId={currentCommunity.id}
             type={configModalType}

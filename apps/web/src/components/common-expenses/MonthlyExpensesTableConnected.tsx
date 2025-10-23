@@ -58,19 +58,28 @@ export default function MonthlyExpensesTable({
 
   // Función para refrescar datos cuando se notifica un cambio
   const handleDataChange = useCallback(async () => {
+    console.log('🔄 handleDataChange - expenseType:', expenseType);
     if (expenseType === 'expenses') {
+      console.log('📊 Refrescando gastos...');
       await refreshExpenses();
+      console.log('📊 Gastos después del refresh:', expenses.length);
     } else {
+      console.log('💰 Refrescando ingresos...');
       await refreshIncomes();
+      console.log('💰 Ingresos después del refresh:', incomes.length);
     }
     onDataChange?.();
-  }, [expenseType, refreshExpenses, refreshIncomes, onDataChange]);
+  }, [expenseType, refreshExpenses, refreshIncomes, onDataChange, expenses.length, incomes.length]);
 
   // Escuchar eventos de actualización de datos
   useEffect(() => {
     const handleDataRefresh = (data: { communityId: string }) => {
       if (data.communityId === communityId) {
-        console.log('📢 Evento recibido: actualizando datos de gastos');
+        console.log('📢 Evento recibido: actualizando datos de', expenseType);
+        console.log(
+          '📊 Datos actuales antes del refresh:',
+          expenseType === 'expenses' ? expenses.length : incomes.length,
+        );
         handleDataChange();
       }
     };
@@ -79,12 +88,16 @@ export default function MonthlyExpensesTable({
     eventBus.on(EVENTS.DATA_REFRESH_NEEDED, handleDataRefresh);
     eventBus.on(EVENTS.EXPENSE_CREATED, handleDataRefresh);
     eventBus.on(EVENTS.EXPENSE_DELETED, handleDataRefresh);
+    eventBus.on(EVENTS.INCOME_CREATED, handleDataRefresh);
+    eventBus.on(EVENTS.INCOME_DELETED, handleDataRefresh);
 
     // Limpiar suscripción al desmontar
     return () => {
       eventBus.off(EVENTS.DATA_REFRESH_NEEDED, handleDataRefresh);
       eventBus.off(EVENTS.EXPENSE_CREATED, handleDataRefresh);
       eventBus.off(EVENTS.EXPENSE_DELETED, handleDataRefresh);
+      eventBus.off(EVENTS.INCOME_CREATED, handleDataRefresh);
+      eventBus.off(EVENTS.INCOME_DELETED, handleDataRefresh);
     };
   }, [communityId, handleDataChange]);
 
@@ -95,23 +108,58 @@ export default function MonthlyExpensesTable({
     }
   }, [handleDataChange]);
 
+  // Función para aplanar los items de ingresos
+  const flattenIncomeItems = useCallback(() => {
+    if (expenseType !== 'income') return [];
+
+    const flattenedItems: any[] = [];
+    incomes.forEach((income) => {
+      if (income.items) {
+        income.items.forEach((item) => {
+          flattenedItems.push({
+            id: item.id,
+            title: item.name,
+            name: item.name,
+            amount: item.amount,
+            description: item.description,
+            categoryId: item.categoryId,
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+          });
+        });
+      }
+    });
+    return flattenedItems;
+  }, [expenseType, incomes]);
+
   // Inicializar valores cuando se cargan los datos
   useEffect(() => {
-    const currentData = expenseType === 'expenses' ? expenses : incomes;
+    console.log('📊 Inicializando datos - expenseType:', expenseType);
 
-    if (currentData && currentData.length > 0) {
+    let itemsToProcess: any[] = [];
+
+    if (expenseType === 'expenses') {
+      itemsToProcess = expenses;
+      console.log('📊 Gastos a procesar:', expenses.length);
+    } else {
+      // Para ingresos, usar items aplanados
+      itemsToProcess = flattenIncomeItems();
+      console.log('💰 Items de ingresos aplanados:', itemsToProcess.length);
+    }
+
+    if (itemsToProcess && itemsToProcess.length > 0) {
       const initialValues: Record<string, number> = {};
       const initialDisplayValues: Record<string, string> = {};
       const initialDisabledInputs: Record<string, boolean> = {};
 
-      currentData.forEach((item) => {
+      itemsToProcess.forEach((item) => {
         // Solo inicializar si no hay valor guardado
         if (savedValues[item.id] === undefined) {
-          const amount = expenseType === 'expenses' ? item.amount : item.totalAmount;
-          initialValues[item.id] = amount || 0;
+          const amount = item.amount || 0;
+          initialValues[item.id] = amount;
           initialDisplayValues[item.id] = amount > 0 ? formatInputValue(amount) : '0';
           // Deshabilitar input si tiene valor > 0
-          initialDisabledInputs[item.id] = (amount || 0) > 0;
+          initialDisabledInputs[item.id] = amount > 0;
         }
       });
 
@@ -121,7 +169,7 @@ export default function MonthlyExpensesTable({
         setIsInputDisabled((prev) => ({ ...prev, ...initialDisabledInputs }));
       }
     }
-  }, [expenseType, expenses, incomes, savedValues]);
+  }, [expenseType, expenses, incomes, savedValues, flattenIncomeItems]);
 
   const handleValueChange = (expenseId: string, value: string) => {
     const numericValue = parseCurrency(value);
@@ -344,7 +392,7 @@ export default function MonthlyExpensesTable({
       setIsInputDisabled(disabledInputs);
 
       // Recargar datos sin recargar la página
-      await refreshData();
+      await handleDataChange();
 
       // Notificar cambio al componente padre
       onDataChange?.();
@@ -364,32 +412,26 @@ export default function MonthlyExpensesTable({
   // Memoización de funciones de filtrado para evitar recálculos innecesarios
   const getExpensesByCategory = useCallback(
     (categoryId: string) => {
-      const currentData = expenseType === 'expenses' ? expenses : incomes;
-      return currentData.filter((item) => {
-        if (expenseType === 'expenses') {
-          return item.categoryId === categoryId;
-        } else {
-          // Para ingresos, verificar si algún item tiene esta categoría
-          return item.items?.some((incomeItem: any) => incomeItem.categoryId === categoryId);
-        }
-      });
+      if (expenseType === 'expenses') {
+        return expenses.filter((item) => item.categoryId === categoryId);
+      } else {
+        // Para ingresos, usar items aplanados
+        const flattenedItems = flattenIncomeItems();
+        return flattenedItems.filter((item) => item.categoryId === categoryId);
+      }
     },
-    [expenseType, expenses, incomes],
+    [expenseType, expenses, flattenIncomeItems],
   );
 
   const getExpensesWithoutCategory = useCallback(() => {
-    const currentData = expenseType === 'expenses' ? expenses : incomes;
-    return currentData.filter((item) => {
-      if (expenseType === 'expenses') {
-        return !item.categoryId || item.categoryId === '';
-      } else {
-        // Para ingresos, verificar si algún item no tiene categoría
-        return item.items?.some(
-          (incomeItem: any) => !incomeItem.categoryId || incomeItem.categoryId === '',
-        );
-      }
-    });
-  }, [expenseType, expenses, incomes]);
+    if (expenseType === 'expenses') {
+      return expenses.filter((item) => !item.categoryId || item.categoryId === '');
+    } else {
+      // Para ingresos, usar items aplanados
+      const flattenedItems = flattenIncomeItems();
+      return flattenedItems.filter((item) => !item.categoryId || item.categoryId === '');
+    }
+  }, [expenseType, expenses, flattenIncomeItems]);
 
   // Memoización del mes actual para evitar recálculos
   const currentMonth = useMemo(() => {

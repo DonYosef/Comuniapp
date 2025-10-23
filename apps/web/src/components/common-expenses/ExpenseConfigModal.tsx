@@ -391,7 +391,11 @@ export default function ExpenseConfigModal({
 
       // Invalidar caché y emitir evento
       invalidateExpenseCache(communityId);
-      eventBus.emit(EVENTS.EXPENSE_CREATED, { communityId, expense: newExpenseData });
+      if (type === 'expenses') {
+        eventBus.emit(EVENTS.EXPENSE_CREATED, { communityId, expense: newExpenseData });
+      } else {
+        eventBus.emit(EVENTS.INCOME_CREATED, { communityId, income: newExpenseData });
+      }
       eventBus.emit(EVENTS.DATA_REFRESH_NEEDED, { communityId });
       console.log('📢 Eventos emitidos para actualizar datos');
 
@@ -689,7 +693,11 @@ export default function ExpenseConfigModal({
 
       // Invalidar caché y emitir evento
       invalidateExpenseCache(communityId);
-      eventBus.emit(EVENTS.EXPENSE_DELETED, { communityId, expenseId });
+      if (type === 'expenses') {
+        eventBus.emit(EVENTS.EXPENSE_DELETED, { communityId, expenseId });
+      } else {
+        eventBus.emit(EVENTS.INCOME_DELETED, { communityId, expenseId });
+      }
       eventBus.emit(EVENTS.DATA_REFRESH_NEEDED, { communityId });
       console.log('📢 Eventos emitidos para actualizar datos (eliminación)');
 

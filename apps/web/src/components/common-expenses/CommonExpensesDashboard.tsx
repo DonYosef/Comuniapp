@@ -132,12 +132,16 @@ export default function CommonExpensesDashboard({
     eventBus.on(EVENTS.DATA_REFRESH_NEEDED, handleDataRefresh);
     eventBus.on(EVENTS.EXPENSE_CREATED, handleDataRefresh);
     eventBus.on(EVENTS.EXPENSE_DELETED, handleDataRefresh);
+    eventBus.on(EVENTS.INCOME_CREATED, handleDataRefresh);
+    eventBus.on(EVENTS.INCOME_DELETED, handleDataRefresh);
 
     // Limpiar suscripción al desmontar
     return () => {
       eventBus.off(EVENTS.DATA_REFRESH_NEEDED, handleDataRefresh);
       eventBus.off(EVENTS.EXPENSE_CREATED, handleDataRefresh);
       eventBus.off(EVENTS.EXPENSE_DELETED, handleDataRefresh);
+      eventBus.off(EVENTS.INCOME_CREATED, handleDataRefresh);
+      eventBus.off(EVENTS.INCOME_DELETED, handleDataRefresh);
     };
   }, [communityId]);
 
@@ -380,21 +384,7 @@ export default function CommonExpensesDashboard({
       </div>
 
       {/* Métricas Globales */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Comunidades"
-          value={communities.length}
-          icon={<BuildingIcon />}
-          color="blue"
-          subtitle="Con gastos activos"
-        />
-        <StatCard
-          title="Total Períodos"
-          value={expenses.length}
-          icon={<CalendarIcon />}
-          color="indigo"
-          subtitle="Ciclos creados"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard
           title="Total Recaudado"
           value={`$${globalStats.paidAmount.toFixed(2)}`}
