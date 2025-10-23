@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
 import { useAuth } from '@/hooks/useAuth';
 import { useCommunity } from '@/hooks/useCommunity';
 import { useTheme } from '@/hooks/useTheme';
-import { useRouter } from 'next/navigation';
 
 interface TopbarProps {
   isSidebarCollapsed?: boolean;
@@ -14,8 +15,7 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isCommunityMenuOpen, setIsCommunityMenuOpen] = useState(false);
   const { user, logout } = useAuth();
-  const { currentCommunity, communities, setCurrentCommunity, loadCommunities, units } =
-    useCommunity();
+  const { currentCommunity, communities, setCurrentCommunity } = useCommunity();
   // Manejo seguro del tema con fallback
   let resolvedTheme: 'light' | 'dark' = 'dark'; // Tema oscuro por defecto
   let toggleTheme: () => void = () => {};
@@ -107,6 +107,24 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
   const { hasRole } = useAuth();
   const isAdmin = hasRole('SUPER_ADMIN') || hasRole('COMMUNITY_ADMIN');
 
+  // Obtener información de residencia para residentes
+  const getResidentInfo = () => {
+    if (!user?.userUnits || user.userUnits.length === 0) return null;
+
+    const firstUnit = user.userUnits[0];
+    const hasMultipleUnits = user.userUnits.length > 1;
+
+    return {
+      unitNumber: firstUnit.unit?.number || 'N/A',
+      communityName: firstUnit.unit?.community?.name || 'N/A',
+      communityAddress: firstUnit.unit?.community?.address || 'N/A',
+      hasMultipleUnits,
+      totalUnits: user.userUnits.length,
+    };
+  };
+
+  const residentInfo = getResidentInfo();
+
   return (
     <header className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between h-16 px-4 lg:px-6">
@@ -124,6 +142,38 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
 
         {/* Controles del usuario */}
         <div className="flex items-center space-x-4">
+          {/* Información de residencia (para residentes) */}
+          {!isAdmin && residentInfo && (
+            <div className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg border border-blue-200 dark:border-blue-700 hover:from-blue-100 hover:to-cyan-100 dark:hover:from-blue-900/30 dark:hover:to-cyan-900/30 transition-all duration-200">
+              <svg
+                className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                />
+              </svg>
+              <div className="text-sm min-w-0 flex-1">
+                <div className="font-medium text-blue-800 dark:text-blue-300 flex items-center gap-1">
+                  <span>Unidad {residentInfo.unitNumber}</span>
+                  {residentInfo.hasMultipleUnits && (
+                    <span className="text-xs bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full">
+                      +{residentInfo.totalUnits - 1}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-blue-600 dark:text-blue-400 truncate max-w-32 sm:max-w-48">
+                  {residentInfo.communityName}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Selector de comunidad (solo para administradores) */}
           {isAdmin && (
             <div className="relative community-menu-container">
