@@ -15,13 +15,14 @@ async function seedTestData() {
 
     // 2. Obtener una comunidad existente o crear una
     let community = await prisma.community.findFirst();
-    if (!community) {
-      const adminUser = await prisma.user.findFirst();
-      if (!adminUser) {
-        console.log('❌ No se encontró usuario administrador. Ejecuta primero el seed principal.');
-        return;
-      }
+    let adminUser = await prisma.user.findFirst();
 
+    if (!adminUser) {
+      console.log('❌ No se encontró usuario administrador. Ejecuta primero el seed principal.');
+      return;
+    }
+
+    if (!community) {
       community = await prisma.community.create({
         data: {
           name: 'Residencial Villa del Sol',
@@ -248,6 +249,7 @@ async function seedTestData() {
           data: {
             ...announcementData,
             communityId: community.id,
+            createdById: adminUser.id,
             isActive: true,
           },
         });

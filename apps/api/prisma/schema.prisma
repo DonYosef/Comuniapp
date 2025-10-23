@@ -131,6 +131,7 @@ model User {
   userUnits          UserUnit[]
   organization       Organization?    @relation(fields: [organizationId], references: [id])
   hostedVisitors     Visitor[]        @relation("HostedVisitors")
+  createdAnnouncements Announcement[] @relation("AnnouncementCreator")
 
   @@index([email])
   @@index([organizationId])
@@ -296,6 +297,11 @@ model Visitor {
   visitorName       String        @map("visitor_name")
   visitorDocument   String        @map("visitor_document")
   visitorPhone      String?       @map("visitor_phone")
+  entryDate         DateTime?     @map("entry_date")
+  exitDate          DateTime?     @map("exit_date")
+  status            VisitorStatus @default(REGISTERED)
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
   visitorEmail      String?       @map("visitor_email")
   residentName      String?       @map("resident_name")
   residentPhone     String?       @map("resident_phone")
@@ -304,11 +310,6 @@ model Visitor {
   expectedDeparture DateTime      @map("expected_departure")
   vehicleInfo       String?       @map("vehicle_info")
   notes             String?
-  entryDate         DateTime?     @map("entry_date")
-  exitDate          DateTime?     @map("exit_date")
-  status            VisitorStatus @default(REGISTERED)
-  createdAt         DateTime      @default(now()) @map("created_at")
-  updatedAt         DateTime      @updatedAt @map("updated_at")
   host              User          @relation("HostedVisitors", fields: [hostUserId], references: [id])
   unit              Unit          @relation(fields: [unitId], references: [id])
 
@@ -318,6 +319,7 @@ model Visitor {
 model Announcement {
   id          String           @id @default(cuid())
   communityId String           @map("community_id")
+  createdById String           @map("created_by_id")
   title       String
   content     String
   type        AnnouncementType @default(GENERAL)
@@ -326,7 +328,12 @@ model Announcement {
   createdAt   DateTime         @default(now()) @map("created_at")
   updatedAt   DateTime         @updatedAt @map("updated_at")
   community   Community        @relation(fields: [communityId], references: [id])
+  createdBy   User             @relation("AnnouncementCreator", fields: [createdById], references: [id])
 
+  @@index([communityId])
+  @@index([createdById])
+  @@index([isActive])
+  @@index([publishedAt])
   @@map("announcements")
 }
 
@@ -412,9 +419,9 @@ model ExpenseCategory {
   description  String?
   isActive     Boolean                @default(true) @map("is_active")
   communityId  String                 @map("community_id")
-  type         ExpenseType            @default(EXPENSE) @map("type")
   createdAt    DateTime               @default(now()) @map("created_at")
   updatedAt    DateTime               @updatedAt @map("updated_at")
+  type         ExpenseType            @default(EXPENSE) @map("type")
   expenseItems CommunityExpenseItem[]
   incomeItems  CommunityIncomeItem[]
   community    Community              @relation(fields: [communityId], references: [id], onDelete: Cascade)
