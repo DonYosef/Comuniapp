@@ -7,7 +7,6 @@ export interface Announcement {
   title: string;
   content: string;
   type: 'GENERAL' | 'URGENT' | 'MAINTENANCE' | 'SECURITY' | 'SOCIAL';
-  isActive: boolean;
   publishedAt: string;
   createdAt: string;
   updatedAt: string;
@@ -34,7 +33,6 @@ export interface UpdateAnnouncementData {
   title?: string;
   content?: string;
   type?: 'GENERAL' | 'URGENT' | 'MAINTENANCE' | 'SECURITY' | 'SOCIAL';
-  isActive?: boolean;
 }
 
 export class AnnouncementsService {
@@ -45,6 +43,11 @@ export class AnnouncementsService {
 
   static async getByCommunity(communityId: string): Promise<Announcement[]> {
     const response = await api.get(`/announcements/community/${communityId}`);
+    return response.data;
+  }
+
+  static async getMyCommunityAnnouncements(): Promise<Announcement[]> {
+    const response = await api.get('/announcements/resident/my-community');
     return response.data;
   }
 

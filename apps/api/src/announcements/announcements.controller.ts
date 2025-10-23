@@ -17,31 +17,36 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CommunityAdminGuard } from '../auth/guards/community-admin.guard';
 
 @Controller('announcements')
-@UseGuards(JwtAuthGuard, CommunityAdminGuard)
 export class AnnouncementsController {
   constructor(private readonly announcementsService: AnnouncementsService) {}
 
+  // Endpoints para admins (requieren CommunityAdminGuard)
   @Post()
+  @UseGuards(JwtAuthGuard, CommunityAdminGuard)
   create(@Body() createAnnouncementDto: CreateAnnouncementDto, @Request() req) {
     return this.announcementsService.create(createAnnouncementDto, req.user.id);
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard, CommunityAdminGuard)
   findAll(@Request() req) {
     return this.announcementsService.findAllByUser(req.user.id);
   }
 
   @Get('community/:communityId')
+  @UseGuards(JwtAuthGuard, CommunityAdminGuard)
   findAllByCommunity(@Param('communityId') communityId: string, @Request() req) {
     return this.announcementsService.findAllByCommunity(communityId, req.user.id);
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard, CommunityAdminGuard)
   findOne(@Param('id') id: string, @Request() req) {
     return this.announcementsService.findOne(id, req.user.id);
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, CommunityAdminGuard)
   update(
     @Param('id') id: string,
     @Body() updateAnnouncementDto: UpdateAnnouncementDto,
@@ -51,7 +56,15 @@ export class AnnouncementsController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, CommunityAdminGuard)
   remove(@Param('id') id: string, @Request() req) {
     return this.announcementsService.remove(id, req.user.id);
+  }
+
+  // Endpoint para residentes (solo requiere autenticación)
+  @Get('resident/my-community')
+  @UseGuards(JwtAuthGuard)
+  findMyCommunityAnnouncements(@Request() req) {
+    return this.announcementsService.findMyCommunityAnnouncements(req.user.id);
   }
 }

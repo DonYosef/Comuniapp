@@ -48,7 +48,6 @@ export class AnnouncementsService {
     return this.prisma.announcement.findMany({
       where: {
         communityId,
-        isActive: true,
       },
       include: {
         community: {
@@ -94,7 +93,6 @@ export class AnnouncementsService {
         communityId: {
           in: communityIds,
         },
-        isActive: true,
       },
       include: {
         community: {
@@ -177,10 +175,63 @@ export class AnnouncementsService {
   async remove(id: string, userId: string) {
     const announcement = await this.findOne(id, userId);
 
-    // Soft delete - marcar como inactivo
-    return this.prisma.announcement.update({
+    // Hard delete - eliminar completamente de la base de datos
+    return this.prisma.announcement.delete({
       where: { id },
-      data: { isActive: false },
+    });
+  }
+
+  async findMyCommunityAnnouncements(userId: string) {
+    // Obtener la comunidad del residente a través de su unidad
+    const userUnit = await this.prisma.userUnit.findFirst({
+      where: {
+        userId,
+        status: 'CONFIRMED', // Solo unidades confirmadas
+      },
+      select: {
+        unit: {
+          select: {
+            communityId: true,
+            community: {
+              select: {
+                id: true,
+                name: true,
+                address: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!userUnit) {
+      throw new NotFoundException('No se encontró una comunidad asociada a tu cuenta');
+    }
+
+    // Obtener todos los avisos de la comunidad del residente
+    return this.prisma.announcement.findMany({
+      where: {
+        communityId: userUnit.unit.communityId,
+      },
+      include: {
+        community: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        publishedAt: 'desc',
+      },
     });
   }
 
