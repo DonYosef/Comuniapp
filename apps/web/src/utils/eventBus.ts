@@ -44,5 +44,8 @@ export const EVENTS = {
   EXPENSE_CREATED: 'expense:created',
   EXPENSE_DELETED: 'expense:deleted',
   EXPENSE_UPDATED: 'expense:updated',
+  INCOME_CREATED: 'income:created',
+  INCOME_DELETED: 'income:deleted',
+  INCOME_UPDATED: 'income:updated',
   DATA_REFRESH_NEEDED: 'data:refresh_needed',
 } as const;

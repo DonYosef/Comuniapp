@@ -91,10 +91,7 @@ export class CommunityIncomeService {
         'data:',
         data,
       );
-      const response = await apiClient.patch<CommunityIncome>(
-        `/community-income/${incomeId}`,
-        data,
-      );
+      const response = await apiClient.put<CommunityIncome>(`/community-income/${incomeId}`, data);
       console.log('✅ [CommunityIncomeService] updateCommunityIncome - response:', response.data);
       return response.data;
     } catch (error) {

@@ -187,3 +187,7 @@ html.dark body { background-color: #0a0a0a !important; }
 - **Un solo sistema de estado** para consistencia
 - **Fallback seguro** para todos los casos de error
 - **Testing en SSR y cliente** para robustez
+
+
+
+

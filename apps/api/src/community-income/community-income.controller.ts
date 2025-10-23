@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { CommunityIncomeService } from './community-income.service';
 import { CreateCommunityIncomeDto } from './dto/create-community-income.dto';
 import { CommunityIncomeResponseDto } from './dto/community-income-response.dto';
@@ -32,6 +32,16 @@ export class CommunityIncomeController {
     return this.communityIncomeService.getCommunityIncomes(user, communityId);
   }
 
+  @Delete(':id/items/:itemId')
+  @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES)
+  async deleteItem(
+    @CurrentUser() user: UserPayload,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+  ): Promise<CommunityIncomeResponseDto> {
+    return this.communityIncomeService.deleteIncomeItem(user, id, itemId);
+  }
+
   @Get(':id')
   @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES, Permission.VIEW_OWN_EXPENSES)
   async findOne(
@@ -39,5 +49,15 @@ export class CommunityIncomeController {
     @Param('id') id: string,
   ): Promise<CommunityIncomeResponseDto> {
     return this.communityIncomeService.getCommunityIncomeById(user, id);
+  }
+
+  @Put(':id')
+  @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES)
+  async update(
+    @CurrentUser() user: UserPayload,
+    @Param('id') id: string,
+    @Body() updateData: { items?: any[]; totalAmount?: number; dueDate?: string },
+  ): Promise<CommunityIncomeResponseDto> {
+    return this.communityIncomeService.updateCommunityIncome(user, id, updateData);
   }
 }

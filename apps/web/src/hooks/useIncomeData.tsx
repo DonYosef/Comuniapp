@@ -33,7 +33,7 @@ export function useIncomeData(communityId: string): UseIncomeDataReturn {
 
       // Cargar categorías e ingresos en paralelo
       const [categoriesData, incomesData] = await Promise.all([
-        ExpenseCategoriesService.getCategoriesByCommunity(communityId),
+        ExpenseCategoriesService.getCategoriesByCommunity(communityId, 'INCOME'),
         CommunityIncomeService.getCommunityIncomes(communityId),
       ]);
 
