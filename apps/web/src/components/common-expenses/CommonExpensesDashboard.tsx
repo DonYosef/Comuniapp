@@ -8,6 +8,7 @@ import { CommonExpenseService } from '@/services/commonExpenseService';
 import { CommunityIncomeService } from '@/services/communityIncomeService';
 import { StatCard, LoadingSpinner } from '@/components/common-expenses/CommonExpenseComponents';
 import MonthlyExpensesTable from '@/components/common-expenses/MonthlyExpensesTableConnected';
+import ProrrateModal from '@/components/common-expenses/ProrrateModal';
 import { eventBus, EVENTS } from '@/utils/eventBus';
 
 // Iconos SVG como componentes
@@ -112,12 +113,53 @@ export default function CommonExpensesDashboard({
   const [incomes, setIncomes] = useState<IncomeSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isProrrateModalOpen, setIsProrrateModalOpen] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState('');
+
+  // Generar opciones de período (últimos 12 meses)
+  const generatePeriodOptions = () => {
+    const options = [];
+    const now = new Date();
+
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const value = `${year}-${month}`;
+      const monthNames = [
+        'Enero',
+        'Febrero',
+        'Marzo',
+        'Abril',
+        'Mayo',
+        'Junio',
+        'Julio',
+        'Agosto',
+        'Septiembre',
+        'Octubre',
+        'Noviembre',
+        'Diciembre',
+      ];
+      const label = `${monthNames[date.getMonth()]} ${year}`;
+
+      options.push({ value, label });
+    }
+
+    return options;
+  };
+
+  // Inicializar período actual
+  useEffect(() => {
+    const now = new Date();
+    const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    setSelectedPeriod(currentPeriod);
+  }, []);
 
   useEffect(() => {
     if (user) {
       fetchDashboardData();
     }
-  }, [user, communityId]);
+  }, [user, communityId, selectedPeriod]);
 
   // Escuchar eventos de actualización de datos
   useEffect(() => {
@@ -132,16 +174,12 @@ export default function CommonExpensesDashboard({
     eventBus.on(EVENTS.DATA_REFRESH_NEEDED, handleDataRefresh);
     eventBus.on(EVENTS.EXPENSE_CREATED, handleDataRefresh);
     eventBus.on(EVENTS.EXPENSE_DELETED, handleDataRefresh);
-    eventBus.on(EVENTS.INCOME_CREATED, handleDataRefresh);
-    eventBus.on(EVENTS.INCOME_DELETED, handleDataRefresh);
 
     // Limpiar suscripción al desmontar
     return () => {
       eventBus.off(EVENTS.DATA_REFRESH_NEEDED, handleDataRefresh);
       eventBus.off(EVENTS.EXPENSE_CREATED, handleDataRefresh);
       eventBus.off(EVENTS.EXPENSE_DELETED, handleDataRefresh);
-      eventBus.off(EVENTS.INCOME_CREATED, handleDataRefresh);
-      eventBus.off(EVENTS.INCOME_DELETED, handleDataRefresh);
     };
   }, [communityId]);
 
@@ -161,11 +199,11 @@ export default function CommonExpensesDashboard({
           return;
         }
 
-        // Cargar gastos e ingresos de esa comunidad específica
+        // Cargar gastos e ingresos de esa comunidad específica para el período seleccionado
         try {
           const [communityExpenses, communityIncomes] = await Promise.all([
-            CommonExpenseService.getCommonExpensesByCommunity(communityId),
-            CommunityIncomeService.getCommunityIncomes(communityId),
+            CommonExpenseService.getCommonExpensesByCommunity(communityId, selectedPeriod),
+            CommunityIncomeService.getCommunityIncomes(communityId, selectedPeriod),
           ]);
 
           // Convertir datos a los tipos esperados
@@ -358,7 +396,7 @@ export default function CommonExpensesDashboard({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center space-y-4 lg:space-y-0">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             Resumen de Gastos Comunes
@@ -367,20 +405,61 @@ export default function CommonExpensesDashboard({
             Vista general de todos tus gastos comunes
           </p>
         </div>
-        <button
-          onClick={fetchDashboardData}
-          className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
-        >
-          <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-          Actualizar
-        </button>
+
+        {/* Selector de período */}
+        <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
+            <label
+              htmlFor="period-select"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Período:
+            </label>
+            <select
+              id="period-select"
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {generatePeriodOptions().map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setIsProrrateModalOpen(true)}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-sm font-medium rounded-md text-white hover:bg-blue-700 transition-colors"
+            >
+              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                />
+              </svg>
+              Prorratear y generar cobros
+            </button>
+            <button
+              onClick={fetchDashboardData}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+            >
+              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Actualizar
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Métricas Globales */}
@@ -462,6 +541,7 @@ export default function CommonExpensesDashboard({
       {communityId && (
         <MonthlyExpensesTable
           communityId={communityId}
+          period={selectedPeriod}
           onDataChange={() => {
             // Refrescar datos del dashboard cuando cambien los gastos
             fetchDashboardData();
@@ -534,6 +614,23 @@ export default function CommonExpensesDashboard({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Prorrateo */}
+      {communityId && (
+        <ProrrateModal
+          isOpen={isProrrateModalOpen}
+          onClose={() => setIsProrrateModalOpen(false)}
+          communityId={communityId}
+          period={selectedPeriod}
+          expenses={expenses}
+          incomes={incomes}
+          expenseType="expenses" // Por defecto usar gastos, se puede cambiar según la tabla activa
+          onSuccess={() => {
+            fetchDashboardData();
+            eventBus.emit(EVENTS.DATA_REFRESH_NEEDED, { communityId });
+          }}
+        />
       )}
     </div>
   );

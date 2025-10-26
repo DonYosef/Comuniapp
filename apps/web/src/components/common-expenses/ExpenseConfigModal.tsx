@@ -382,25 +382,36 @@ export default function ExpenseConfigModal({
         }
       }
 
-      // Recargar los datos
+      // Actualizar el estado local sin recargar todos los datos
       console.log(
-        `🔄 Recargando datos después de crear ${type === 'expenses' ? 'gasto' : 'ingreso'}...`,
+        `🔄 Actualizando estado local después de crear ${type === 'expenses' ? 'gasto' : 'ingreso'}...`,
       );
-      await loadExpenses();
-      console.log('✅ Datos recargados exitosamente');
 
-      // Invalidar caché y emitir evento
-      invalidateExpenseCache(communityId);
+      // Agregar el nuevo item al estado local
+      const newExpenseItem = {
+        id: `temp-${Date.now()}`, // ID temporal hasta que se actualice desde el servidor
+        title: newExpenseData.title,
+        amount: parseFloat(newExpenseData.amount),
+        description: newExpenseData.description,
+        categoryId: activeTab !== 'no-category' ? activeTab : null,
+        date: new Date().toISOString(),
+        status: 'PENDING' as const,
+        createdAt: new Date().toISOString(),
+      };
+
+      setExpenses((prev) => [...prev, newExpenseItem]);
+      console.log('✅ Estado local actualizado exitosamente');
+
+      // Emitir eventos para actualizar otros componentes sin recargar página
       if (type === 'expenses') {
         eventBus.emit(EVENTS.EXPENSE_CREATED, { communityId, expense: newExpenseData });
       } else {
         eventBus.emit(EVENTS.INCOME_CREATED, { communityId, income: newExpenseData });
       }
-      eventBus.emit(EVENTS.DATA_REFRESH_NEEDED, { communityId });
-      console.log('📢 Eventos emitidos para actualizar datos');
+      console.log('📢 Eventos emitidos para actualizar otros componentes');
 
       setShowNewExpenseForm(false);
-      setNewExpenseData({ title: '', description: '' });
+      setNewExpenseData({ title: '', description: '', amount: '' });
       setExpenseErrors({});
 
       // Mostrar mensaje de éxito

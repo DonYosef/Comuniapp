@@ -18,7 +18,7 @@ interface UseIncomeDataReturn {
   deleteIncome: (incomeId: string) => Promise<void>;
 }
 
-export function useIncomeData(communityId: string): UseIncomeDataReturn {
+export function useIncomeData(communityId: string, period?: string): UseIncomeDataReturn {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [incomes, setIncomes] = useState<CommunityIncome[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,7 +34,7 @@ export function useIncomeData(communityId: string): UseIncomeDataReturn {
       // Cargar categorías e ingresos en paralelo
       const [categoriesData, incomesData] = await Promise.all([
         ExpenseCategoriesService.getCategoriesByCommunity(communityId, 'INCOME'),
-        CommunityIncomeService.getCommunityIncomes(communityId),
+        CommunityIncomeService.getCommunityIncomes(communityId, period),
       ]);
 
       setCategories(categoriesData);
@@ -46,7 +46,7 @@ export function useIncomeData(communityId: string): UseIncomeDataReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [communityId]);
+  }, [communityId, period]);
 
   const refreshData = useCallback(async () => {
     await fetchData();

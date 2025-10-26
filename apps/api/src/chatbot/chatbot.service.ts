@@ -44,40 +44,115 @@ export class ChatbotService {
     }
 
     // --- 1) ESPACIOS COMUNES ---
-    if (lowerQuestion.includes('espacios comunes') || lowerQuestion.includes('espacios')) {
+    if (
+      this.matchesKeywords(lowerQuestion, [
+        'espacios comunes',
+        'espacios',
+        'salon',
+        'gym',
+        'piscina',
+        'cancha',
+        'jardin',
+        'terraza',
+      ])
+    ) {
       return await this.getCommonSpacesInfo();
     }
 
     // --- 2) AVISOS COMUNITARIOS ---
-    if (lowerQuestion.includes('avisos') || lowerQuestion.includes('comunicados')) {
+    if (
+      this.matchesKeywords(lowerQuestion, [
+        'avisos',
+        'comunicados',
+        'noticias',
+        'anuncios',
+        'informacion',
+      ])
+    ) {
       return await this.getCommunityAnnouncements();
     }
 
     // --- 3) GASTOS COMUNES ---
     if (
-      lowerQuestion.includes('gastos comunes') ||
-      lowerQuestion.includes('gastos') ||
-      lowerQuestion.includes('cuotas')
+      this.matchesKeywords(lowerQuestion, [
+        'gastos comunes',
+        'gastos',
+        'cuotas',
+        'pagos',
+        'facturas',
+        'cobros',
+        'administracion',
+      ])
     ) {
       return await this.getCommonExpensesInfo();
     }
 
     // --- 4) RESIDENTES ---
-    if (lowerQuestion.includes('residentes') || lowerQuestion.includes('residente')) {
+    if (
+      this.matchesKeywords(lowerQuestion, [
+        'residentes',
+        'residente',
+        'vecinos',
+        'habitantes',
+        'propietarios',
+      ])
+    ) {
       return await this.getResidentsInfo();
     }
 
     // --- 5) VISITANTES ---
-    if (lowerQuestion.includes('visitantes') || lowerQuestion.includes('visitas')) {
+    if (
+      this.matchesKeywords(lowerQuestion, ['visitantes', 'visitas', 'invitados', 'acompanantes'])
+    ) {
       return await this.getVisitorsInfo();
     }
 
     // --- 6) ENCOMIENDAS ---
-    if (lowerQuestion.includes('encomiendas') || lowerQuestion.includes('paquetes')) {
+    if (
+      this.matchesKeywords(lowerQuestion, [
+        'encomiendas',
+        'paquetes',
+        'correo',
+        'delivery',
+        'envios',
+        'recepcion',
+      ])
+    ) {
       return await this.getParcelsInfo();
     }
 
-    // --- 6) CONSULTA AL MODELO DE OPENAI ---
+    // --- 7) INGRESOS COMUNITARIOS ---
+    if (
+      this.matchesKeywords(lowerQuestion, [
+        'ingresos',
+        'rentas',
+        'alquileres',
+        'ventas',
+        'finanzas',
+      ])
+    ) {
+      return await this.getCommunityIncomeInfo();
+    }
+
+    // --- 8) CATEGORÍAS DE GASTOS ---
+    if (this.matchesKeywords(lowerQuestion, ['categorias', 'tipos de gastos', 'clasificacion'])) {
+      return await this.getExpenseCategoriesInfo();
+    }
+
+    // --- 9) UNIDADES Y APARTAMENTOS ---
+    if (
+      this.matchesKeywords(lowerQuestion, [
+        'unidades',
+        'apartamentos',
+        'departamentos',
+        'pisos',
+        'torres',
+      ])
+    ) {
+      return await this.getUnitsInfo();
+    }
+
+    // --- 10) CONSULTA AL MODELO DE OPENAI ---
     return await this.queryOpenAI(question);
   }
 
@@ -105,41 +180,121 @@ export class ChatbotService {
     const isResident = userRoles.includes('RESIDENT');
 
     // --- 1) ESPACIOS COMUNES ---
-    if (lowerQuestion.includes('espacios comunes') || lowerQuestion.includes('espacios')) {
+    if (
+      this.matchesKeywords(lowerQuestion, [
+        'espacios comunes',
+        'espacios',
+        'salon',
+        'gym',
+        'piscina',
+        'cancha',
+        'jardin',
+        'terraza',
+      ])
+    ) {
       return await this.getCommonSpacesInfoForUser(userInfo, userRoles);
     }
 
     // --- 2) AVISOS COMUNITARIOS ---
-    if (lowerQuestion.includes('avisos') || lowerQuestion.includes('comunicados')) {
+    if (
+      this.matchesKeywords(lowerQuestion, [
+        'avisos',
+        'comunicados',
+        'noticias',
+        'anuncios',
+        'informacion',
+      ])
+    ) {
       return await this.getCommunityAnnouncementsForUser(userInfo, userRoles);
     }
 
     // --- 3) GASTOS COMUNES ---
     if (
-      lowerQuestion.includes('gastos comunes') ||
-      lowerQuestion.includes('gastos') ||
-      lowerQuestion.includes('cuotas')
+      this.matchesKeywords(lowerQuestion, [
+        'gastos comunes',
+        'gastos',
+        'cuotas',
+        'pagos',
+        'facturas',
+        'cobros',
+        'administracion',
+      ])
     ) {
       return await this.getCommonExpensesInfoForUser(userInfo, userRoles);
     }
 
     // --- 4) RESIDENTES ---
-    if (lowerQuestion.includes('residentes') || lowerQuestion.includes('residente')) {
+    if (
+      this.matchesKeywords(lowerQuestion, [
+        'residentes',
+        'residente',
+        'vecinos',
+        'habitantes',
+        'propietarios',
+      ])
+    ) {
       return await this.getResidentsInfoForUser(userInfo, userRoles);
     }
 
     // --- 5) VISITANTES ---
-    if (lowerQuestion.includes('visitantes') || lowerQuestion.includes('visitas')) {
+    if (
+      this.matchesKeywords(lowerQuestion, ['visitantes', 'visitas', 'invitados', 'acompanantes'])
+    ) {
       return await this.getVisitorsInfoForUser(userInfo, userRoles);
     }
 
     // --- 6) ENCOMIENDAS ---
-    if (lowerQuestion.includes('encomiendas') || lowerQuestion.includes('paquetes')) {
+    if (
+      this.matchesKeywords(lowerQuestion, [
+        'encomiendas',
+        'paquetes',
+        'correo',
+        'delivery',
+        'envios',
+        'recepcion',
+      ])
+    ) {
       return await this.getParcelsInfoForUser(userInfo, userRoles);
     }
 
-    // --- 6) CONSULTA AL MODELO DE OPENAI CON CONTEXTO DE USUARIO ---
+    // --- 7) INGRESOS COMUNITARIOS ---
+    if (
+      this.matchesKeywords(lowerQuestion, [
+        'ingresos',
+        'rentas',
+        'alquileres',
+        'ventas',
+        'finanzas',
+      ])
+    ) {
+      return await this.getCommunityIncomeInfoForUser(userInfo, userRoles);
+    }
+
+    // --- 8) CATEGORÍAS DE GASTOS ---
+    if (this.matchesKeywords(lowerQuestion, ['categorias', 'tipos de gastos', 'clasificacion'])) {
+      return await this.getExpenseCategoriesInfoForUser(userInfo, userRoles);
+    }
+
+    // --- 9) UNIDADES Y APARTAMENTOS ---
+    if (
+      this.matchesKeywords(lowerQuestion, [
+        'unidades',
+        'apartamentos',
+        'departamentos',
+        'pisos',
+        'torres',
+      ])
+    ) {
+      return await this.getUnitsInfoForUser(userInfo, userRoles);
+    }
+
+    // --- 10) CONSULTA AL MODELO DE OPENAI CON CONTEXTO DE USUARIO ---
     return await this.queryOpenAIWithUserContext(question, userInfo, userRoles);
+  }
+
+  // Método auxiliar para verificar si una pregunta coincide con palabras clave
+  private matchesKeywords(question: string, keywords: string[]): boolean {
+    return keywords.some((keyword) => question.includes(keyword));
   }
 
   private async getCommonSpacesInfo(): Promise<ChatbotResponseDto> {
@@ -1964,16 +2119,27 @@ Ser un asistente útil, informativo y versátil que puede ayudar con CUALQUIER p
       !lowerQuestion.includes('avisos') &&
       !lowerQuestion.includes('encomiendas')
     ) {
+      return `👋 ¡Hola! Soy ComunIAssistant, tu asistente virtual para gestión comunitaria.`;
+    }
+
+    // Consultas sobre funcionalidades
+    if (
+      lowerQuestion.includes('funcionalidades') ||
+      lowerQuestion.includes('que puedo hacer') ||
+      lowerQuestion.includes('ayuda') ||
+      lowerQuestion.includes('comandos')
+    ) {
       return (
-        `👋 ¡Hola! Soy ComunIAssistant, tu asistente virtual para gestión comunitaria.\n\n` +
-        `Puedo ayudarte con información sobre:\n` +
+        `🎯 Funcionalidades disponibles:\n` +
         `• 🏢 Espacios comunes y sus horarios\n` +
         `• 📢 Avisos comunitarios\n` +
         `• 💰 Gastos comunes\n` +
         `• 👥 Visitantes\n` +
         `• 📦 Encomiendas\n` +
-        `• 👤 Residentes\n\n` +
-        `💡 *Usa palabras clave específicas para obtener información actualizada.*`
+        `• 👤 Residentes\n` +
+        `• 💰 Ingresos comunitarios\n` +
+        `• 📊 Categorías de gastos\n` +
+        `• 🏠 Unidades y apartamentos`
       );
     }
 
@@ -2041,22 +2207,34 @@ Ser un asistente útil, informativo y versátil que puede ayudar con CUALQUIER p
     const roleDisplayName = this.getUserRoleDisplayName(userRoles);
     const userName = user.name || 'Usuario';
 
-    // Saludos personalizados - Respuestas instantáneas
+    // Saludos personalizados - Respuestas instantáneas (más breves)
     if (
       lowerQuestion.includes('hola') ||
       lowerQuestion.includes('hi') ||
       lowerQuestion.includes('hey')
     ) {
+      return `👋 ¡Hola ${userName}! Soy ComunIAssistant, tu asistente virtual personalizado.`;
+    }
+
+    // Consultas sobre rol y funcionalidades
+    if (
+      lowerQuestion.includes('rol') ||
+      lowerQuestion.includes('funcionalidades') ||
+      lowerQuestion.includes('permisos') ||
+      lowerQuestion.includes('que puedo hacer') ||
+      lowerQuestion.includes('ayuda')
+    ) {
       return (
-        `👋 ¡Hola ${userName}! Soy ComunIAssistant, tu asistente virtual personalizado.\n\n` +
-        `👤 **Tu rol:** ${roleDisplayName}\n` +
-        `🎯 **Funcionalidades disponibles para ti:**\n` +
+        `👤 Tu rol: ${roleDisplayName}\n` +
+        `🎯 Funcionalidades disponibles para ti:\n` +
         `• 🏢 Espacios comunes y reservas\n` +
         `• 📢 Avisos comunitarios\n` +
         `• 💰 Gastos comunes\n` +
         `• 👥 Gestión de visitantes\n` +
-        `• 📦 Encomiendas\n\n` +
-        `💡 *Las respuestas se adaptan a tus permisos específicos como ${roleDisplayName}.*`
+        `• 📦 Encomiendas\n` +
+        `• 💰 Ingresos comunitarios\n` +
+        `• 📊 Categorías de gastos\n` +
+        `• 🏠 Unidades y apartamentos`
       );
     }
 
@@ -2065,41 +2243,14 @@ Ser un asistente útil, informativo y versátil que puede ayudar con CUALQUIER p
       lowerQuestion.includes('buenas tardes') ||
       lowerQuestion.includes('buenas noches')
     ) {
-      return (
-        `🌅 ¡Buenos días ${userName}! Soy ComunIAssistant.\n\n` +
-        `👤 **Vista personalizada para:** ${roleDisplayName}\n` +
-        `🎯 **Comandos disponibles:**\n` +
-        `• "espacios comunes" - Horarios y disponibilidad\n` +
-        `• "avisos" - Comunicados de tu comunidad\n` +
-        `• "gastos comunes" - Cuotas y gastos\n` +
-        `• "visitantes" - Registro de visitas\n` +
-        `• "encomiendas" - Estado de paquetes\n\n` +
-        `💡 *¿En qué puedo ayudarte hoy como ${roleDisplayName}?*`
-      );
+      return `🌅 ¡Buenos días ${userName}! Soy ComunIAssistant, tu asistente virtual personalizado.`;
     }
 
     // Despedidas y agradecimientos - Dejamos que la IA responda naturalmente
     // Removido para permitir respuestas más naturales de la IA
 
-    // Ayuda personalizada - Respuesta instantánea
-    if (
-      lowerQuestion.includes('ayuda') ||
-      lowerQuestion.includes('help') ||
-      lowerQuestion.includes('comandos')
-    ) {
-      return (
-        `🆘 **Centro de Ayuda Personalizado - ComunIAssistant**\n\n` +
-        `👤 **Usuario:** ${userName}\n` +
-        `🎭 **Rol:** ${roleDisplayName}\n\n` +
-        `**Comandos disponibles:**\n` +
-        `• "espacios comunes" - Información según tus permisos\n` +
-        `• "avisos" - Comunicados de tu comunidad\n` +
-        `• "gastos comunes" - Cuotas y gastos\n` +
-        `• "visitantes" - Gestión según tu rol\n` +
-        `• "encomiendas" - Estado de paquetes\n\n` +
-        `💡 *Las respuestas se adaptan automáticamente a tus permisos como ${roleDisplayName}.*`
-      );
-    }
+    // Ayuda personalizada - Respuesta instantánea (ya manejado arriba)
+    // Removido para evitar duplicación con la sección de funcionalidades
 
     // Estado personalizado - Respuesta instantánea
     if (
@@ -2458,5 +2609,516 @@ Ser un asistente útil, informativo y versátil que puede ayudar con CUALQUIER p
       answer:
         '❌ **Servicio Temporalmente No Disponible**\n\nEl servicio de IA está experimentando alta demanda. Por favor, intenta nuevamente en unos minutos.',
     };
+  }
+
+  // ===== NUEVOS MÉTODOS PARA FUNCIONALIDADES ADICIONALES =====
+
+  // Método para obtener información de ingresos comunitarios (público)
+  private async getCommunityIncomeInfo(): Promise<ChatbotResponseDto> {
+    try {
+      const incomes = await this.prisma.communityIncome.findMany({
+        include: {
+          community: true,
+          items: {
+            include: {
+              category: true,
+            },
+          },
+        },
+        orderBy: { period: 'desc' },
+        take: 5,
+      });
+
+      if (incomes.length === 0) {
+        return {
+          answer:
+            '💰 INGRESOS COMUNITARIOS\n\n❌ No hay ingresos registrados actualmente.\n\n💡 *Contacta a la administración para más información.*',
+        };
+      }
+
+      let response = '💰 INGRESOS COMUNITARIOS\n\n';
+      response += '─'.repeat(60) + '\n\n';
+
+      for (const income of incomes) {
+        response += `🏢 ${income.community.name}\n`;
+        response += `📅 Período: ${income.period}\n`;
+        response += `💰 Total: $${income.totalAmount.toNumber().toLocaleString()}\n`;
+        response += `📅 Fecha de vencimiento: ${income.dueDate.toLocaleDateString()}\n`;
+        response += `📊 Método de prorrateo: ${income.prorrateMethod}\n\n`;
+
+        if (income.items.length > 0) {
+          response += '📋 Detalles de Ingresos:\n';
+          for (const item of income.items) {
+            response += `  • ${item.name}: $${item.amount.toNumber().toLocaleString()}\n`;
+            if (item.description) {
+              response += `    ${item.description}\n`;
+            }
+          }
+          response += '\n';
+        }
+
+        response += '─'.repeat(40) + '\n\n';
+      }
+
+      response += '💡 *Para más detalles, contacta a la administración de tu comunidad.*';
+
+      return { answer: response };
+    } catch (error) {
+      this.logger.error('Error obteniendo información de ingresos:', error);
+      return {
+        answer: '❌ Error al obtener información de ingresos. Por favor, intenta más tarde.',
+      };
+    }
+  }
+
+  // Método para obtener información de ingresos comunitarios (con contexto de usuario)
+  private async getCommunityIncomeInfoForUser(
+    userInfo: any,
+    userRoles: string[],
+  ): Promise<ChatbotResponseDto> {
+    try {
+      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
+      const isCommunityAdmin = userRoles.includes('COMMUNITY_ADMIN');
+      const isConcierge = userRoles.includes('CONCIERGE');
+      const isResident = userRoles.includes('RESIDENT');
+
+      let whereClause: any = {};
+      let communityContext = '';
+
+      if (isSuperAdmin) {
+        communityContext = 'todas las comunidades';
+      } else if (isCommunityAdmin) {
+        const communityIds = userInfo?.communityAdmins?.map((ca: any) => ca.community.id) || [];
+        if (communityIds.length > 0) {
+          whereClause.communityId = { in: communityIds };
+          communityContext = `sus comunidades administradas`;
+        }
+      } else if (isConcierge || isResident) {
+        const communityId = userInfo?.userUnits?.[0]?.unit?.community?.id;
+        if (communityId) {
+          whereClause.communityId = communityId;
+          communityContext = `su comunidad (${userInfo?.userUnits?.[0]?.unit?.community?.name})`;
+        }
+      }
+
+      const incomes = await this.prisma.communityIncome.findMany({
+        where: whereClause,
+        include: {
+          community: true,
+          items: {
+            include: {
+              category: true,
+            },
+          },
+        },
+        orderBy: { period: 'desc' },
+        take: 5,
+      });
+
+      if (incomes.length === 0) {
+        return {
+          answer: `💰 INGRESOS COMUNITARIOS\n\n👤 Vista de: ${this.getUserRoleDisplayName(userRoles)}\n🏢 Contexto: ${communityContext}\n\n❌ No hay ingresos registrados actualmente.\n\n💡 *Contacta a la administración para más información.*`,
+        };
+      }
+
+      let response = '💰 INGRESOS COMUNITARIOS\n\n';
+      response += `👤 Vista de: ${this.getUserRoleDisplayName(userRoles)}\n`;
+      response += `🏢 Contexto: ${communityContext}\n\n`;
+      response += '─'.repeat(60) + '\n\n';
+
+      for (const income of incomes) {
+        response += `🏢 ${income.community.name}\n`;
+        response += `📅 Período: ${income.period}\n`;
+        response += `💰 Total: $${income.totalAmount.toNumber().toLocaleString()}\n`;
+        response += `📅 Fecha de vencimiento: ${income.dueDate.toLocaleDateString()}\n`;
+        response += `📊 Método de prorrateo: ${income.prorrateMethod}\n\n`;
+
+        if (income.items.length > 0) {
+          response += '📋 Detalles de Ingresos:\n';
+          for (const item of income.items) {
+            response += `  • ${item.name}: $${item.amount.toNumber().toLocaleString()}\n`;
+            if (item.description) {
+              response += `    ${item.description}\n`;
+            }
+          }
+          response += '\n';
+        }
+
+        response += '─'.repeat(40) + '\n\n';
+      }
+
+      response += '💡 *Para más detalles, contacta a la administración de tu comunidad.*';
+
+      return { answer: response };
+    } catch (error) {
+      this.logger.error('Error obteniendo información de ingresos para usuario:', error);
+      return {
+        answer: '❌ Error al obtener información de ingresos. Por favor, intenta más tarde.',
+      };
+    }
+  }
+
+  // Método para obtener información de categorías de gastos (público)
+  private async getExpenseCategoriesInfo(): Promise<ChatbotResponseDto> {
+    try {
+      const categories = await this.prisma.expenseCategory.findMany({
+        where: { isActive: true },
+        include: {
+          community: true,
+          _count: {
+            select: {
+              expenses: true,
+              expenseItems: true,
+              incomeItems: true,
+            },
+          },
+        },
+        orderBy: { name: 'asc' },
+        take: 20,
+      });
+
+      if (categories.length === 0) {
+        return {
+          answer:
+            '📊 CATEGORÍAS DE GASTOS\n\n❌ No hay categorías registradas actualmente.\n\n💡 *Contacta a la administración para más información.*',
+        };
+      }
+
+      let response = '📊 CATEGORÍAS DE GASTOS\n\n';
+      response += '─'.repeat(60) + '\n\n';
+
+      // Agrupar por comunidad
+      const categoriesByCommunity = categories.reduce(
+        (acc, category) => {
+          const communityName = category.community.name;
+          if (!acc[communityName]) {
+            acc[communityName] = [];
+          }
+          acc[communityName].push(category);
+          return acc;
+        },
+        {} as Record<string, any[]>,
+      );
+
+      for (const [communityName, communityCategories] of Object.entries(categoriesByCommunity)) {
+        response += `🏢 ${communityName}\n`;
+        response += '─'.repeat(40) + '\n\n';
+
+        for (const category of communityCategories) {
+          response += `📋 ${category.name}\n`;
+          response += `   🏷️ Tipo: ${category.type}\n`;
+          response += `   📝 Descripción: ${category.description || 'Sin descripción'}\n`;
+          response += `   📊 Uso: ${category._count.expenseItems + category._count.incomeItems} registros\n`;
+          response += `   📈 Estado: ${category.isActive ? '✅ Activo' : '❌ Inactivo'}\n\n`;
+        }
+
+        response += '─'.repeat(40) + '\n\n';
+      }
+
+      response += '💡 *Para más detalles, contacta a la administración de tu comunidad.*';
+
+      return { answer: response };
+    } catch (error) {
+      this.logger.error('Error obteniendo información de categorías:', error);
+      return {
+        answer: '❌ Error al obtener información de categorías. Por favor, intenta más tarde.',
+      };
+    }
+  }
+
+  // Método para obtener información de categorías de gastos (con contexto de usuario)
+  private async getExpenseCategoriesInfoForUser(
+    userInfo: any,
+    userRoles: string[],
+  ): Promise<ChatbotResponseDto> {
+    try {
+      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
+      const isCommunityAdmin = userRoles.includes('COMMUNITY_ADMIN');
+      const isConcierge = userRoles.includes('CONCIERGE');
+      const isResident = userRoles.includes('RESIDENT');
+
+      let whereClause: any = {};
+      let communityContext = '';
+
+      if (isSuperAdmin) {
+        communityContext = 'todas las comunidades';
+      } else if (isCommunityAdmin) {
+        const communityIds = userInfo?.communityAdmins?.map((ca: any) => ca.community.id) || [];
+        if (communityIds.length > 0) {
+          whereClause.communityId = { in: communityIds };
+          communityContext = `sus comunidades administradas`;
+        }
+      } else if (isConcierge || isResident) {
+        const communityId = userInfo?.userUnits?.[0]?.unit?.community?.id;
+        if (communityId) {
+          whereClause.communityId = communityId;
+          communityContext = `su comunidad (${userInfo?.userUnits?.[0]?.unit?.community?.name})`;
+        }
+      }
+
+      const categories = await this.prisma.expenseCategory.findMany({
+        where: whereClause,
+        include: {
+          community: true,
+          _count: {
+            select: {
+              expenses: true,
+              expenseItems: true,
+              incomeItems: true,
+            },
+          },
+        },
+        orderBy: { name: 'asc' },
+        take: 20,
+      });
+
+      if (categories.length === 0) {
+        return {
+          answer: `📊 CATEGORÍAS DE GASTOS\n\n👤 Vista de: ${this.getUserRoleDisplayName(userRoles)}\n🏢 Contexto: ${communityContext}\n\n❌ No hay categorías registradas actualmente.\n\n💡 *Contacta a la administración para más información.*`,
+        };
+      }
+
+      let response = '📊 CATEGORÍAS DE GASTOS\n\n';
+      response += `👤 Vista de: ${this.getUserRoleDisplayName(userRoles)}\n`;
+      response += `🏢 Contexto: ${communityContext}\n\n`;
+      response += '─'.repeat(60) + '\n\n';
+
+      // Agrupar por comunidad
+      const categoriesByCommunity = categories.reduce(
+        (acc, category) => {
+          const communityName = category.community.name;
+          if (!acc[communityName]) {
+            acc[communityName] = [];
+          }
+          acc[communityName].push(category);
+          return acc;
+        },
+        {} as Record<string, any[]>,
+      );
+
+      for (const [communityName, communityCategories] of Object.entries(categoriesByCommunity)) {
+        response += `🏢 ${communityName}\n`;
+        response += '─'.repeat(40) + '\n\n';
+
+        for (const category of communityCategories) {
+          response += `📋 ${category.name}\n`;
+          response += `   🏷️ Tipo: ${category.type}\n`;
+          response += `   📝 Descripción: ${category.description || 'Sin descripción'}\n`;
+          response += `   📊 Uso: ${category._count.expenseItems + category._count.incomeItems} registros\n`;
+          response += `   📈 Estado: ${category.isActive ? '✅ Activo' : '❌ Inactivo'}\n\n`;
+        }
+
+        response += '─'.repeat(40) + '\n\n';
+      }
+
+      response += '💡 *Para más detalles, contacta a la administración de tu comunidad.*';
+
+      return { answer: response };
+    } catch (error) {
+      this.logger.error('Error obteniendo información de categorías para usuario:', error);
+      return {
+        answer: '❌ Error al obtener información de categorías. Por favor, intenta más tarde.',
+      };
+    }
+  }
+
+  // Método para obtener información de unidades (público)
+  private async getUnitsInfo(): Promise<ChatbotResponseDto> {
+    try {
+      const units = await this.prisma.unit.findMany({
+        where: { isActive: true },
+        include: {
+          community: true,
+          userUnits: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: [{ community: { name: 'asc' } }, { floor: 'asc' }, { number: 'asc' }],
+        take: 50,
+      });
+
+      if (units.length === 0) {
+        return {
+          answer:
+            '🏠 UNIDADES Y APARTAMENTOS\n\n❌ No hay unidades registradas actualmente.\n\n💡 *Contacta a la administración para más información.*',
+        };
+      }
+
+      let response = '🏠 UNIDADES Y APARTAMENTOS\n\n';
+      response += '─'.repeat(60) + '\n\n';
+
+      // Agrupar por comunidad
+      const unitsByCommunity = units.reduce(
+        (acc, unit) => {
+          const communityName = unit.community.name;
+          if (!acc[communityName]) {
+            acc[communityName] = [];
+          }
+          acc[communityName].push(unit);
+          return acc;
+        },
+        {} as Record<string, any[]>,
+      );
+
+      for (const [communityName, communityUnits] of Object.entries(unitsByCommunity)) {
+        response += `🏢 ${communityName}\n`;
+        response += '─'.repeat(40) + '\n\n';
+
+        for (const unit of communityUnits) {
+          response += `🏠 Unidad ${unit.number}`;
+          if (unit.floor) {
+            response += ` (Piso ${unit.floor})`;
+          }
+          response += `\n`;
+          response += `   🏷️ Tipo: ${unit.type}\n`;
+          response += `   📊 Coeficiente: ${unit.coefficient}\n`;
+          response += `   📈 Estado: ${unit.isActive ? '✅ Activo' : '❌ Inactivo'}\n`;
+
+          if (unit.userUnits.length > 0) {
+            response += `   👥 Residentes:\n`;
+            for (const userUnit of unit.userUnits) {
+              response += `      • ${userUnit.user.name || userUnit.user.email}\n`;
+            }
+          } else {
+            response += `   👥 Sin residentes asignados\n`;
+          }
+
+          response += '\n';
+        }
+
+        response += '─'.repeat(40) + '\n\n';
+      }
+
+      response += '💡 *Para más detalles, contacta a la administración de tu comunidad.*';
+
+      return { answer: response };
+    } catch (error) {
+      this.logger.error('Error obteniendo información de unidades:', error);
+      return {
+        answer: '❌ Error al obtener información de unidades. Por favor, intenta más tarde.',
+      };
+    }
+  }
+
+  // Método para obtener información de unidades (con contexto de usuario)
+  private async getUnitsInfoForUser(
+    userInfo: any,
+    userRoles: string[],
+  ): Promise<ChatbotResponseDto> {
+    try {
+      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
+      const isCommunityAdmin = userRoles.includes('COMMUNITY_ADMIN');
+      const isConcierge = userRoles.includes('CONCIERGE');
+      const isResident = userRoles.includes('RESIDENT');
+
+      let whereClause: any = {};
+      let communityContext = '';
+
+      if (isSuperAdmin) {
+        communityContext = 'todas las comunidades';
+      } else if (isCommunityAdmin) {
+        const communityIds = userInfo?.communityAdmins?.map((ca: any) => ca.community.id) || [];
+        if (communityIds.length > 0) {
+          whereClause.communityId = { in: communityIds };
+          communityContext = `sus comunidades administradas`;
+        }
+      } else if (isConcierge || isResident) {
+        const communityId = userInfo?.userUnits?.[0]?.unit?.community?.id;
+        if (communityId) {
+          whereClause.communityId = communityId;
+          communityContext = `su comunidad (${userInfo?.userUnits?.[0]?.unit?.community?.name})`;
+        }
+      }
+
+      const units = await this.prisma.unit.findMany({
+        where: whereClause,
+        include: {
+          community: true,
+          userUnits: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: [{ community: { name: 'asc' } }, { floor: 'asc' }, { number: 'asc' }],
+        take: 50,
+      });
+
+      if (units.length === 0) {
+        return {
+          answer: `🏠 UNIDADES Y APARTAMENTOS\n\n👤 Vista de: ${this.getUserRoleDisplayName(userRoles)}\n🏢 Contexto: ${communityContext}\n\n❌ No hay unidades registradas actualmente.\n\n💡 *Contacta a la administración para más información.*`,
+        };
+      }
+
+      let response = '🏠 UNIDADES Y APARTAMENTOS\n\n';
+      response += `👤 Vista de: ${this.getUserRoleDisplayName(userRoles)}\n`;
+      response += `🏢 Contexto: ${communityContext}\n\n`;
+      response += '─'.repeat(60) + '\n\n';
+
+      // Agrupar por comunidad
+      const unitsByCommunity = units.reduce(
+        (acc, unit) => {
+          const communityName = unit.community.name;
+          if (!acc[communityName]) {
+            acc[communityName] = [];
+          }
+          acc[communityName].push(unit);
+          return acc;
+        },
+        {} as Record<string, any[]>,
+      );
+
+      for (const [communityName, communityUnits] of Object.entries(unitsByCommunity)) {
+        response += `🏢 ${communityName}\n`;
+        response += '─'.repeat(40) + '\n\n';
+
+        for (const unit of communityUnits) {
+          response += `🏠 Unidad ${unit.number}`;
+          if (unit.floor) {
+            response += ` (Piso ${unit.floor})`;
+          }
+          response += `\n`;
+          response += `   🏷️ Tipo: ${unit.type}\n`;
+          response += `   📊 Coeficiente: ${unit.coefficient}\n`;
+          response += `   📈 Estado: ${unit.isActive ? '✅ Activo' : '❌ Inactivo'}\n`;
+
+          if (unit.userUnits.length > 0) {
+            response += `   👥 Residentes:\n`;
+            for (const userUnit of unit.userUnits) {
+              response += `      • ${userUnit.user.name || userUnit.user.email}\n`;
+            }
+          } else {
+            response += `   👥 Sin residentes asignados\n`;
+          }
+
+          response += '\n';
+        }
+
+        response += '─'.repeat(40) + '\n\n';
+      }
+
+      response += '💡 *Para más detalles, contacta a la administración de tu comunidad.*';
+
+      return { answer: response };
+    } catch (error) {
+      this.logger.error('Error obteniendo información de unidades para usuario:', error);
+      return {
+        answer: '❌ Error al obtener información de unidades. Por favor, intenta más tarde.',
+      };
+    }
   }
 }

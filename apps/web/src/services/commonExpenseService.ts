@@ -21,9 +21,14 @@ export class CommonExpenseService {
   // Obtener todos los gastos comunes de una comunidad
   static async getCommonExpensesByCommunity(
     communityId: string,
+    period?: string,
   ): Promise<CommonExpenseSummaryDto[]> {
+    const params = new URLSearchParams({ communityId });
+    if (period) {
+      params.append('period', period);
+    }
     const response = await apiClient.get<CommonExpenseSummaryDto[]>(
-      `/common-expenses?communityId=${communityId}`,
+      `/common-expenses?${params.toString()}`,
     );
     return response.data;
   }

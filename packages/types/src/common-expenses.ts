@@ -75,6 +75,15 @@ export interface CommonExpenseSummaryDto {
   pendingUnits: number;
   overdueUnits: number;
   createdAt: Date;
+  items: Array<{
+    id: string;
+    name: string;
+    amount: number;
+    description?: string;
+    categoryId?: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
 }
 
 // Tipos para el frontend

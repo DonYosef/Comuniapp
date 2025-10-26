@@ -1,4 +1,5 @@
 import { apiClient } from '@/services/api/api-client';
+import { CommonExpenseSummaryDto } from '@comuniapp/types';
 
 export interface CommonExpense {
   id: string;
@@ -42,8 +43,15 @@ export interface CreateCommonExpenseItemRequest {
 export class CommonExpensesService {
   private static readonly BASE_URL = '/common-expenses';
 
-  static async getCommonExpenses(communityId: string): Promise<CommonExpense[]> {
-    const response = await apiClient.get(`${this.BASE_URL}?communityId=${communityId}`);
+  static async getCommonExpenses(
+    communityId: string,
+    period?: string,
+  ): Promise<CommonExpenseSummaryDto[]> {
+    const params = new URLSearchParams({ communityId });
+    if (period) {
+      params.append('period', period);
+    }
+    const response = await apiClient.get(`${this.BASE_URL}?${params.toString()}`);
     return response.data;
   }
 

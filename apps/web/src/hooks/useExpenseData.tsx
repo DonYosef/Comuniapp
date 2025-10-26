@@ -5,7 +5,8 @@ import {
   ExpenseCategoriesService,
   ExpenseCategory,
 } from '@/services/api/expense-categories.service';
-import { CommonExpensesService, CommonExpense } from '@/services/api/common-expenses.service';
+import { CommonExpensesService } from '@/services/api/common-expenses.service';
+import { CommonExpenseSummaryDto } from '@comuniapp/types';
 
 // Cache optimizado con TTL y limpieza automática
 const dataCache = new Map<string, { data: any; timestamp: number }>();
@@ -13,10 +14,10 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos (aumentado para mejor rendimi
 const MAX_CACHE_SIZE = 20; // Máximo 20 entradas en cache
 
 // Función para invalidar caché específico
-export const invalidateExpenseCache = (communityId: string) => {
-  const cacheKey = `expense-data-${communityId}`;
+export const invalidateExpenseCache = (communityId: string, period?: string) => {
+  const cacheKey = `expense-data-${communityId}-${period || 'all'}`;
   dataCache.delete(cacheKey);
-  console.log('🗑️ Cache invalidado para comunidad:', communityId);
+  console.log('🗑️ Cache invalidado para comunidad:', communityId, 'período:', period);
 };
 
 // Limpiar cache automáticamente
@@ -56,7 +57,7 @@ interface UseExpenseDataReturn {
   refreshData: () => Promise<void>;
 }
 
-export function useExpenseData(communityId: string): UseExpenseDataReturn {
+export function useExpenseData(communityId: string, period?: string): UseExpenseDataReturn {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,29 +73,41 @@ export function useExpenseData(communityId: string): UseExpenseDataReturn {
     setError(null);
 
     try {
-      // Verificar cache primero
-      const cacheKey = `expense-data-${communityId}`;
+      // Verificar cache primero (incluir período en la clave)
+      const cacheKey = `expense-data-${communityId}-${period || 'all'}`;
       const cachedData = dataCache.get(cacheKey);
       const now = Date.now();
 
       if (cachedData && now - cachedData.timestamp < CACHE_DURATION) {
-        console.log('📦 Usando datos del cache para', communityId);
+        console.log('📦 Usando datos del cache para', communityId, 'período:', period);
         setCategories(cachedData.data.categories);
         setExpenses(cachedData.data.expenses);
         setIsLoading(false);
         return;
       }
 
-      console.log('🔄 Cargando datos frescos para', communityId);
+      console.log('🔄 Cargando datos frescos para', communityId, 'período:', period);
 
       // Cargar categorías y gastos en paralelo para mejor rendimiento
       const [categoriesData, commonExpensesData] = await Promise.all([
         ExpenseCategoriesService.getCategoriesByCommunity(communityId),
-        CommonExpensesService.getCommonExpenses(communityId),
+        CommonExpensesService.getCommonExpenses(communityId, period),
       ]);
 
+      console.log('📊 [useExpenseData] Datos recibidos:', {
+        communityId,
+        period,
+        categoriesCount: categoriesData.length,
+        commonExpensesCount: commonExpensesData.length,
+        commonExpenses: commonExpensesData.map((ce) => ({
+          id: ce.id,
+          period: ce.period,
+          itemsCount: ce.items?.length || 0,
+        })),
+      });
+
       // Transformación optimizada de datos (sin logging excesivo)
-      const expensesData = commonExpensesData.flatMap((commonExpense) => {
+      const expensesData = commonExpensesData.flatMap((commonExpense: CommonExpenseSummaryDto) => {
         // Verificación defensiva más eficiente
         if (!commonExpense.items || commonExpense.items.length === 0) {
           return [];
@@ -107,9 +120,12 @@ export function useExpenseData(communityId: string): UseExpenseDataReturn {
           amount: item.amount,
           description: item.description || '',
           categoryId: item.categoryId || '',
-          date: commonExpense.dueDate,
+          date:
+            commonExpense.dueDate instanceof Date
+              ? commonExpense.dueDate.toISOString()
+              : commonExpense.dueDate,
           status: 'PENDING' as const,
-          createdAt: item.createdAt,
+          createdAt: item.createdAt instanceof Date ? item.createdAt.toISOString() : item.createdAt,
         }));
       });
 
@@ -185,7 +201,7 @@ export function useExpenseData(communityId: string): UseExpenseDataReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [communityId]);
+  }, [communityId, period]);
 
   // Función para refrescar datos (sin loading state)
   const refreshData = useCallback(async () => {
@@ -193,14 +209,14 @@ export function useExpenseData(communityId: string): UseExpenseDataReturn {
 
     try {
       // Limpiar cache para forzar recarga
-      const cacheKey = `expense-data-${communityId}`;
+      const cacheKey = `expense-data-${communityId}-${period || 'all'}`;
       dataCache.delete(cacheKey);
 
-      console.log('🔄 Refrescando datos para', communityId);
+      console.log('🔄 Refrescando datos para', communityId, 'período:', period);
 
       const [categoriesData, commonExpensesData] = await Promise.all([
         ExpenseCategoriesService.getCategoriesByCommunity(communityId),
-        CommonExpensesService.getCommonExpenses(communityId),
+        CommonExpensesService.getCommonExpenses(communityId, period),
       ]);
 
       console.log(
@@ -208,7 +224,7 @@ export function useExpenseData(communityId: string): UseExpenseDataReturn {
         commonExpensesData,
       );
 
-      const expensesData = commonExpensesData.flatMap((commonExpense) => {
+      const expensesData = commonExpensesData.flatMap((commonExpense: CommonExpenseSummaryDto) => {
         console.log('📋 [useExpenseData refreshData] Procesando gasto común:', {
           id: commonExpense.id,
           period: commonExpense.period,
@@ -231,9 +247,13 @@ export function useExpenseData(communityId: string): UseExpenseDataReturn {
             amount: item.amount,
             description: item.description,
             categoryId: item.categoryId || '',
-            date: commonExpense.dueDate,
+            date:
+              commonExpense.dueDate instanceof Date
+                ? commonExpense.dueDate.toISOString()
+                : commonExpense.dueDate,
             status: 'PENDING' as const,
-            createdAt: item.createdAt,
+            createdAt:
+              item.createdAt instanceof Date ? item.createdAt.toISOString() : item.createdAt,
           };
         });
 
@@ -257,7 +277,7 @@ export function useExpenseData(communityId: string): UseExpenseDataReturn {
       console.error('Error refreshing expense data:', err);
       setError('Error al actualizar los datos');
     }
-  }, [communityId]);
+  }, [communityId, period]);
 
   useEffect(() => {
     loadData();

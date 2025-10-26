@@ -39,11 +39,23 @@ export interface CreateCommunityIncomeDto {
 
 export class CommunityIncomeService {
   // Obtener todos los ingresos de una comunidad
-  static async getCommunityIncomes(communityId: string): Promise<CommunityIncome[]> {
+  static async getCommunityIncomes(
+    communityId: string,
+    period?: string,
+  ): Promise<CommunityIncome[]> {
     try {
-      console.log('🔍 [CommunityIncomeService] getCommunityIncomes - communityId:', communityId);
+      console.log(
+        '🔍 [CommunityIncomeService] getCommunityIncomes - communityId:',
+        communityId,
+        'period:',
+        period,
+      );
+      const params: any = { communityId };
+      if (period) {
+        params.period = period;
+      }
       const response = await apiClient.get<CommunityIncome[]>('/community-income', {
-        params: { communityId },
+        params,
       });
       console.log('✅ [CommunityIncomeService] getCommunityIncomes - response:', response.data);
       return response.data;

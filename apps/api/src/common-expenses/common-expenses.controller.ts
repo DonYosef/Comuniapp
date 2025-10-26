@@ -36,8 +36,9 @@ export class CommonExpensesController {
   async findAll(
     @CurrentUser() user: UserPayload,
     @Query('communityId') communityId: string,
+    @Query('period') period?: string,
   ): Promise<CommonExpenseSummaryDto[]> {
-    return this.commonExpensesService.getCommonExpenses(user, communityId);
+    return this.commonExpensesService.getCommonExpenses(user, communityId, period);
   }
 
   @UseGuards(JwtAuthGuard)

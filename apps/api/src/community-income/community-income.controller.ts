@@ -28,8 +28,9 @@ export class CommunityIncomeController {
   async findAll(
     @CurrentUser() user: UserPayload,
     @Query('communityId') communityId: string,
+    @Query('period') period?: string,
   ): Promise<CommunityIncomeResponseDto[]> {
-    return this.communityIncomeService.getCommunityIncomes(user, communityId);
+    return this.communityIncomeService.getCommunityIncomes(user, communityId, period);
   }
 
   @Delete(':id/items/:itemId')

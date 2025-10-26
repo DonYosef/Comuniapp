@@ -223,6 +223,7 @@ export class CommonExpensesService {
   async getCommonExpenses(
     user: UserPayload,
     communityId: string,
+    period?: string,
   ): Promise<CommonExpenseSummaryDto[]> {
     // Validar permisos del usuario
     const community = await this.prisma.community.findUnique({
@@ -267,18 +268,27 @@ export class CommonExpensesService {
     }
 
     // Optimización: Limitar a los últimos 12 meses para mejor rendimiento
-    const twelveMonthsAgo = new Date();
-    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+    // Construir filtros de consulta
+    const whereClause: any = {
+      communityId,
+    };
+
+    if (period) {
+      // Si se especifica un período, filtrar solo ese período
+      whereClause.period = period;
+    } else {
+      // Si no se especifica período, mostrar últimos 12 meses
+      const twelveMonthsAgo = new Date();
+      twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+      whereClause.createdAt = {
+        gte: twelveMonthsAgo,
+      };
+    }
 
     const commonExpenses = await this.prisma.communityExpense.findMany({
-      where: {
-        communityId,
-        createdAt: {
-          gte: twelveMonthsAgo,
-        },
-      },
+      where: whereClause,
       orderBy: { period: 'desc' },
-      take: 24, // Máximo 24 períodos (2 años)
+      take: period ? 1 : 24, // Si se filtra por período, solo 1 resultado
       include: {
         items: {
           orderBy: { createdAt: 'desc' }, // Items más recientes primero

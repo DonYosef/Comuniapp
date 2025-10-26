@@ -173,12 +173,21 @@ export class CommunityIncomeService {
   async getCommunityIncomes(
     user: UserPayload,
     communityId: string,
+    period?: string,
   ): Promise<CommunityIncomeResponseDto[]> {
     // Verificar que el usuario tenga acceso a la comunidad
     await this.verifyCommunityAccess(user, communityId);
 
+    // Construir filtros de consulta
+    const whereClause: any = { communityId };
+
+    if (period) {
+      // Si se especifica un período, filtrar solo ese período
+      whereClause.period = period;
+    }
+
     const incomes = await this.prisma.communityIncome.findMany({
-      where: { communityId },
+      where: whereClause,
       include: {
         community: {
           select: {

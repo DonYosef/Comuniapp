@@ -12,6 +12,7 @@ import { useToast } from '@/contexts/ToastContext';
 
 interface MonthlyExpensesTableProps {
   communityId: string;
+  period?: string; // Período seleccionado
   onDataChange?: () => void; // Callback para notificar cambios
   onConfigExpenses?: () => void; // Callback para configurar egresos
   onConfigIncome?: () => void; // Callback para configurar ingresos
@@ -19,6 +20,7 @@ interface MonthlyExpensesTableProps {
 
 export default function MonthlyExpensesTable({
   communityId,
+  period,
   onDataChange,
   onConfigExpenses,
   onConfigIncome,
@@ -42,14 +44,14 @@ export default function MonthlyExpensesTable({
     isLoading: expensesLoading,
     error: expensesError,
     refreshData: refreshExpenses,
-  } = useExpenseData(communityId);
+  } = useExpenseData(communityId, period);
   const {
     categories: incomeCategories,
     incomes,
     isLoading: incomesLoading,
     error: incomesError,
     refreshData: refreshIncomes,
-  } = useIncomeData(communityId);
+  } = useIncomeData(communityId, period);
 
   // Determinar qué datos usar según el tipo seleccionado
   const categories = expenseType === 'expenses' ? expenseCategories : incomeCategories;
@@ -329,55 +331,84 @@ export default function MonthlyExpensesTable({
     try {
       console.log('💾 Guardando valores:', expenseValues);
 
-      // Agrupar gastos por categoría para actualizar
-      const expensesByCategory = categories.reduce(
-        (acc, category) => {
-          const categoryExpenses = getExpensesByCategory(category.id);
-          if (categoryExpenses.length > 0) {
-            acc[category.id] = categoryExpenses.map((expense) => ({
-              name: expense.title,
-              amount: expenseValues[expense.id] || 0,
-              description: expense.description || '',
-              categoryId: category.id,
-            }));
-          }
-          return acc;
-        },
-        {} as Record<string, any[]>,
-      );
-
-      // Agregar gastos sin categoría
-      const expensesWithoutCategory = getExpensesWithoutCategory();
-      if (expensesWithoutCategory.length > 0) {
-        expensesByCategory['no-category'] = expensesWithoutCategory.map((expense) => ({
-          name: expense.title,
-          amount: expenseValues[expense.id] || 0,
-          description: expense.description || '',
-          categoryId: null,
-        }));
-      }
-
-      // Actualizar cada categoría
-      const updatePromises = Object.entries(expensesByCategory).map(async ([categoryId, items]) => {
-        if (items.length === 0) return;
-
-        // Buscar el gasto común para esta categoría
-        const commonExpenses = await CommonExpensesService.getCommonExpenses(communityId);
-        const commonExpense = commonExpenses.find((ce) =>
-          ce.items.some(
-            (item) => item.categoryId === (categoryId === 'no-category' ? null : categoryId),
-          ),
+      if (expenseType === 'expenses') {
+        // Lógica para gastos comunes
+        const expensesByCategory = categories.reduce(
+          (acc, category) => {
+            const categoryExpenses = getExpensesByCategory(category.id);
+            if (categoryExpenses.length > 0) {
+              acc[category.id] = categoryExpenses.map((expense) => ({
+                name: expense.title,
+                amount: expenseValues[expense.id] || 0,
+                description: expense.description || '',
+                categoryId: category.id,
+              }));
+            }
+            return acc;
+          },
+          {} as Record<string, any[]>,
         );
 
-        if (commonExpense) {
-          // Actualizar el gasto común con los nuevos items
-          await CommonExpensesService.updateCommonExpense(commonExpense.id, {
-            items: items,
-          });
+        // Agregar gastos sin categoría
+        const expensesWithoutCategory = getExpensesWithoutCategory();
+        if (expensesWithoutCategory.length > 0) {
+          expensesByCategory['no-category'] = expensesWithoutCategory.map((expense) => ({
+            name: expense.title,
+            amount: expenseValues[expense.id] || 0,
+            description: expense.description || '',
+            categoryId: null,
+          }));
         }
-      });
 
-      await Promise.all(updatePromises);
+        // Actualizar cada categoría
+        const updatePromises = Object.entries(expensesByCategory).map(
+          async ([categoryId, items]) => {
+            if (items.length === 0) return;
+
+            // Buscar el gasto común para esta categoría
+            const commonExpenses = await CommonExpensesService.getCommonExpenses(communityId);
+            const commonExpense = commonExpenses.find((ce) =>
+              ce.items.some(
+                (item) => item.categoryId === (categoryId === 'no-category' ? null : categoryId),
+              ),
+            );
+
+            if (commonExpense) {
+              // Actualizar el gasto común con los nuevos items
+              await CommonExpensesService.updateCommonExpense(commonExpense.id, {
+                items: items,
+              });
+            }
+          },
+        );
+
+        await Promise.all(updatePromises);
+      } else {
+        // Lógica para ingresos - actualizar items individuales
+        const flattenedItems = flattenIncomeItems();
+        const updatePromises = flattenedItems.map(async (item) => {
+          const newAmount = expenseValues[item.id];
+          if (newAmount !== undefined && newAmount !== item.amount) {
+            // Buscar el ingreso padre de este item
+            const parentIncome = incomes.find((income) =>
+              income.items?.some((incomeItem) => incomeItem.id === item.id),
+            );
+
+            if (parentIncome) {
+              // Actualizar el item específico en el ingreso
+              const updatedItems = parentIncome.items.map((incomeItem) =>
+                incomeItem.id === item.id ? { ...incomeItem, amount: newAmount } : incomeItem,
+              );
+
+              await CommunityIncomeService.updateCommunityIncome(parentIncome.id, {
+                items: updatedItems,
+              });
+            }
+          }
+        });
+
+        await Promise.all(updatePromises);
+      }
 
       // Marcar valores como guardados
       setSavedValues({ ...expenseValues });
