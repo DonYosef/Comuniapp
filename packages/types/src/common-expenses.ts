@@ -70,6 +70,7 @@ export interface CommonExpenseSummaryDto {
   period: string;
   totalAmount: number;
   dueDate: Date;
+  prorrateMethod: ProrrateMethod;
   totalUnits: number;
   paidUnits: number;
   pendingUnits: number;
@@ -84,6 +85,7 @@ export interface CommonExpenseSummaryDto {
     createdAt: Date;
     updatedAt: Date;
   }>;
+  unitExpenses?: UnitExpenseResponseDto[];
 }
 
 // Tipos para el frontend

@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
-import { CommunityIncomeService } from './community-income.service';
-import { CommunityIncomeController } from './community-income.controller';
-import { PrismaModule } from '../prisma/prisma.module';
+
 import { AuthModule } from '../auth/auth.module';
+import { PrismaModule } from '../prisma/prisma.module';
+
+import { CommunityIncomeController } from './community-income.controller';
+import { CommunityIncomeService } from './community-income.service';
 
 @Module({
   imports: [PrismaModule, AuthModule],

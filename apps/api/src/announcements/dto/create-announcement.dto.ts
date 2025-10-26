@@ -1,5 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsUUID } from 'class-validator';
 import { AnnouncementType } from '@prisma/client';
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsUUID } from 'class-validator';
 
 export class CreateAnnouncementDto {
   @IsUUID()

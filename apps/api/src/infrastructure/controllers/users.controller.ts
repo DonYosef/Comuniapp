@@ -12,6 +12,7 @@ import {
   Request,
   Query,
 } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 
 import { CreateUserDto } from '../../application/dto/create-user.dto';
@@ -27,7 +28,6 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { Permission } from '../../domain/entities/role.entity';
 import { User } from '../../domain/entities/user.entity';
 import { UserRepository } from '../../domain/repositories/user.repository.interface';
-import { Inject } from '@nestjs/common';
 
 @ApiTags('users')
 @ApiBearerAuth()

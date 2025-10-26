@@ -46,6 +46,7 @@ export default function ProrrateModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasCreated, setHasCreated] = useState(false);
 
   // Formulario
   const [dueDate, setDueDate] = useState('');
@@ -243,8 +244,8 @@ export default function ProrrateModal({
       await CommonExpenseService.createCommonExpense(createDto);
 
       showToast('Gastos comunes creados exitosamente', 'success');
+      setHasCreated(true);
       onSuccess?.();
-      onClose();
     } catch (error: any) {
       console.error('Error creating common expense:', error);
 
@@ -362,9 +363,9 @@ export default function ProrrateModal({
                   <input
                     type="text"
                     value={period}
-                    onChange={(e) => setPeriod(e.target.value)}
+                    disabled
                     placeholder="2024-01"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white cursor-not-allowed opacity-60"
                   />
                 </div>
                 <div>
@@ -375,7 +376,8 @@ export default function ProrrateModal({
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={hasCreated}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -385,7 +387,8 @@ export default function ProrrateModal({
                   <select
                     value={prorrateMethod}
                     onChange={(e) => setProrrateMethod(e.target.value as ProrrateMethod)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={hasCreated}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <option value={ProrrateMethod.EQUAL}>Igualitario</option>
                     <option value={ProrrateMethod.COEFFICIENT}>Por Coeficiente</option>
@@ -394,83 +397,88 @@ export default function ProrrateModal({
               </div>
 
               {/* Resumen de montos */}
-              <div>
-                <div className="mb-4">
-                  <h4 className="text-lg font-medium text-gray-900 dark:text-white">
-                    Resumen Financiero - Período {period}
-                  </h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Montos que se prorratearán entre las unidades de la comunidad.
-                  </p>
+              {!hasCreated && (
+                <div>
+                  <div className="mb-4">
+                    <h4 className="text-lg font-medium text-gray-900 dark:text-white">
+                      Resumen Financiero - Período {period}
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Montos que se prorratearán entre las unidades de la comunidad.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {/* Fila de Egresos */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border border-red-200 dark:border-red-800 rounded-lg bg-red-50 dark:bg-red-900/20">
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-red-700 dark:text-red-300 mb-1">
+                          Total Egresos
+                        </label>
+                        <div className="text-sm text-red-600 dark:text-red-400">
+                          Suma de todos los gastos configurados para este período
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-end">
+                        <span className="text-lg font-bold text-red-600 dark:text-red-400">
+                          ${expensesTotal.toLocaleString('es-CL', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Fila de Ingresos */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border border-green-200 dark:border-green-800 rounded-lg bg-green-50 dark:bg-green-900/20">
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-green-700 dark:text-green-300 mb-1">
+                          Total Ingresos
+                        </label>
+                        <div className="text-sm text-green-600 dark:text-green-400">
+                          Suma de todos los ingresos configurados para este período
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-end">
+                        <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                          ${incomesTotal.toLocaleString('es-CL', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Fila de Total Neto */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 border-2 border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                      <div className="col-span-2">
+                        <label className="block text-lg font-bold text-blue-700 dark:text-blue-300 mb-1">
+                          Total a Prorratear
+                        </label>
+                        <div className="text-sm text-blue-600 dark:text-blue-400">
+                          Egresos - Ingresos = Monto neto a distribuir entre unidades
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-end">
+                        <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          ${netTotal.toLocaleString('es-CL', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-
-                <div className="space-y-3">
-                  {/* Fila de Egresos */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border border-red-200 dark:border-red-800 rounded-lg bg-red-50 dark:bg-red-900/20">
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-red-700 dark:text-red-300 mb-1">
-                        Total Egresos
-                      </label>
-                      <div className="text-sm text-red-600 dark:text-red-400">
-                        Suma de todos los gastos configurados para este período
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-end">
-                      <span className="text-lg font-bold text-red-600 dark:text-red-400">
-                        ${expensesTotal.toLocaleString('es-CL', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Fila de Ingresos */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border border-green-200 dark:border-green-800 rounded-lg bg-green-50 dark:bg-green-900/20">
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-green-700 dark:text-green-300 mb-1">
-                        Total Ingresos
-                      </label>
-                      <div className="text-sm text-green-600 dark:text-green-400">
-                        Suma de todos los ingresos configurados para este período
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-end">
-                      <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                        ${incomesTotal.toLocaleString('es-CL', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Fila de Total Neto */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 border-2 border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                    <div className="col-span-2">
-                      <label className="block text-lg font-bold text-blue-700 dark:text-blue-300 mb-1">
-                        Total a Prorratear
-                      </label>
-                      <div className="text-sm text-blue-600 dark:text-blue-400">
-                        Egresos - Ingresos = Monto neto a distribuir entre unidades
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-end">
-                      <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                        ${netTotal.toLocaleString('es-CL', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              )}
 
               {/* Observación */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Observación (Opcional)
-                </label>
-                <textarea
-                  value={observation}
-                  onChange={(e) => setObservation(e.target.value)}
-                  placeholder="Agregar observaciones sobre este período..."
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+              {!hasCreated && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Observación (Opcional)
+                  </label>
+                  <textarea
+                    value={observation}
+                    onChange={(e) => setObservation(e.target.value)}
+                    disabled={hasCreated}
+                    placeholder="Agregar observaciones sobre este período..."
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+                </div>
+              )}
 
               {/* Desplegable de unidades */}
               {preview.length > 0 && netTotal > 0 && (
@@ -558,27 +566,50 @@ export default function ProrrateModal({
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
           <div className="flex justify-end space-x-3">
-            <button
-              onClick={handleClose}
-              disabled={isCreating}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-50 dark:hover:bg-gray-500 disabled:opacity-50 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleCreate}
-              disabled={isCreating || units.length === 0 || netTotal <= 0}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
-            >
-              {isCreating ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Creando...
-                </>
-              ) : (
-                'Crear Gastos Comunes'
-              )}
-            </button>
+            {hasCreated ? (
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
+              >
+                Cerrar
+              </button>
+            ) : (
+              <button
+                onClick={handleClose}
+                disabled={isCreating}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-50 dark:hover:bg-gray-500 disabled:opacity-50 transition-colors"
+              >
+                Cancelar
+              </button>
+            )}
+            {hasCreated ? (
+              <div className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md flex items-center">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                Gastos Comunes Creados Exitosamente
+              </div>
+            ) : (
+              <button
+                onClick={handleCreate}
+                disabled={isCreating || units.length === 0 || netTotal <= 0}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+              >
+                {isCreating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Creando...
+                  </>
+                ) : (
+                  'Crear Gastos Comunes'
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

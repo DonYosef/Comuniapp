@@ -91,6 +91,25 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
 
     // Solo mostrar Residentes si el usuario NO es residente y tiene permisos de administración
     const isResident = hasRole('RESIDENT');
+
+    // Mostrar Mis Gastos solo para residentes (justo después del Dashboard)
+    if (isResident) {
+      console.log('✅ [Sidebar] Agregando módulo Mis Gastos (Residente)');
+      baseItems.push({
+        name: 'Mis Gastos',
+        href: '/dashboard/mis-gastos',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
+          </svg>
+        ),
+      });
+    }
     const canManageUsers = isAdmin() || hasPermission('manage_community_users');
 
     console.log('🔍 [Sidebar] Verificando módulo Residentes:');
@@ -123,8 +142,9 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
       console.log('❌ [Sidebar] NO agregando módulo Residentes - Es residente o sin permisos');
     }
 
-    // Mostrar Gastos Comunes para administradores y residentes
-    const canAccessExpenses = isAdmin() || hasPermission('manage_community_expenses') || isResident;
+    // Mostrar Gastos Comunes solo para administradores (SUPER_ADMIN y COMMUNITY_ADMIN)
+    // NO mostrar para residentes
+    const canAccessExpenses = isAdmin() || hasPermission('manage_community_expenses');
 
     console.log('🔍 [Sidebar] Verificando módulo Gastos Comunes:');
     console.log('- isAdmin():', isAdmin());
@@ -151,6 +171,8 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
           </svg>
         ),
       });
+    } else {
+      console.log('❌ [Sidebar] NO agregando módulo Gastos Comunes - Solo para administradores');
     }
 
     // Mostrar Encomiendas - vista unificada que se adapta al rol
@@ -200,24 +222,6 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
               strokeLinejoin="round"
               strokeWidth={2}
               d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-            />
-          </svg>
-        ),
-      });
-    }
-
-    // Solo mostrar Mis Gastos si el usuario tiene permisos para ver sus propios gastos
-    if (hasPermission('view_own_expenses')) {
-      baseItems.push({
-        name: 'Mis Gastos',
-        href: '/dashboard/mis-gastos',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
             />
           </svg>
         ),

@@ -1,8 +1,10 @@
 import { Controller, Get, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
+
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
 import { ChatbotService } from './chatbot.service';
 import { ChatbotRequestDto, ChatbotResponseDto } from './dto/chatbot.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Chatbot')
 @Controller('chatbot')

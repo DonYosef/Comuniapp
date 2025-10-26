@@ -10,14 +10,16 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { ParcelsService } from './parcels.service';
-import { UnitsService } from './units.service';
-import { CreateParcelDto } from './dto/create-parcel.dto';
-import { UpdateParcelDto } from './dto/update-parcel.dto';
+import { RoleName } from '@prisma/client';
+
+import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { RoleName } from '@prisma/client';
+
+import { CreateParcelDto } from './dto/create-parcel.dto';
+import { UpdateParcelDto } from './dto/update-parcel.dto';
+import { ParcelsService } from './parcels.service';
+import { UnitsService } from './units.service';
 
 @Controller('parcels')
 @UseGuards(JwtAuthGuard)

@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { VisitorStatus } from '@prisma/client';
+
 import { PrismaService } from '../prisma/prisma.service';
+
 import { CreateVisitorDto } from './dto/create-visitor.dto';
 import { UpdateVisitorDto } from './dto/update-visitor.dto';
-import { VisitorStatus } from '@prisma/client';
 
 @Injectable()
 export class VisitorsService {
@@ -82,7 +84,7 @@ export class VisitorsService {
 
     const isResident = user?.roles.some((role) => role.role.name === 'RESIDENT');
 
-    let whereClause: any = {};
+    const whereClause: any = {};
 
     // Si es residente, solo puede ver visitas de sus unidades
     if (isResident && !isAdmin) {

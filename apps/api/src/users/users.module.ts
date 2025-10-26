@@ -10,6 +10,7 @@ import { GetUserUseCase } from '../application/use-cases/get-user.use-case';
 import { UpdateUserUseCase } from '../application/use-cases/update-user.use-case';
 
 // Repositories
+import { AuthModule } from '../auth/auth.module';
 import { RolesController } from '../infrastructure/controllers/roles.controller';
 import { UsersController } from '../infrastructure/controllers/users.controller';
 import { RoleRepository } from '../infrastructure/repositories/role.repository';
@@ -18,7 +19,6 @@ import { UserRepository } from '../infrastructure/repositories/user.repository';
 
 // Controllers
 import { PrismaModule } from '../prisma/prisma.module';
-import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [PrismaModule, AuthModule],

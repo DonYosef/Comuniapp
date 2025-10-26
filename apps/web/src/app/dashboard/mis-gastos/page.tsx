@@ -181,21 +181,22 @@ export default function MisGastosPage() {
 
   const stats: ExpenseStats = expenses.reduce(
     (acc, expense) => {
+      const amount = Number(expense.amount); // Convertir a número si viene como Decimal o string
       acc.total++;
-      acc.totalAmount += expense.amount;
+      acc.totalAmount += amount;
 
       switch (expense.status) {
         case ExpenseStatus.PAID:
           acc.paid++;
-          acc.paidAmount += expense.amount;
+          acc.paidAmount += amount;
           break;
         case ExpenseStatus.PENDING:
           acc.pending++;
-          acc.pendingAmount += expense.amount;
+          acc.pendingAmount += amount;
           break;
         case ExpenseStatus.OVERDUE:
           acc.overdue++;
-          acc.overdueAmount += expense.amount;
+          acc.overdueAmount += amount;
           break;
       }
 
@@ -353,21 +354,21 @@ export default function MisGastosPage() {
                 value={stats.paid}
                 icon={<CheckCircleIcon />}
                 color="green"
-                subtitle={`$${stats.paidAmount.toFixed(2)}`}
+                subtitle={`$${Number(stats.paidAmount).toFixed(2)}`}
               />
               <StatCard
                 title="Pendientes"
                 value={stats.pending}
                 icon={<ClockIcon />}
                 color="yellow"
-                subtitle={`$${stats.pendingAmount.toFixed(2)}`}
+                subtitle={`$${Number(stats.pendingAmount).toFixed(2)}`}
               />
               <StatCard
                 title="Vencidos"
                 value={stats.overdue}
                 icon={<ExclamationTriangleIcon />}
                 color="red"
-                subtitle={`$${stats.overdueAmount.toFixed(2)}`}
+                subtitle={`$${Number(stats.overdueAmount).toFixed(2)}`}
               />
             </div>
 
@@ -383,25 +384,25 @@ export default function MisGastosPage() {
                 <div className="text-center">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    ${stats.totalAmount.toFixed(2)}
+                    ${Number(stats.totalAmount).toFixed(2)}
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Pagado</p>
                   <p className="text-2xl font-bold text-green-600">
-                    ${stats.paidAmount.toFixed(2)}
+                    ${Number(stats.paidAmount).toFixed(2)}
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Pendiente</p>
                   <p className="text-2xl font-bold text-yellow-600">
-                    ${stats.pendingAmount.toFixed(2)}
+                    ${Number(stats.pendingAmount).toFixed(2)}
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Vencido</p>
                   <p className="text-2xl font-bold text-red-600">
-                    ${stats.overdueAmount.toFixed(2)}
+                    ${Number(stats.overdueAmount).toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -526,7 +527,7 @@ export default function MisGastosPage() {
                         <div className="flex items-center space-x-4">
                           <div className="text-right">
                             <p className="text-lg font-medium text-gray-900 dark:text-white">
-                              ${expense.amount.toFixed(2)}
+                              ${Number(expense.amount).toFixed(2)}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
                               {new Date(expense.createdAt).toLocaleDateString('es-ES')}
@@ -567,7 +568,10 @@ export default function MisGastosPage() {
                         Tienes <span className="font-semibold">{stats.pending}</span> gasto
                         {stats.pending !== 1 ? 's' : ''} pendiente{stats.pending !== 1 ? 's' : ''}{' '}
                         por un total de{' '}
-                        <span className="font-semibold">${stats.pendingAmount.toFixed(2)}</span>.
+                        <span className="font-semibold">
+                          ${Number(stats.pendingAmount).toFixed(2)}
+                        </span>
+                        .
                       </p>
                       <p className="text-sm">
                         La funcionalidad de pago en línea estará disponible próximamente. Por ahora,

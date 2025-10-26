@@ -145,7 +145,7 @@ async function main() {
 
   if (!adminUser) {
     const bcrypt = require('bcryptjs');
-    const hashedPassword = await bcrypt.hash('contrasegura321', 12);
+    const hashedPassword = await bcrypt.hash('admin123', 12);
 
     const newAdminUser = await prisma.user.create({
       data: {
@@ -172,6 +172,7 @@ async function main() {
         },
       });
       console.log('✅ Usuario administrador creado: admin@comuniapp.com');
+      console.log('🔑 Contraseña: admin123');
     }
   } else {
     console.log('⚠️  Usuario administrador ya existe');

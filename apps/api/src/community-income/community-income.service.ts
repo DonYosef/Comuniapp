@@ -60,37 +60,9 @@ export class CommunityIncomeService {
       }
     }
 
-    const unitIncomes: {
-      unitId: string;
-      unitNumber: string;
-      amount: number;
-      concept: string;
-      description?: string;
-      dueDate: Date;
-      status: 'PENDING';
-    }[] = [];
-
-    for (const unit of units) {
-      let prorratedAmount: number;
-      if (dto.prorrateMethod === ProrrateMethod.EQUAL) {
-        prorratedAmount = totalAmount / units.length;
-      } else {
-        // ProrrateMethod.COEFFICIENT
-        prorratedAmount = totalAmount * (unit.coefficient.toNumber() / totalCoefficient);
-      }
-      // Redondear a dos decimales
-      prorratedAmount = parseFloat(prorratedAmount.toFixed(2));
-
-      unitIncomes.push({
-        unitId: unit.id,
-        unitNumber: unit.number,
-        amount: prorratedAmount,
-        concept: `Ingresos Comunes ${dto.period}`,
-        description: `Detalle: ${dto.items.map((item) => item.name).join(', ')}`,
-        dueDate: dto.dueDate,
-        status: 'PENDING',
-      });
-    }
+    // ❌ NOTA: Los ingresos NO se cobran a las unidades individualmente
+    // Los ingresos se restan del total de egresos antes de prorratear los gastos comunes
+    // Por lo tanto, NO creamos registros de "expense" para ingresos
 
     // Crear registros en una transacción
     const result = await this.prisma.$transaction(async (tx) => {
@@ -120,27 +92,9 @@ export class CommunityIncomeService {
         ),
       );
 
-      // Crear los ingresos individuales por unidad
-      const unitIncomeRecords = await Promise.all(
-        unitIncomes.map((unitIncome) =>
-          tx.expense.create({
-            data: {
-              unitId: unitIncome.unitId,
-              amount: unitIncome.amount,
-              concept: unitIncome.concept,
-              description: unitIncome.description,
-              dueDate: unitIncome.dueDate,
-              status: unitIncome.status as any,
-              // No asociamos con communityExpenseId ya que es un ingreso
-            },
-          }),
-        ),
-      );
-
       return {
         communityIncome,
         incomeItems,
-        unitIncomeRecords,
       };
     });
 

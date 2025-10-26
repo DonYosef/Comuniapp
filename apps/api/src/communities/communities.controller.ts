@@ -10,9 +10,9 @@ import {
   Request,
 } from '@nestjs/common';
 
+import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
-import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { Permission } from '../domain/entities/role.entity';
 
 import { CommunitiesService } from './communities.service';

@@ -10,8 +10,8 @@ import * as bcrypt from 'bcryptjs';
 import { User } from '../../domain/entities/user.entity';
 import { UserStatus } from '../../domain/entities/user.entity';
 import { PrismaService } from '../../prisma/prisma.service';
-import { RegisterDto } from '../dto/register.dto';
 import { RegisterResponseDto } from '../dto/register-response.dto';
+import { RegisterDto } from '../dto/register.dto';
 
 export interface LoginResponse {
   user: User;

@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { AnnouncementType } from '@prisma/client';
+
 import { PrismaService } from '../prisma/prisma.service';
+
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { UpdateAnnouncementDto } from './dto/update-announcement.dto';
-import { AnnouncementType } from '@prisma/client';
 
 @Injectable()
 export class AnnouncementsService {

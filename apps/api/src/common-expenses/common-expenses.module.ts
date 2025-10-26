@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
-import { CommonExpensesService } from './common-expenses.service';
-import { CommonExpensesController } from './common-expenses.controller';
-import { PrismaModule } from '../prisma/prisma.module';
+
 import { AuthModule } from '../auth/auth.module';
+import { PrismaModule } from '../prisma/prisma.module';
+
+import { CommonExpensesController } from './common-expenses.controller';
+import { CommonExpensesService } from './common-expenses.service';
 
 @Module({
   imports: [PrismaModule, AuthModule],

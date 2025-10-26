@@ -2,8 +2,8 @@ import { Injectable, ConflictException, Inject, BadRequestException } from '@nes
 import * as bcrypt from 'bcryptjs';
 
 import { User, UserStatus } from '../../domain/entities/user.entity';
-import { UserRepository } from '../../domain/repositories/user.repository.interface';
 import { RoleRepository } from '../../domain/repositories/role.repository.interface';
+import { UserRepository } from '../../domain/repositories/user.repository.interface';
 import { CreateUserDto } from '../dto/create-user.dto';
 
 @Injectable()

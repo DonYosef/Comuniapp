@@ -10,13 +10,15 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { VisitorsService } from './visitors.service';
-import { CreateVisitorDto } from './dto/create-visitor.dto';
-import { UpdateVisitorDto } from './dto/update-visitor.dto';
+import { RoleName } from '@prisma/client';
+
+import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { RoleName } from '@prisma/client';
+
+import { CreateVisitorDto } from './dto/create-visitor.dto';
+import { UpdateVisitorDto } from './dto/update-visitor.dto';
+import { VisitorsService } from './visitors.service';
 
 @Controller('visitors')
 @UseGuards(JwtAuthGuard)

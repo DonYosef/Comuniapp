@@ -39,6 +39,12 @@ export class CommonExpenseService {
     return response.data;
   }
 
+  // Eliminar un gasto común (prorrateo)
+  static async deleteCommonExpense(id: string): Promise<{ message: string }> {
+    const response = await apiClient.delete<{ message: string }>(`/common-expenses/${id}`);
+    return response.data;
+  }
+
   // Calcular previsualización del prorrateo
   static calculateProrratePreview(
     units: Array<{ id: string; number: string; coefficient: number }>,

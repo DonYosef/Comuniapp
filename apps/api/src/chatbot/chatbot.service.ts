@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+
 import { PrismaService } from '../prisma/prisma.service';
+
 import { ChatbotResponseDto } from './dto/chatbot.dto';
 
 @Injectable()
@@ -85,6 +87,35 @@ export class ChatbotService {
       ])
     ) {
       return await this.getCommonExpensesInfo();
+    }
+
+    // --- 3.1) CONSULTAS ESPECÍFICAS SOBRE DEUDAS (PÚBLICO) ---
+    if (
+      this.matchesKeywords(lowerQuestion, [
+        'plata',
+        'dinero',
+        'debo',
+        'deuda',
+        'deudas',
+        'pendiente',
+        'pendientes',
+        'adeudo',
+        'adeudos',
+        'cuanto debo',
+        'cuanta plata',
+        'cuanto dinero',
+        'monto',
+        'montos',
+        'cuanto tengo que pagar',
+        'cuanto debo pagar',
+        'estado de pagos',
+        'mis pagos',
+      ])
+    ) {
+      return {
+        answer:
+          '💰 Consulta sobre Deudas\n\n❌ Para consultar tus gastos pendientes, necesitas estar autenticado.\n\n💡 *Inicia sesión para ver el estado de tus pagos específicos.*',
+      };
     }
 
     // --- 4) RESIDENTES ---
@@ -221,6 +252,32 @@ export class ChatbotService {
       ])
     ) {
       return await this.getCommonExpensesInfoForUser(userInfo, userRoles);
+    }
+
+    // --- 3.1) CONSULTAS ESPECÍFICAS SOBRE DEUDAS ---
+    if (
+      this.matchesKeywords(lowerQuestion, [
+        'plata',
+        'dinero',
+        'debo',
+        'deuda',
+        'deudas',
+        'pendiente',
+        'pendientes',
+        'adeudo',
+        'adeudos',
+        'cuanto debo',
+        'cuanta plata',
+        'cuanto dinero',
+        'monto',
+        'montos',
+        'cuanto tengo que pagar',
+        'cuanto debo pagar',
+        'estado de pagos',
+        'mis pagos',
+      ])
+    ) {
+      return await this.getDebtInfoForUser(userInfo, userRoles);
     }
 
     // --- 4) RESIDENTES ---
@@ -1147,7 +1204,7 @@ ${this.getContextualSuggestions(totalCommunities, totalSpaces, recentAnnouncemen
       const isConcierge = userRoles.includes('CONCIERGE');
       const isResident = userRoles.includes('RESIDENT');
 
-      let whereClause: any = { isActive: true };
+      const whereClause: any = { isActive: true };
       let communityContext = '';
 
       if (isSuperAdmin) {
@@ -1268,7 +1325,7 @@ ${this.getContextualSuggestions(totalCommunities, totalSpaces, recentAnnouncemen
       const isConcierge = userRoles.includes('CONCIERGE');
       const isResident = userRoles.includes('RESIDENT');
 
-      let whereClause: any = { isActive: true };
+      const whereClause: any = { isActive: true };
       let communityContext = '';
 
       if (isSuperAdmin) {
@@ -1374,7 +1431,7 @@ ${this.getContextualSuggestions(totalCommunities, totalSpaces, recentAnnouncemen
       const isConcierge = userRoles.includes('CONCIERGE');
       const isResident = userRoles.includes('RESIDENT');
 
-      let whereClause: any = {
+      const whereClause: any = {
         community: { isActive: true },
       };
       let communityContext = '';
@@ -1481,6 +1538,110 @@ ${this.getContextualSuggestions(totalCommunities, totalSpaces, recentAnnouncemen
     }
   }
 
+  // Método específico para consultas sobre deudas pendientes
+  private async getDebtInfoForUser(
+    userInfo: any,
+    userRoles: string[],
+  ): Promise<ChatbotResponseDto> {
+    try {
+      const isResident = userRoles.includes('RESIDENT');
+
+      if (!isResident) {
+        return {
+          answer: '❌ Esta información está disponible solo para residentes.',
+        };
+      }
+
+      const userId = userInfo?.id;
+      if (!userId) {
+        return {
+          answer: '❌ No se encontró información del usuario. Contacta a la administración.',
+        };
+      }
+
+      // Obtener las unidades del usuario (misma lógica que getMyExpenses)
+      const userUnits = await this.prisma.userUnit.findMany({
+        where: { userId, status: 'CONFIRMED' },
+        select: { unitId: true },
+      });
+
+      const unitIds = userUnits.map((uu) => uu.unitId);
+
+      if (unitIds.length === 0) {
+        return {
+          answer: '❌ No tienes unidades asignadas. Contacta a la administración.',
+        };
+      }
+
+      // Obtener gastos específicos del usuario (misma lógica que getMyExpenses)
+      const expenses = await this.prisma.expense.findMany({
+        where: {
+          unitId: { in: unitIds },
+          status: 'PENDING', // Solo gastos pendientes
+        },
+        include: {
+          unit: {
+            include: {
+              community: true,
+            },
+          },
+          payments: {
+            where: { userId },
+          },
+        },
+        orderBy: { dueDate: 'asc' },
+        take: 10,
+      });
+
+      if (expenses.length === 0) {
+        return {
+          answer: `💰 Estado de Pagos\n\n✅ No tienes gastos pendientes.\n\n💡 *Todos tus pagos están al día.*`,
+        };
+      }
+
+      let response = `💰 Estado de Pagos\n\n`;
+      response += '─'.repeat(50) + '\n\n';
+
+      let totalPending = 0;
+
+      for (const expense of expenses) {
+        const dueDate = expense.dueDate.toLocaleDateString('es-ES', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        });
+
+        const amount = Number(expense.amount);
+        totalPending += amount;
+
+        response += `📅 ${expense.concept}\n`;
+        response += `💰 Monto: $${amount.toFixed(2)}\n`;
+        response += `📆 Vencimiento: ${dueDate}\n`;
+        response += `📊 Estado: ⏳ Pendiente\n`;
+
+        if (expense.description) {
+          response += `📝 Detalle: ${expense.description}\n`;
+        }
+
+        response += `🏢 Comunidad: ${expense.unit.community.name}\n`;
+        response += `🏠 Unidad: ${expense.unit.number}\n\n`;
+
+        response += '─'.repeat(30) + '\n\n';
+      }
+
+      response += `💵 Total pendiente: $${totalPending.toFixed(2)}\n\n`;
+      response += `💡 *Tienes ${expenses.length} gasto${expenses.length > 1 ? 's' : ''} pendiente${expenses.length > 1 ? 's' : ''}.*\n`;
+      response += `📞 *Para más detalles, contacta a la administración.*`;
+
+      return { answer: response };
+    } catch (error) {
+      this.logger.error('Error obteniendo información de deudas para usuario:', error);
+      return {
+        answer: '❌ Error al obtener información de deudas. Por favor, intenta más tarde.',
+      };
+    }
+  }
+
   private async getVisitorsInfoForUser(
     userInfo: any,
     userRoles: string[],
@@ -1491,7 +1652,7 @@ ${this.getContextualSuggestions(totalCommunities, totalSpaces, recentAnnouncemen
       const isConcierge = userRoles.includes('CONCIERGE');
       const isResident = userRoles.includes('RESIDENT');
 
-      let whereClause: any = {};
+      const whereClause: any = {};
       let communityContext = '';
 
       if (isSuperAdmin) {
@@ -1631,7 +1792,7 @@ ${this.getContextualSuggestions(totalCommunities, totalSpaces, recentAnnouncemen
       const isConcierge = userRoles.includes('CONCIERGE');
       const isResident = userRoles.includes('RESIDENT');
 
-      let whereClause: any = {};
+      const whereClause: any = {};
       let communityContext = '';
 
       if (isSuperAdmin) {
@@ -1775,7 +1936,7 @@ ${this.getContextualSuggestions(totalCommunities, totalSpaces, recentAnnouncemen
       const isConcierge = userRoles.includes('CONCIERGE');
       const isResident = userRoles.includes('RESIDENT');
 
-      let whereClause: any = {
+      const whereClause: any = {
         isActive: true,
         roles: {
           some: {
@@ -2682,7 +2843,7 @@ Ser un asistente útil, informativo y versátil que puede ayudar con CUALQUIER p
       const isConcierge = userRoles.includes('CONCIERGE');
       const isResident = userRoles.includes('RESIDENT');
 
-      let whereClause: any = {};
+      const whereClause: any = {};
       let communityContext = '';
 
       if (isSuperAdmin) {
@@ -2837,7 +2998,7 @@ Ser un asistente útil, informativo y versátil que puede ayudar con CUALQUIER p
       const isConcierge = userRoles.includes('CONCIERGE');
       const isResident = userRoles.includes('RESIDENT');
 
-      let whereClause: any = {};
+      const whereClause: any = {};
       let communityContext = '';
 
       if (isSuperAdmin) {
@@ -3019,7 +3180,7 @@ Ser un asistente útil, informativo y versátil que puede ayudar con CUALQUIER p
       const isConcierge = userRoles.includes('CONCIERGE');
       const isResident = userRoles.includes('RESIDENT');
 
-      let whereClause: any = {};
+      const whereClause: any = {};
       let communityContext = '';
 
       if (isSuperAdmin) {

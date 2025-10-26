@@ -1,5 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsDateString, IsEnum, IsEmail } from 'class-validator';
 import { VisitorStatus } from '@prisma/client';
+import { IsString, IsNotEmpty, IsOptional, IsDateString, IsEnum, IsEmail } from 'class-validator';
 
 export class CreateVisitorDto {
   @IsString()

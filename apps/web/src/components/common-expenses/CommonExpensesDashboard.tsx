@@ -9,6 +9,7 @@ import { CommunityIncomeService } from '@/services/communityIncomeService';
 import { StatCard, LoadingSpinner } from '@/components/common-expenses/CommonExpenseComponents';
 import MonthlyExpensesTable from '@/components/common-expenses/MonthlyExpensesTableConnected';
 import ProrrateModal from '@/components/common-expenses/ProrrateModal';
+import GeneratedProrratesList from '@/components/common-expenses/GeneratedProrratesList';
 import { eventBus, EVENTS } from '@/utils/eventBus';
 
 // Iconos SVG como componentes
@@ -550,6 +551,9 @@ export default function CommonExpensesDashboard({
           onConfigIncome={onConfigIncome}
         />
       )}
+
+      {/* Lista de Prorrateos Generados */}
+      {communityId && <GeneratedProrratesList communityId={communityId} period={selectedPeriod} />}
 
       {/* Alertas de Gastos Vencidos */}
       {overdueExpenses.length > 0 && (

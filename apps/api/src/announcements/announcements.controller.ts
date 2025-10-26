@@ -10,11 +10,13 @@ import {
   Request,
   Query,
 } from '@nestjs/common';
+
+import { CommunityAdminGuard } from '../auth/guards/community-admin.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
 import { AnnouncementsService } from './announcements.service';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { UpdateAnnouncementDto } from './dto/update-announcement.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CommunityAdminGuard } from '../auth/guards/community-admin.guard';
 
 @Controller('announcements')
 export class AnnouncementsController {

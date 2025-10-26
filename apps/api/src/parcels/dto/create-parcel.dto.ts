@@ -1,5 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsDateString, IsEnum } from 'class-validator';
 import { ParcelStatus } from '@prisma/client';
+import { IsString, IsNotEmpty, IsOptional, IsDateString, IsEnum } from 'class-validator';
 
 export class CreateParcelDto {
   @IsString()

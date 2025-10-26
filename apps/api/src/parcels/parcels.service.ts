@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { ParcelStatus } from '@prisma/client';
+
 import { PrismaService } from '../prisma/prisma.service';
+
 import { CreateParcelDto } from './dto/create-parcel.dto';
 import { UpdateParcelDto } from './dto/update-parcel.dto';
-import { ParcelStatus } from '@prisma/client';
 
 @Injectable()
 export class ParcelsService {
@@ -73,7 +75,7 @@ export class ParcelsService {
 
     const isResident = user?.roles.some((role) => role.role.name === 'RESIDENT');
 
-    let whereClause: any = {};
+    const whereClause: any = {};
 
     // Si es residente, solo puede ver encomiendas de sus unidades
     if (isResident && !isAdmin) {
