@@ -15,6 +15,7 @@ import { ExpenseCategoriesModule } from './expense-categories/expense-categories
 import { HealthModule } from './health/health.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ParcelsModule } from './parcels/parcels.module';
+import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ResidentsModule } from './residents/residents.module';
 import { UsersModule } from './users/users.module';
@@ -38,6 +39,7 @@ import { VisitorsModule } from './visitors/visitors.module';
     ExpenseCategoriesModule,
     CommunityIncomeModule,
     ParcelsModule,
+    PaymentsModule,
     VisitorsModule,
   ],
   controllers: [AppController],

@@ -14,6 +14,7 @@ import {
   LoadingSpinner,
   EmptyState,
 } from '@/components/common-expenses/CommonExpenseComponents';
+import { PaymentService } from '@/services/paymentService';
 
 // Iconos SVG como componentes
 const CurrencyDollarIcon = () => (
@@ -148,6 +149,7 @@ export default function MisGastosPage() {
     message: string;
     type: 'success' | 'error' | 'warning' | 'info';
   } | null>(null);
+  const [payingExpenseId, setPayingExpenseId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -251,11 +253,23 @@ export default function MisGastosPage() {
     );
   };
 
-  const handlePayment = (expenseId: string) => {
-    setToast({
-      message: 'La funcionalidad de pago en línea estará disponible próximamente.',
-      type: 'info',
-    });
+  const handlePayment = async (expenseId: string) => {
+    try {
+      setPayingExpenseId(expenseId);
+
+      // Crear orden de pago en Flow
+      const response = await PaymentService.createExpensePayment(expenseId);
+
+      // Redirigir al checkout de Flow
+      window.location.href = response.checkoutUrl;
+    } catch (error: any) {
+      console.error('Error al procesar el pago:', error);
+      setToast({
+        message: error.message || 'Error al procesar el pago. Por favor, intenta de nuevo.',
+        type: 'error',
+      });
+      setPayingExpenseId(null);
+    }
   };
 
   const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
@@ -536,10 +550,20 @@ export default function MisGastosPage() {
                           {expense.status === ExpenseStatus.PENDING && (
                             <button
                               onClick={() => handlePayment(expense.id)}
-                              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
+                              disabled={payingExpenseId === expense.id}
+                              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
                             >
-                              <CreditCardIcon />
-                              <span className="ml-2">Pagar</span>
+                              {payingExpenseId === expense.id ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                  <span>Procesando...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <CreditCardIcon />
+                                  <span className="ml-2">Pagar</span>
+                                </>
+                              )}
                             </button>
                           )}
                         </div>

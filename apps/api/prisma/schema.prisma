@@ -233,10 +233,12 @@ model Payment {
   expenseId   String        @map("expense_id")
   method      PaymentMethod @default(BANK_TRANSFER)
   reference   String?
+  flowOrder   String?       @map("flow_order")
   expense     Expense       @relation(fields: [expenseId], references: [id])
   user        User          @relation(fields: [userId], references: [id])
 
   @@index([status])
+  @@index([reference])
   @@map("payments")
 }
 
@@ -521,6 +523,7 @@ enum PaymentMethod {
   CASH
   CHECK
   CARD
+  FLOW
 }
 
 enum ParcelStatus {
