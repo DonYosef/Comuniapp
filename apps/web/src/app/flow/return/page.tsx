@@ -3,7 +3,6 @@
 import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import DashboardLayout from '@/components/layout/DashboardLayout';
 import { LoadingSpinner } from '@/components/common-expenses/CommonExpenseComponents';
 import { PaymentService, PaymentStatusResponse } from '@/services/paymentService';
 
@@ -218,11 +217,9 @@ function FlowReturnContent() {
   if (isLoading) {
     return (
       <ProtectedRoute>
-        <DashboardLayout>
-          <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-            <LoadingSpinner size="xl" text="Consultando estado del pago..." color="blue" />
-          </div>
-        </DashboardLayout>
+        <div className="min-h-screen bg-gradient-to-br from-slate-800 to-slate-700 flex items-center justify-center">
+          <LoadingSpinner size="xl" text="Consultando estado del pago..." color="blue" />
+        </div>
       </ProtectedRoute>
     );
   }
@@ -230,37 +227,35 @@ function FlowReturnContent() {
   if (error) {
     return (
       <ProtectedRoute>
-        <DashboardLayout>
-          <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-            <div className="max-w-2xl w-full">
-              <div className="bg-slate-800 rounded-2xl shadow-2xl border border-red-600/30 p-8">
-                <div className="text-center">
-                  <div className="mx-auto w-24 h-24 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-6">
-                    <XCircleIcon />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                    Error al Consultar el Pago
-                  </h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-8">{error}</p>
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <button
-                      onClick={handleRetry}
-                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                    >
-                      Reintentar
-                    </button>
-                    <button
-                      onClick={handleGoToExpenses}
-                      className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
-                    >
-                      Volver a Mis Gastos
-                    </button>
-                  </div>
+        <div className="min-h-screen bg-gradient-to-br from-slate-800 to-slate-700 flex items-center justify-center p-4">
+          <div className="max-w-2xl w-full">
+            <div className="bg-slate-800 rounded-2xl shadow-2xl border border-red-600/30 p-8">
+              <div className="text-center">
+                <div className="mx-auto w-24 h-24 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-6">
+                  <XCircleIcon />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Error al Consultar el Pago
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-8">{error}</p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <button
+                    onClick={handleRetry}
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                  >
+                    Reintentar
+                  </button>
+                  <button
+                    onClick={handleGoToExpenses}
+                    className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
+                  >
+                    Volver a Mis Gastos
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-        </DashboardLayout>
+        </div>
       </ProtectedRoute>
     );
   }
@@ -271,101 +266,101 @@ function FlowReturnContent() {
 
   return (
     <ProtectedRoute>
-      <DashboardLayout>
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-          <div className="max-w-2xl w-full">
-            <div
-              className={`bg-gradient-to-br ${statusDisplay.bgColor} rounded-2xl shadow-2xl border ${statusDisplay.borderColor} p-8 backdrop-blur-sm`}
-            >
-              <div className="text-center">
-                {/* Icono */}
-                <div
-                  className={`mx-auto w-24 h-24 ${statusDisplay.iconColor} flex items-center justify-center mb-6`}
-                >
-                  {statusDisplay.icon}
-                </div>
+      <div
+        className={`min-h-screen bg-gradient-to-br ${statusDisplay.bgColor} flex items-center justify-center p-4`}
+      >
+        <div className="max-w-2xl w-full">
+          <div
+            className={`bg-gradient-to-br ${statusDisplay.bgColor} rounded-2xl shadow-2xl border ${statusDisplay.borderColor} p-8 backdrop-blur-sm`}
+          >
+            <div className="text-center">
+              {/* Icono */}
+              <div
+                className={`mx-auto w-24 h-24 ${statusDisplay.iconColor} flex items-center justify-center mb-6`}
+              >
+                {statusDisplay.icon}
+              </div>
 
-                {/* Título */}
-                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-                  {statusDisplay.title}
-                </h2>
+              {/* Título */}
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+                {statusDisplay.title}
+              </h2>
 
-                {/* Mensaje */}
-                <p className="text-lg text-gray-700 dark:text-gray-300 mb-8">
-                  {statusDisplay.message}
-                </p>
+              {/* Mensaje */}
+              <p className="text-lg text-gray-700 dark:text-gray-300 mb-8">
+                {statusDisplay.message}
+              </p>
 
-                {/* Detalles del pago */}
-                {paymentStatus && statusDisplay.showExpense && paymentStatus.payment && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 mb-8 text-left">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                      Detalles del Gasto
-                    </h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">Concepto:</span>
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          {paymentStatus.payment.expense.concept}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">Monto:</span>
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          ${paymentStatus.payment.expense.amount.toLocaleString('es-CL')} CLP
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">Estado del Pago:</span>
-                        <span
-                          className={`font-medium ${
-                            paymentStatus.flow.status === 2
-                              ? 'text-green-600'
-                              : paymentStatus.flow.status === 1
-                                ? 'text-yellow-600'
-                                : 'text-red-600'
-                          }`}
-                        >
-                          {paymentStatus.flow.statusText}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">Orden de Comercio:</span>
-                        <span className="font-mono text-sm text-gray-900 dark:text-white">
-                          {paymentStatus.flow.commerceOrder}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">Orden Flow:</span>
-                        <span className="font-mono text-sm text-gray-900 dark:text-white">
-                          {paymentStatus.flow.flowOrder}
-                        </span>
-                      </div>
+              {/* Detalles del pago */}
+              {paymentStatus && statusDisplay.showExpense && paymentStatus.payment && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 mb-8 text-left">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Detalles del Gasto
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Concepto:</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {paymentStatus.payment.expense.concept}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Monto:</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        ${paymentStatus.payment.expense.amount.toLocaleString('es-CL')} CLP
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Estado del Pago:</span>
+                      <span
+                        className={`font-medium ${
+                          paymentStatus.flow.status === 2
+                            ? 'text-green-600'
+                            : paymentStatus.flow.status === 1
+                              ? 'text-yellow-600'
+                              : 'text-red-600'
+                        }`}
+                      >
+                        {paymentStatus.flow.statusText}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Orden de Comercio:</span>
+                      <span className="font-mono text-sm text-gray-900 dark:text-white">
+                        {paymentStatus.flow.commerceOrder}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Orden Flow:</span>
+                      <span className="font-mono text-sm text-gray-900 dark:text-white">
+                        {paymentStatus.flow.flowOrder}
+                      </span>
                     </div>
                   </div>
-                )}
-
-                {/* Botones de acción */}
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <button
-                    onClick={handleGoToExpenses}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-lg hover:shadow-xl"
-                  >
-                    Volver a Mis Gastos
-                  </button>
-                  {paymentStatus && paymentStatus.flow.status === 1 && (
-                    <button
-                      onClick={handleRetry}
-                      className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
-                    >
-                      Consultar Estado
-                    </button>
-                  )}
                 </div>
+              )}
+
+              {/* Botones de acción */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <button
+                  onClick={handleGoToExpenses}
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-lg hover:shadow-xl"
+                >
+                  Volver a Mis Gastos
+                </button>
+                {paymentStatus && paymentStatus.flow.status === 1 && (
+                  <button
+                    onClick={handleRetry}
+                    className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
+                  >
+                    Consultar Estado
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
-      </DashboardLayout>
+      </div>
     </ProtectedRoute>
   );
 }
@@ -377,11 +372,9 @@ export default function FlowReturnPage() {
       <Suspense
         fallback={
           <ProtectedRoute>
-            <DashboardLayout>
-              <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-                <LoadingSpinner size="xl" text="Cargando página..." color="blue" />
-              </div>
-            </DashboardLayout>
+            <div className="min-h-screen bg-gradient-to-br from-slate-800 to-slate-700 flex items-center justify-center">
+              <LoadingSpinner size="xl" text="Cargando página..." color="blue" />
+            </div>
           </ProtectedRoute>
         }
       >
@@ -392,26 +385,24 @@ export default function FlowReturnPage() {
     console.error('Error in FlowReturnPage:', error);
     return (
       <ProtectedRoute>
-        <DashboardLayout>
-          <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-            <div className="max-w-2xl w-full bg-slate-800 rounded-2xl shadow-2xl border border-red-600/30 p-8">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                  Error al Cargar la Página
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400 mb-8">
-                  {error instanceof Error ? error.message : 'Error desconocido'}
-                </p>
-                <a
-                  href="/dashboard/mis-gastos"
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors inline-block"
-                >
-                  Volver a Mis Gastos
-                </a>
-              </div>
+        <div className="min-h-screen bg-gradient-to-br from-slate-800 to-slate-700 flex items-center justify-center p-4">
+          <div className="max-w-2xl w-full bg-slate-800 rounded-2xl shadow-2xl border border-red-600/30 p-8">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                Error al Cargar la Página
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-8">
+                {error instanceof Error ? error.message : 'Error desconocido'}
+              </p>
+              <a
+                href="/dashboard/mis-gastos"
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors inline-block"
+              >
+                Volver a Mis Gastos
+              </a>
             </div>
           </div>
-        </DashboardLayout>
+        </div>
       </ProtectedRoute>
     );
   }

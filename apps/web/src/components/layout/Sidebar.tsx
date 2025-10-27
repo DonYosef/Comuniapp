@@ -206,8 +206,12 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
       });
     }
 
-    // Solo mostrar Mis Gastos si el usuario tiene permisos para ver sus propios gastos
-    if (hasPermission('view_own_expenses')) {
+    // Solo mostrar Mis Gastos para residentes exclusivamente
+    console.log('🔍 [Sidebar] Verificando módulo Mis Gastos:');
+    console.log('- isResident:', isResident);
+
+    if (isResident) {
+      console.log('✅ [Sidebar] Agregando módulo Mis Gastos (solo residentes)');
       baseItems.push({
         name: 'Mis Gastos',
         href: '/dashboard/mis-gastos',
@@ -222,6 +226,8 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
           </svg>
         ),
       });
+    } else {
+      console.log('❌ [Sidebar] NO agregando módulo Mis Gastos - No es residente');
     }
 
     // Mostrar Avisos para administradores y residentes
