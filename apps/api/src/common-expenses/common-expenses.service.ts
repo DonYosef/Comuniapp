@@ -104,31 +104,6 @@ export class CommonExpensesService {
       }
     }
 
-    // Calcular montos prorrateados con ajuste de centavos
-    const rawAmounts: number[] = [];
-    for (const unit of units) {
-      let prorratedAmount: number;
-      if (dto.prorrateMethod === ProrrateMethod.EQUAL) {
-        prorratedAmount = totalAmount / units.length;
-      } else {
-        // ProrrateMethod.COEFFICIENT
-        prorratedAmount = totalAmount * (unit.coefficient.toNumber() / totalCoefficient);
-      }
-      rawAmounts.push(prorratedAmount);
-    }
-
-    // Redondear todos y calcular la diferencia
-    const roundedAmounts = rawAmounts.map((amount) => parseFloat(amount.toFixed(2)));
-    const roundedTotal = roundedAmounts.reduce((sum, amount) => sum + amount, 0);
-    const difference = totalAmount - roundedTotal;
-
-    // Ajustar la diferencia en la(s) primera(s) unidad(es)
-    const adjustedAmounts = [...roundedAmounts];
-    if (Math.abs(difference) > 0.001) {
-      // Ajustar en la primera unidad
-      adjustedAmounts[0] = parseFloat((adjustedAmounts[0] + difference).toFixed(2));
-    }
-
     const unitExpenses: {
       unitId: string;
       unitNumber: string;
@@ -139,11 +114,21 @@ export class CommonExpensesService {
       status: 'PENDING';
     }[] = [];
 
-    for (let i = 0; i < units.length; i++) {
+    for (const unit of units) {
+      let prorratedAmount: number;
+      if (dto.prorrateMethod === ProrrateMethod.EQUAL) {
+        prorratedAmount = totalAmount / units.length;
+      } else {
+        // ProrrateMethod.COEFFICIENT
+        prorratedAmount = totalAmount * (unit.coefficient.toNumber() / totalCoefficient);
+      }
+      // Redondear a dos decimales
+      prorratedAmount = parseFloat(prorratedAmount.toFixed(2));
+
       unitExpenses.push({
-        unitId: units[i].id,
-        unitNumber: units[i].number,
-        amount: adjustedAmounts[i],
+        unitId: unit.id,
+        unitNumber: unit.number,
+        amount: prorratedAmount,
         concept: `Gastos Comunes ${dto.period}`,
         description: `Detalle: ${dto.items.map((item) => item.name).join(', ')}`,
         dueDate: dto.dueDate,
@@ -309,16 +294,7 @@ export class CommonExpensesService {
           orderBy: { createdAt: 'desc' }, // Items más recientes primero
         },
         expenses: {
-          include: {
-            unit: {
-              select: { id: true, number: true },
-            },
-          },
-          orderBy: {
-            unit: {
-              number: 'asc',
-            },
-          },
+          select: { status: true },
         },
         _count: {
           select: { expenses: true },
@@ -333,7 +309,6 @@ export class CommonExpensesService {
       period: ce.period,
       totalAmount: ce.totalAmount.toNumber(),
       dueDate: ce.dueDate,
-      prorrateMethod: ce.prorrateMethod,
       totalUnits: ce._count.expenses,
       paidUnits: ce.expenses.filter((e) => e.status === 'PAID').length,
       pendingUnits: ce.expenses.filter((e) => e.status === 'PENDING').length,
@@ -347,19 +322,7 @@ export class CommonExpensesService {
         categoryId: item.categoryId,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
-      })),
-      unitExpenses: ce.expenses.map((expense) => ({
-        id: expense.id,
-        unitId: expense.unitId,
-        unitNumber: expense.unit.number,
-        amount: expense.amount.toNumber(),
-        concept: expense.concept,
-        description: expense.description,
-        dueDate: expense.dueDate,
-        status: expense.status,
-        createdAt: expense.createdAt,
-        updatedAt: expense.updatedAt,
-      })),
+      })), // ← AGREGAR MAPEO DE ITEMS
     }));
   }
 
@@ -650,124 +613,5 @@ export class CommonExpensesService {
     });
 
     return { message: 'Expense item deleted successfully' };
-  }
-
-  async getUnitExpenses(user: UserPayload, commonExpenseId: string) {
-    // 1. Verificar que el gasto común existe
-    const commonExpense = await this.prisma.communityExpense.findUnique({
-      where: { id: commonExpenseId },
-      include: {
-        community: {
-          include: {
-            organization: {
-              include: {
-                users: {
-                  where: { id: user.id },
-                  include: {
-                    roles: {
-                      include: {
-                        role: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!commonExpense) {
-      throw new NotFoundException(`Common expense with ID ${commonExpenseId} not found`);
-    }
-
-    // 2. Verificar permisos del usuario
-    const hasPermission = commonExpense.community.organization.users.some((u) =>
-      u.roles.some((ur) => ur.role.permissions.includes(Permission.MANAGE_COMMUNITY_EXPENSES)),
-    );
-
-    if (!hasPermission) {
-      throw new UnauthorizedException(
-        'You do not have permission to view unit expenses for this common expense',
-      );
-    }
-
-    // 3. Obtener todos los gastos por unidad de este prorrateo
-    const unitExpenses = await this.prisma.expense.findMany({
-      where: { communityExpenseId: commonExpenseId },
-      include: {
-        unit: {
-          select: {
-            id: true,
-            number: true,
-          },
-        },
-      },
-      orderBy: {
-        unit: {
-          number: 'asc',
-        },
-      },
-    });
-
-    // 4. Mapear a DTO
-    return unitExpenses.map((expense) => ({
-      id: expense.id,
-      unitId: expense.unitId,
-      unitNumber: expense.unit.number,
-      amount: expense.amount.toNumber(),
-      concept: expense.concept,
-      description: expense.description,
-      dueDate: expense.dueDate,
-      status: expense.status,
-    }));
-  }
-
-  async deleteCommonExpense(user: UserPayload, id: string) {
-    // 1. Verificar que el gasto común existe
-    const commonExpense = await this.prisma.communityExpense.findUnique({
-      where: { id },
-      include: {
-        community: {
-          include: {
-            organization: {
-              include: {
-                users: {
-                  where: { id: user.id },
-                  include: {
-                    roles: {
-                      include: {
-                        role: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!commonExpense) {
-      throw new NotFoundException(`Common expense with ID ${id} not found`);
-    }
-
-    // 2. Verificar permisos del usuario
-    const hasPermission = commonExpense.community.organization.users.some((u) =>
-      u.roles.some((ur) => ur.role.permissions.includes(Permission.MANAGE_COMMUNITY_EXPENSES)),
-    );
-
-    if (!hasPermission) {
-      throw new UnauthorizedException('You do not have permission to delete this common expense');
-    }
-
-    // 3. Eliminar el gasto común (los expenses relacionados se eliminarán en cascada por la base de datos)
-    await this.prisma.communityExpense.delete({
-      where: { id },
-    });
-
-    return { message: 'Common expense deleted successfully' };
   }
 }

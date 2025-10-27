@@ -81,6 +81,12 @@ export class CommunityService {
     return response.data;
   }
 
+  // Obtener la comunidad del usuario autenticado (residente)
+  async getMyCommunity(): Promise<Community> {
+    const response = await apiClient.get<Community>('/communities/my-community');
+    return response.data;
+  }
+
   // Obtener comunidades por organización
   static async getCommunitiesByOrganization(organizationId: string): Promise<Community[]> {
     const response = await apiClient.get<Community[]>(
@@ -161,6 +167,11 @@ export class CommunityService {
 
   static async getCommunityById(id: string): Promise<Community> {
     const response = await apiClient.get<Community>(`/communities/${id}`);
+    return response.data;
+  }
+
+  static async getMyCommunity(): Promise<Community> {
+    const response = await apiClient.get<Community>('/communities/my-community');
     return response.data;
   }
 

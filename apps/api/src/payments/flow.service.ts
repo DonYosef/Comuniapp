@@ -59,11 +59,11 @@ export class FlowService {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
   ) {
-    this.flowApiUrl = this.configService.get<string>('FLOW_API_URL');
-    this.flowApiKey = this.configService.get<string>('FLOW_API_KEY');
-    this.flowSecretKey = this.configService.get<string>('FLOW_SECRET_KEY');
-    this.urlConfirmation = this.configService.get<string>('FLOW_URL_CONFIRMATION');
-    this.urlReturn = this.configService.get<string>('FLOW_URL_RETURN');
+    this.flowApiUrl = this.configService.get<string>('FLOW_API_URL') || '';
+    this.flowApiKey = this.configService.get<string>('FLOW_API_KEY') || '';
+    this.flowSecretKey = this.configService.get<string>('FLOW_SECRET_KEY') || '';
+    this.urlConfirmation = this.configService.get<string>('FLOW_URL_CONFIRMATION') || '';
+    this.urlReturn = this.configService.get<string>('FLOW_URL_RETURN') || '';
 
     if (
       !this.flowApiUrl ||

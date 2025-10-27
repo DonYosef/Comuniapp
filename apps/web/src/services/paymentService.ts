@@ -51,14 +51,29 @@ export class PaymentService {
   static async getPaymentStatus(token: string): Promise<PaymentStatusResponse> {
     try {
       console.log('🔍 [PaymentService] Getting payment status for token:', token);
-      const response = await api.get<PaymentStatusResponse>('/payments/status', {
-        params: { token },
-      });
+      const response = await api.get<PaymentStatusResponse>(
+        `/payments/status?token=${encodeURIComponent(token)}`,
+      );
       console.log('✅ [PaymentService] Payment status:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('❌ [PaymentService] Error getting payment status:', error);
       throw new Error(error.response?.data?.message || 'Error al consultar el estado del pago');
+    }
+  }
+
+  /**
+   * Confirma un pago después de que Flow lo ha procesado exitosamente
+   * Usa el endpoint autenticado para mayor seguridad
+   */
+  static async confirmPayment(token: string): Promise<void> {
+    try {
+      console.log('💳 [PaymentService] Confirming payment for token:', token);
+      const response = await api.post('/payments/confirm', { token });
+      console.log('✅ [PaymentService] Payment confirmed successfully:', response.data);
+    } catch (error: any) {
+      console.error('❌ [PaymentService] Error confirming payment:', error);
+      throw new Error(error.response?.data?.message || 'Error al confirmar el pago');
     }
   }
 }

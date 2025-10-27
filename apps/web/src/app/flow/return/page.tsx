@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -51,7 +51,8 @@ const ExclamationCircleIcon = () => (
   </svg>
 );
 
-export default function FlowReturnPage() {
+// Componente interno que usa useSearchParams
+function FlowReturnContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatusResponse | null>(null);
@@ -59,6 +60,27 @@ export default function FlowReturnPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Solo ejecutar en el cliente
+    if (typeof window === 'undefined') return;
+
+    if (!searchParams) {
+      setError('No se recibió el token de pago');
+      setIsLoading(false);
+      return;
+    }
+
+    // Verificar si hay un error en los parámetros
+    const errorParam = searchParams.get('error');
+    if (errorParam) {
+      const errorMessages: Record<string, string> = {
+        no_token: 'No se recibió el token de pago de Flow',
+        processing_error: 'Error al procesar la respuesta de Flow',
+      };
+      setError(errorMessages[errorParam] || 'Error desconocido');
+      setIsLoading(false);
+      return;
+    }
+
     const token = searchParams.get('token');
 
     if (!token) {
@@ -69,13 +91,45 @@ export default function FlowReturnPage() {
 
     // Consultar el estado del pago
     fetchPaymentStatus(token);
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchPaymentStatus = async (token: string) => {
     try {
       setIsLoading(true);
+
+      // Verificar que estamos en el cliente
+      if (typeof window === 'undefined') {
+        console.warn('No se puede hacer la petición en el servidor');
+        setError('No se puede consultar el estado en el servidor');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('🔍 Consultando estado del pago para token:', token.substring(0, 10) + '...');
       const status = await PaymentService.getPaymentStatus(token);
+      console.log('📊 Estado del pago recibido:', status);
       setPaymentStatus(status);
+
+      // Si el pago está pagado (status === 2), confirmar el pago automáticamente
+      if (status.flow.status === 2) {
+        console.log('✅ Pago exitoso detectado, confirmando pago en el sistema...');
+        try {
+          await PaymentService.confirmPayment(token);
+          console.log('✅ Pago confirmado exitosamente en la base de datos');
+        } catch (confirmError) {
+          console.error('❌ Error al confirmar el pago:', confirmError);
+          // No mostramos error al usuario ya que Flow ya procesó el pago
+        }
+      }
+
+      // Si el pago está pendiente, volver a consultar en 3 segundos
+      if (status.flow.status === 1) {
+        console.log('⏳ Pago pendiente, reintentando en 3 segundos...');
+        setTimeout(() => {
+          fetchPaymentStatus(token);
+        }, 3000);
+      }
     } catch (err: any) {
       console.error('Error fetching payment status:', err);
       setError(err.message || 'Error al consultar el estado del pago');
@@ -85,6 +139,10 @@ export default function FlowReturnPage() {
   };
 
   const handleRetry = () => {
+    if (!searchParams) {
+      console.error('searchParams is null');
+      return;
+    }
     const token = searchParams.get('token');
     if (token) {
       fetchPaymentStatus(token);
@@ -92,7 +150,9 @@ export default function FlowReturnPage() {
   };
 
   const handleGoToExpenses = () => {
-    router.push('/dashboard/mis-gastos');
+    // Agregar timestamp para forzar recarga de datos
+    const timestamp = new Date().getTime();
+    router.push(`/dashboard/mis-gastos?refresh=${timestamp}`);
   };
 
   const getStatusDisplay = () => {
@@ -104,9 +164,9 @@ export default function FlowReturnPage() {
       case 2: // Pagado
         return {
           icon: <CheckCircleIcon />,
-          iconColor: 'text-green-600',
-          bgColor: 'from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20',
-          borderColor: 'border-green-200 dark:border-green-800',
+          iconColor: 'text-green-400',
+          bgColor: 'from-slate-800 to-slate-700',
+          borderColor: 'border-green-500/50',
           title: '¡Pago Exitoso!',
           message: 'Tu pago ha sido procesado correctamente.',
           showExpense: true,
@@ -114,9 +174,9 @@ export default function FlowReturnPage() {
       case 1: // Pendiente
         return {
           icon: <ClockIcon />,
-          iconColor: 'text-yellow-600',
-          bgColor: 'from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20',
-          borderColor: 'border-yellow-200 dark:border-yellow-800',
+          iconColor: 'text-yellow-400',
+          bgColor: 'from-slate-800 to-slate-700',
+          borderColor: 'border-yellow-500/50',
           title: 'Pago Pendiente',
           message:
             'Tu pago está siendo procesado. Te notificaremos cuando se complete la transacción.',
@@ -125,9 +185,9 @@ export default function FlowReturnPage() {
       case 3: // Rechazado
         return {
           icon: <XCircleIcon />,
-          iconColor: 'text-red-600',
-          bgColor: 'from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20',
-          borderColor: 'border-red-200 dark:border-red-800',
+          iconColor: 'text-red-400',
+          bgColor: 'from-slate-800 to-slate-700',
+          borderColor: 'border-red-500/50',
           title: 'Pago Rechazado',
           message: 'Tu pago no pudo ser procesado. Por favor, intenta nuevamente.',
           showExpense: true,
@@ -135,9 +195,9 @@ export default function FlowReturnPage() {
       case 4: // Anulado
         return {
           icon: <ExclamationCircleIcon />,
-          iconColor: 'text-gray-600',
-          bgColor: 'from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20',
-          borderColor: 'border-gray-200 dark:border-gray-800',
+          iconColor: 'text-gray-400',
+          bgColor: 'from-slate-800 to-slate-700',
+          borderColor: 'border-gray-500/50',
           title: 'Pago Anulado',
           message: 'La transacción fue cancelada.',
           showExpense: true,
@@ -145,9 +205,9 @@ export default function FlowReturnPage() {
       default:
         return {
           icon: <ExclamationCircleIcon />,
-          iconColor: 'text-gray-600',
-          bgColor: 'from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20',
-          borderColor: 'border-gray-200 dark:border-gray-800',
+          iconColor: 'text-gray-400',
+          bgColor: 'from-slate-800 to-slate-700',
+          borderColor: 'border-gray-500/50',
           title: 'Estado Desconocido',
           message: 'No se pudo determinar el estado del pago.',
           showExpense: false,
@@ -159,7 +219,7 @@ export default function FlowReturnPage() {
     return (
       <ProtectedRoute>
         <DashboardLayout>
-          <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+          <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
             <LoadingSpinner size="xl" text="Consultando estado del pago..." color="blue" />
           </div>
         </DashboardLayout>
@@ -171,9 +231,9 @@ export default function FlowReturnPage() {
     return (
       <ProtectedRoute>
         <DashboardLayout>
-          <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+          <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
             <div className="max-w-2xl w-full">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-red-200 dark:border-red-800 p-8">
+              <div className="bg-slate-800 rounded-2xl shadow-2xl border border-red-600/30 p-8">
                 <div className="text-center">
                   <div className="mx-auto w-24 h-24 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-6">
                     <XCircleIcon />
@@ -212,10 +272,10 @@ export default function FlowReturnPage() {
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
           <div className="max-w-2xl w-full">
             <div
-              className={`bg-gradient-to-br ${statusDisplay.bgColor} rounded-2xl shadow-xl border ${statusDisplay.borderColor} p-8`}
+              className={`bg-gradient-to-br ${statusDisplay.bgColor} rounded-2xl shadow-2xl border ${statusDisplay.borderColor} p-8 backdrop-blur-sm`}
             >
               <div className="text-center">
                 {/* Icono */}
@@ -308,4 +368,51 @@ export default function FlowReturnPage() {
       </DashboardLayout>
     </ProtectedRoute>
   );
+}
+
+// Componente principal con Suspense boundary
+export default function FlowReturnPage() {
+  try {
+    return (
+      <Suspense
+        fallback={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+                <LoadingSpinner size="xl" text="Cargando página..." color="blue" />
+              </div>
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      >
+        <FlowReturnContent />
+      </Suspense>
+    );
+  } catch (error) {
+    console.error('Error in FlowReturnPage:', error);
+    return (
+      <ProtectedRoute>
+        <DashboardLayout>
+          <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+            <div className="max-w-2xl w-full bg-slate-800 rounded-2xl shadow-2xl border border-red-600/30 p-8">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Error al Cargar la Página
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-8">
+                  {error instanceof Error ? error.message : 'Error desconocido'}
+                </p>
+                <a
+                  href="/dashboard/mis-gastos"
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors inline-block"
+                >
+                  Volver a Mis Gastos
+                </a>
+              </div>
+            </div>
+          </div>
+        </DashboardLayout>
+      </ProtectedRoute>
+    );
+  }
 }

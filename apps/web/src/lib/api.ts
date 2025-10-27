@@ -1,8 +1,21 @@
 import axios from 'axios';
 import { config } from '@/config/env';
 
-// Configuración base de la API
-const API_BASE_URL = config.apiUrl;
+// Configuración base de la API - evitar inicialización en SSR
+let API_BASE_URL = 'http://localhost:3001';
+
+// Solo inicializar si estamos en el cliente
+if (typeof window !== 'undefined') {
+  API_BASE_URL = config.apiUrl || 'http://localhost:3001';
+
+  // Validar que la URL sea válida
+  if (!API_BASE_URL || API_BASE_URL === 'null' || API_BASE_URL === 'undefined') {
+    console.error('❌ Invalid API_BASE_URL:', API_BASE_URL);
+    throw new Error(`Invalid API configuration: ${API_BASE_URL}`);
+  }
+
+  console.log('🔧 [api] Initializing with base URL:', API_BASE_URL);
+}
 
 // Crear instancia de axios con configuración base
 export const api = axios.create({

@@ -5,7 +5,7 @@ import { CommunityService } from '@/services/communityService';
 import { useAuth } from './useAuth';
 
 export function useCommunities() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
 
   const {
     data: communities = [],
@@ -17,7 +17,8 @@ export function useCommunities() {
     queryFn: async () => {
       try {
         console.log('🔍 [useCommunities] Iniciando carga de comunidades...');
-        const result = await CommunityService.getCommunities();
+        const endpoint = isAdmin() ? '/communities' : '/communities/my-community';
+        const result = await CommunityService.getCommunities(endpoint);
         console.log('✅ [useCommunities] Comunidades cargadas:', result);
         // Asegurar que siempre devolvemos un array
         return Array.isArray(result) ? result : [];

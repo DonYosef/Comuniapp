@@ -54,13 +54,6 @@ export class CommonExpensesController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get(':id/units')
-  @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES)
-  async getUnitExpenses(@CurrentUser() user: UserPayload, @Param('id') id: string) {
-    return this.commonExpensesService.getUnitExpenses(user, id);
-  }
-
-  @UseGuards(JwtAuthGuard)
   @Get(':id')
   @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES, Permission.VIEW_OWN_EXPENSES)
   async findOne(
@@ -79,12 +72,5 @@ export class CommonExpensesController {
     @Body() updateCommonExpenseDto: Partial<CreateCommonExpenseDto>,
   ): Promise<CommonExpenseResponseDto> {
     return this.commonExpensesService.updateCommonExpense(user, id, updateCommonExpenseDto);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Delete(':id')
-  @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES)
-  async delete(@CurrentUser() user: UserPayload, @Param('id') id: string) {
-    return this.commonExpensesService.deleteCommonExpense(user, id);
   }
 }

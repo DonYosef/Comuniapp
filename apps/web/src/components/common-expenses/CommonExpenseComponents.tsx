@@ -111,13 +111,12 @@ export const Toast = ({ message, type, onClose }: ToastProps) => {
 interface ConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void | Promise<void>;
+  onConfirm: () => void;
   title: string;
   message: string;
   confirmText?: string;
   cancelText?: string;
   type?: 'danger' | 'warning' | 'info';
-  closeOnConfirm?: boolean;
 }
 
 export const ConfirmationModal = ({
@@ -129,7 +128,6 @@ export const ConfirmationModal = ({
   confirmText = 'Confirmar',
   cancelText = 'Cancelar',
   type = 'danger',
-  closeOnConfirm = true,
 }: ConfirmationModalProps) => {
   if (!isOpen) return null;
 
@@ -227,11 +225,9 @@ export const ConfirmationModal = ({
               {cancelText}
             </button>
             <button
-              onClick={async () => {
-                await onConfirm();
-                if (closeOnConfirm) {
-                  onClose();
-                }
+              onClick={() => {
+                onConfirm();
+                onClose();
               }}
               className={`px-4 py-2 rounded-xl text-white font-medium transition-colors ${styles.buttonBg}`}
             >

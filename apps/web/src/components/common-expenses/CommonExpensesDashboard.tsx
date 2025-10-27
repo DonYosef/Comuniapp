@@ -6,11 +6,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { CommunityService } from '@/services/communityService';
 import { CommonExpenseService } from '@/services/commonExpenseService';
 import { CommunityIncomeService } from '@/services/communityIncomeService';
-import { StatCard, LoadingSpinner } from '@/components/common-expenses/CommonExpenseComponents';
+import {
+  StatCard,
+  LoadingSpinner,
+  StatusBadge,
+} from '@/components/common-expenses/CommonExpenseComponents';
 import MonthlyExpensesTable from '@/components/common-expenses/MonthlyExpensesTableConnected';
 import ProrrateModal from '@/components/common-expenses/ProrrateModal';
-import GeneratedProrratesList from '@/components/common-expenses/GeneratedProrratesList';
 import { eventBus, EVENTS } from '@/utils/eventBus';
+import { ExpenseStatus } from '@comuniapp/types';
 
 // Iconos SVG como componentes
 const CurrencyDollarIcon = () => (
@@ -190,21 +194,32 @@ export default function CommonExpensesDashboard({
       setError(null);
 
       if (communityId) {
-        // Si se proporciona un communityId específico, cargar solo esa comunidad
+        // Si se proporciona un communityId: admins usan ese id; residentes usan su propia comunidad
+        let effectiveCommunityId = communityId;
         try {
-          const communityData = await CommunityService.getCommunityById(communityId);
+          const isAdmin =
+            user &&
+            (user.roles || []).some(
+              (r: any) => r.name === 'SUPER_ADMIN' || r.name === 'COMMUNITY_ADMIN',
+            );
+          const communityData = isAdmin
+            ? await CommunityService.getCommunityById(communityId)
+            : await CommunityService.getMyCommunity();
           setCommunities([communityData]);
+          if (!isAdmin) {
+            effectiveCommunityId = communityData.id;
+          }
         } catch (error) {
           console.error('Error al cargar comunidad:', error);
           setError('Error al cargar la información de la comunidad');
           return;
         }
 
-        // Cargar gastos e ingresos de esa comunidad específica para el período seleccionado
+        // Cargar gastos e ingresos de la comunidad efectiva para el período seleccionado
         try {
           const [communityExpenses, communityIncomes] = await Promise.all([
-            CommonExpenseService.getCommonExpensesByCommunity(communityId, selectedPeriod),
-            CommunityIncomeService.getCommunityIncomes(communityId, selectedPeriod),
+            CommonExpenseService.getCommonExpensesByCommunity(effectiveCommunityId, selectedPeriod),
+            CommunityIncomeService.getCommunityIncomes(effectiveCommunityId, selectedPeriod),
           ]);
 
           // Convertir datos a los tipos esperados
@@ -242,8 +257,15 @@ export default function CommonExpensesDashboard({
           setIncomes([]);
         }
       } else {
-        // Cargar todas las comunidades del usuario
-        const communitiesData = await CommunityService.getCommunities();
+        // Cargar comunidades según rol: admins ven todas, residentes solo su comunidad
+        const endpoint =
+          user &&
+          (user.roles || []).some(
+            (r: any) => r.name === 'SUPER_ADMIN' || r.name === 'COMMUNITY_ADMIN',
+          )
+            ? '/communities'
+            : '/communities/my-community';
+        const communitiesData = await CommunityService.getCommunities(endpoint);
         const communitiesArray = Array.isArray(communitiesData)
           ? communitiesData
           : [communitiesData];
@@ -540,20 +562,24 @@ export default function CommonExpensesDashboard({
 
       {/* Tabla de Gastos Mensuales */}
       {communityId && (
-        <MonthlyExpensesTable
-          communityId={communityId}
-          period={selectedPeriod}
-          onDataChange={() => {
-            // Refrescar datos del dashboard cuando cambien los gastos
-            fetchDashboardData();
-          }}
-          onConfigExpenses={onConfigExpenses}
-          onConfigIncome={onConfigIncome}
-        />
-      )}
+        <>
+          <MonthlyExpensesTable
+            communityId={communityId}
+            period={selectedPeriod}
+            onDataChange={() => {
+              // Refrescar datos del dashboard cuando cambien los gastos
+              fetchDashboardData();
+            }}
+            onConfigExpenses={onConfigExpenses}
+            onConfigIncome={onConfigIncome}
+          />
 
-      {/* Lista de Prorrateos Generados */}
-      {communityId && <GeneratedProrratesList communityId={communityId} period={selectedPeriod} />}
+          {/* Estado de Pagos del Período Actual */}
+          {expenses.length > 0 && (
+            <ExpensePaymentsList communityId={communityId} period={selectedPeriod} />
+          )}
+        </>
+      )}
 
       {/* Alertas de Gastos Vencidos */}
       {overdueExpenses.length > 0 && (
@@ -635,6 +661,146 @@ export default function CommonExpensesDashboard({
             eventBus.emit(EVENTS.DATA_REFRESH_NEEDED, { communityId });
           }}
         />
+      )}
+    </div>
+  );
+}
+
+// Componente para mostrar el estado de pagos de las unidades
+function ExpensePaymentsList({ communityId, period }: { communityId: string; period: string }) {
+  const [expense, setExpense] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchExpense = async () => {
+      try {
+        setIsLoading(true);
+        const expenses = await CommonExpenseService.getCommonExpensesByCommunity(
+          communityId,
+          period,
+        );
+        if (expenses && expenses.length > 0) {
+          // Obtener detalles completos del gasto común
+          const fullExpense = await CommonExpenseService.getCommonExpenseById(expenses[0].id);
+          setExpense(fullExpense);
+        } else {
+          setExpense(null);
+        }
+      } catch (error) {
+        console.error('Error al cargar el estado de pagos:', error);
+        setExpense(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchExpense();
+  }, [communityId, period]);
+
+  if (isLoading) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="flex items-center justify-center py-8">
+          <LoadingSpinner size="md" text="Cargando estado de pagos..." color="blue" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!expense || !expense.unitExpenses) {
+    return null;
+  }
+
+  const paidUnits = expense.unitExpenses.filter((u: any) => u.status === ExpenseStatus.PAID);
+  const pendingUnits = expense.unitExpenses.filter((u: any) => u.status === ExpenseStatus.PENDING);
+  const overdueUnits = expense.unitExpenses.filter((u: any) => u.status === ExpenseStatus.OVERDUE);
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-purple-50 dark:from-gray-900 dark:to-purple-900/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+              <BuildingIcon />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                Estado de Pagos - Período {period}
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Resumen de unidades que han pagado y pendientes de pago
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Estadísticas */}
+      <div className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-b border-gray-200 dark:border-gray-700">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="text-center">
+            <p className="text-sm text-gray-600 dark:text-gray-400">Pagadas</p>
+            <p className="text-2xl font-bold text-green-600">{paidUnits.length}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              de {expense.unitExpenses.length} unidades
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-gray-600 dark:text-gray-400">Pendientes</p>
+            <p className="text-2xl font-bold text-yellow-600">{pendingUnits.length}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Por pagar</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-gray-600 dark:text-gray-400">Vencidas</p>
+            <p className="text-2xl font-bold text-red-600">{overdueUnits.length}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Requieren atención</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Lista de Unidades */}
+      {expense.unitExpenses.length > 0 && (
+        <div className="p-6">
+          <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+            <BuildingIcon />
+            <span className="ml-2">Unidades ({expense.unitExpenses.length})</span>
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+            {expense.unitExpenses.map((unitExpense: any) => (
+              <div
+                key={unitExpense.id}
+                className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                  unitExpense.status === ExpenseStatus.PAID
+                    ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
+                    : unitExpense.status === ExpenseStatus.OVERDUE
+                      ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
+                      : 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                      <span className="text-sm font-bold text-white">{unitExpense.unitNumber}</span>
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-semibold text-gray-900 dark:text-white">
+                        Unidad {unitExpense.unitNumber}
+                      </h5>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        ${unitExpense.amount.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                  <StatusBadge status={unitExpense.status} size="sm" />
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                  Vence: {new Date(unitExpense.dueDate).toLocaleDateString('es-ES')}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

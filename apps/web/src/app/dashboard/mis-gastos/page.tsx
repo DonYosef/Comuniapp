@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import RoleGuard from '@/components/RoleGuard';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/lib/api';
 import { ExpenseStatus } from '@comuniapp/types';
+import { PaymentService } from '@/services/paymentService';
 import {
   Toast,
   StatCard,
@@ -14,7 +16,6 @@ import {
   LoadingSpinner,
   EmptyState,
 } from '@/components/common-expenses/CommonExpenseComponents';
-import { PaymentService } from '@/services/paymentService';
 
 // Iconos SVG como componentes
 const CurrencyDollarIcon = () => (
@@ -141,15 +142,16 @@ interface ExpenseStats {
 
 export default function MisGastosPage() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'paid' | 'overdue'>('all');
+  const [payingExpenseId, setPayingExpenseId] = useState<string | null>(null);
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'error' | 'warning' | 'info';
   } | null>(null);
-  const [payingExpenseId, setPayingExpenseId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -157,13 +159,26 @@ export default function MisGastosPage() {
     }
   }, [user]);
 
+  // Detectar parámetro refresh para recargar datos
+  useEffect(() => {
+    if (searchParams?.get('refresh')) {
+      console.log('🔄 Refresh detected, reloading expenses...');
+      setTimeout(() => fetchMyExpenses(), 100); // Pequeño delay para asegurar carga
+    }
+  }, [searchParams]);
+
   const fetchMyExpenses = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
       const response = await api.get<Expense[]>('/residents/my-expenses');
-      setExpenses(response.data);
+      // Normalizar montos a número por seguridad (evita errores toFixed)
+      const normalized = (response.data || []).map((e) => ({
+        ...e,
+        amount: Number((e as any).amount),
+      }));
+      setExpenses(normalized);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar los gastos');
       console.error('Error fetching expenses:', err);
@@ -183,22 +198,21 @@ export default function MisGastosPage() {
 
   const stats: ExpenseStats = expenses.reduce(
     (acc, expense) => {
-      const amount = Number(expense.amount); // Convertir a número si viene como Decimal o string
       acc.total++;
-      acc.totalAmount += amount;
+      acc.totalAmount += expense.amount;
 
       switch (expense.status) {
         case ExpenseStatus.PAID:
           acc.paid++;
-          acc.paidAmount += amount;
+          acc.paidAmount += expense.amount;
           break;
         case ExpenseStatus.PENDING:
           acc.pending++;
-          acc.pendingAmount += amount;
+          acc.pendingAmount += expense.amount;
           break;
         case ExpenseStatus.OVERDUE:
           acc.overdue++;
-          acc.overdueAmount += amount;
+          acc.overdueAmount += expense.amount;
           break;
       }
 
@@ -256,12 +270,14 @@ export default function MisGastosPage() {
   const handlePayment = async (expenseId: string) => {
     try {
       setPayingExpenseId(expenseId);
-
-      // Crear orden de pago en Flow
       const response = await PaymentService.createExpensePayment(expenseId);
 
-      // Redirigir al checkout de Flow
-      window.location.href = response.checkoutUrl;
+      // Redirigir a Flow checkout
+      if (response.checkoutUrl) {
+        window.location.href = response.checkoutUrl;
+      } else {
+        throw new Error('No se pudo obtener la URL de pago');
+      }
     } catch (error: any) {
       console.error('Error al procesar el pago:', error);
       setToast({
@@ -281,7 +297,7 @@ export default function MisGastosPage() {
       <ProtectedRoute>
         <RoleGuard requiredPermission="view_own_expenses">
           <DashboardLayout>
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+            <div className="flex items-center justify-center min-h-[400px]">
               <LoadingSpinner size="xl" text="Cargando tus gastos..." color="blue" />
             </div>
           </DashboardLayout>
@@ -303,9 +319,7 @@ export default function MisGastosPage() {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                   Error al cargar
                 </h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-6">
-                  {error instanceof Error ? error.message : String(error)}
-                </p>
+                <p className="text-gray-500 dark:text-gray-400 mb-6">{error}</p>
                 <button
                   onClick={fetchMyExpenses}
                   className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
@@ -368,21 +382,21 @@ export default function MisGastosPage() {
                 value={stats.paid}
                 icon={<CheckCircleIcon />}
                 color="green"
-                subtitle={`$${Number(stats.paidAmount).toFixed(2)}`}
+                subtitle={`$${stats.paidAmount.toFixed(2)}`}
               />
               <StatCard
                 title="Pendientes"
                 value={stats.pending}
                 icon={<ClockIcon />}
                 color="yellow"
-                subtitle={`$${Number(stats.pendingAmount).toFixed(2)}`}
+                subtitle={`$${stats.pendingAmount.toFixed(2)}`}
               />
               <StatCard
                 title="Vencidos"
                 value={stats.overdue}
                 icon={<ExclamationTriangleIcon />}
                 color="red"
-                subtitle={`$${Number(stats.overdueAmount).toFixed(2)}`}
+                subtitle={`$${stats.overdueAmount.toFixed(2)}`}
               />
             </div>
 
@@ -398,25 +412,25 @@ export default function MisGastosPage() {
                 <div className="text-center">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    ${Number(stats.totalAmount).toFixed(2)}
+                    ${stats.totalAmount.toFixed(2)}
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Pagado</p>
                   <p className="text-2xl font-bold text-green-600">
-                    ${Number(stats.paidAmount).toFixed(2)}
+                    ${stats.paidAmount.toFixed(2)}
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Pendiente</p>
                   <p className="text-2xl font-bold text-yellow-600">
-                    ${Number(stats.pendingAmount).toFixed(2)}
+                    ${stats.pendingAmount.toFixed(2)}
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Vencido</p>
                   <p className="text-2xl font-bold text-red-600">
-                    ${Number(stats.overdueAmount).toFixed(2)}
+                    ${stats.overdueAmount.toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -541,7 +555,7 @@ export default function MisGastosPage() {
                         <div className="flex items-center space-x-4">
                           <div className="text-right">
                             <p className="text-lg font-medium text-gray-900 dark:text-white">
-                              ${Number(expense.amount).toFixed(2)}
+                              ${expense.amount.toFixed(2)}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
                               {new Date(expense.createdAt).toLocaleDateString('es-ES')}
@@ -592,14 +606,11 @@ export default function MisGastosPage() {
                         Tienes <span className="font-semibold">{stats.pending}</span> gasto
                         {stats.pending !== 1 ? 's' : ''} pendiente{stats.pending !== 1 ? 's' : ''}{' '}
                         por un total de{' '}
-                        <span className="font-semibold">
-                          ${Number(stats.pendingAmount).toFixed(2)}
-                        </span>
-                        .
+                        <span className="font-semibold">${stats.pendingAmount.toFixed(2)}</span>.
                       </p>
                       <p className="text-sm">
-                        La funcionalidad de pago en línea estará disponible próximamente. Por ahora,
-                        puedes realizar tus pagos mediante transferencia bancaria o en efectivo.
+                        Puedes realizar tus pagos en línea de forma segura usando tarjeta de crédito
+                        o débito.
                       </p>
                     </div>
                   </div>
