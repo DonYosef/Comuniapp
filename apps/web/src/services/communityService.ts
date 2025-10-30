@@ -77,8 +77,36 @@ export type CommunityFormData = CreateCommunityDto;
 export class CommunityService {
   // Obtener todas las comunidades del usuario
   async getCommunities(endpoint: string = '/communities'): Promise<Community | Community[]> {
-    const response = await apiClient.get<Community | Community[]>(endpoint);
-    return response.data;
+    // Normalizar endpoint para evitar errores (asegurar prefijo "/")
+    const normalizedEndpoint = endpoint?.startsWith('/') ? endpoint : `/${endpoint}`;
+
+    try {
+      const response = await apiClient.get<Community | Community[]>(normalizedEndpoint);
+      return response.data;
+    } catch (error: any) {
+      const status = error?.response?.status;
+
+      // 401: sesión expirada o no autenticado → devolver array vacío para no romper UI
+      if (status === 401) {
+        return [];
+      }
+
+      // 403: intentar fallback a my-community si veníamos de '/communities'
+      if (status === 403) {
+        try {
+          if (normalizedEndpoint === '/communities') {
+            const fallback = await apiClient.get<Community>('/communities/my-community');
+            return fallback.data ? [fallback.data] : [];
+          }
+        } catch {
+          return [];
+        }
+        return [];
+      }
+
+      // Otros errores: devolver array vacío para no bloquear la UI
+      return [];
+    }
   }
 
   // Obtener la comunidad del usuario autenticado (residente)
@@ -146,22 +174,36 @@ export class CommunityService {
   // Métodos estáticos para compatibilidad
   static async getCommunities(endpoint: string = '/communities'): Promise<Community | Community[]> {
     try {
-      console.log('🔍 [CommunityService] getCommunities - endpoint:', endpoint);
-      const response = await apiClient.get<Community | Community[]>(endpoint);
-      console.log('✅ [CommunityService] getCommunities - response:', response.data);
+      // Normalizar endpoint para evitar errores (asegurar prefijo "/")
+      const normalizedEndpoint = endpoint?.startsWith('/') ? endpoint : `/${endpoint}`;
+      // Nota: endpoint ya normalizado; evitamos logs ruidosos en producción
+      const response = await apiClient.get<Community | Community[]>(normalizedEndpoint);
       return response.data;
     } catch (error) {
-      console.error('❌ [CommunityService] getCommunities - error:', error);
-      // Si es un error 401, re-lanzar para que se maneje en el hook
-      if (error.response?.status === 401) {
-        throw new Error('No autorizado. Por favor, inicia sesión nuevamente.');
+      // Silenciar errores y aplicar fallbacks; el caller debe tratar lista vacía
+      const status = error?.response?.status;
+
+      // 401: sesión expirada o no autenticado → propagar mensaje controlado
+      if (status === 401) {
+        // Devolver array vacío para no romper UI; los hooks pueden decidir redirigir
+        return [];
       }
-      // Si es un error 403, re-lanzar para que se maneje en el hook
-      if (error.response?.status === 403) {
-        throw new Error('No tienes permisos para acceder a esta información.');
+
+      // 403: intentar fallback automático a my-community si veníamos de '/communities'
+      if (status === 403) {
+        try {
+          if (normalizedEndpoint === '/communities') {
+            const fallback = await apiClient.get<Community>('/communities/my-community');
+            return fallback.data ? [fallback.data] : [];
+          }
+        } catch (_fallbackError) {
+          return [];
+        }
+        return [];
       }
-      // Para otros errores, re-lanzar con mensaje genérico
-      throw new Error('Error al cargar las comunidades. Por favor, intenta nuevamente.');
+
+      // Otros errores: no bloquear la UI
+      return [];
     }
   }
 

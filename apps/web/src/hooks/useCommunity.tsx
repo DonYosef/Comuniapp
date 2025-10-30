@@ -3,6 +3,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useAuth } from './useAuth';
 import AuthService from '@/services/authService';
+import CommunityService from '@/services/communityService';
 
 interface Community {
   id: string;
@@ -78,85 +79,24 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         (role: any) => role.name === 'SUPER_ADMIN' || role.name === 'COMMUNITY_ADMIN',
       );
 
-      const endpoint = isAdmin ? 'communities' : 'communities/my-community';
+      const endpoint = isAdmin ? '/communities' : '/communities/my-community';
       console.log('🔍 [useCommunity] Usando endpoint:', endpoint, 'para usuario:', user.email);
 
-      const response = await fetch(`http://localhost:3001/${endpoint}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        // Agregar timeout para evitar cuelgues
-        signal: AbortSignal.timeout(10000), // 10 segundos timeout
-      });
+      const result = await CommunityService.getCommunities(endpoint);
 
-      if (response.ok) {
-        const data = await response.json();
+      const list = Array.isArray(result) ? result : result ? [result] : [];
+      setCommunities(list);
 
-        if (isAdmin) {
-          // Para administradores, data es un array
-          if (Array.isArray(data)) {
-            setCommunities(data);
-            if (!currentCommunity && data.length > 0) {
-              setCurrentCommunity(data[0]);
-              // Cargar unidades de forma asíncrona para no bloquear
-              // Delay de 100ms para no bloquear la UI
-              setTimeout(() => {
-                loadUnits(data[0].id).catch((error) => {
-                  console.error(
-                    '❌ [useCommunity] Error al cargar unidades después de cargar comunidades:',
-                    error,
-                  );
-                });
-              }, 100);
-            }
-          } else {
-            console.warn(
-              '⚠️ [useCommunity] loadCommunities - Respuesta de admin no es un array:',
-              data,
+      if (!currentCommunity && list.length > 0) {
+        setCurrentCommunity(list[0]);
+        setTimeout(() => {
+          loadUnits(list[0].id).catch((error) => {
+            console.error(
+              '❌ [useCommunity] Error al cargar unidades después de cargar comunidades:',
+              error,
             );
-            setCommunities([]);
-          }
-        } else {
-          // Para residentes, data es un objeto único o null
-          if (data) {
-            setCommunities([data]); // Convertir a array para consistencia
-            if (!currentCommunity) {
-              setCurrentCommunity(data);
-              // Cargar unidades en paralelo para mejor rendimiento
-              // Delay de 100ms para no bloquear la UI
-              setTimeout(() => {
-                loadUnits(data.id).catch((error) => {
-                  console.error(
-                    '❌ [useCommunity] Error al cargar unidades después de cargar comunidades:',
-                    error,
-                  );
-                });
-              }, 100);
-            }
-          } else {
-            console.log('ℹ️ [useCommunity] loadCommunities - Usuario no tiene comunidad asignada');
-            setCommunities([]);
-          }
-        }
-      } else {
-        let errorText = '';
-        try {
-          errorText = await response.text();
-        } catch (textError) {
-          console.warn('⚠️ [useCommunity] No se pudo leer el texto de error:', textError);
-          errorText = 'No se pudo leer el mensaje de error';
-        }
-
-        console.error('❌ [useCommunity] Error al cargar comunidades:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText || 'Sin mensaje de error',
-          url: response.url,
-          endpoint: endpoint,
-          headers: Object.fromEntries(response.headers.entries()),
-        });
-        setCommunities([]);
+          });
+        }, 100);
       }
     } catch (error) {
       console.error('❌ [useCommunity] Error al cargar comunidades:', {

@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Permission } from '../domain/entities/role.entity';
+import { AuthorizationService } from '../auth/services/authorization.service';
 import { VisitorStatus } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -8,7 +10,10 @@ import { UpdateVisitorDto } from './dto/update-visitor.dto';
 
 @Injectable()
 export class VisitorsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly authorizationService: AuthorizationService,
+  ) {}
 
   async create(createVisitorDto: CreateVisitorDto, userId: string) {
     // Verificar que la unidad existe y el usuario tiene acceso
@@ -29,7 +34,12 @@ export class VisitorsService {
     // Verificar permisos del usuario
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { roles: { include: { role: true } } },
+      include: {
+        roles: { include: { role: true } },
+        communityAdmins: {
+          include: { community: true },
+        },
+      },
     });
 
     const isAdmin = user?.roles.some(
@@ -37,10 +47,23 @@ export class VisitorsService {
     );
 
     const isResident = user?.roles.some((role) => role.role.name === 'RESIDENT');
+    const isConcierge = user?.roles.some((role) => role.role.name === 'CONCIERGE');
     const hasAccessToUnit = unit.userUnits.some((userUnit) => userUnit.userId === userId);
 
     if (!isAdmin && !(isResident && hasAccessToUnit)) {
-      throw new ForbiddenException('No tienes permisos para crear visitas en esta unidad');
+      // Permitir a CONCIERGE crear visitas si tiene acceso a la comunidad de la unidad
+      if (isConcierge) {
+        const canConcierge = await this.authorizationService.hasContextAccess(
+          userId,
+          unit.communityId,
+          Permission.MANAGE_VISITORS,
+        );
+        if (!canConcierge) {
+          throw new ForbiddenException('No tienes permisos para crear visitas en esta unidad');
+        }
+      } else {
+        throw new ForbiddenException('No tienes permisos para crear visitas en esta unidad');
+      }
     }
 
     const visitor = await this.prisma.visitor.create({
@@ -75,7 +98,10 @@ export class VisitorsService {
   async findAll(userId: string, unitId?: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { roles: { include: { role: true } } },
+      include: {
+        roles: { include: { role: true } },
+        communityAdmins: true,
+      },
     });
 
     const isAdmin = user?.roles.some(
@@ -83,6 +109,7 @@ export class VisitorsService {
     );
 
     const isResident = user?.roles.some((role) => role.role.name === 'RESIDENT');
+    const isConcierge = user?.roles.some((role) => role.role.name === 'CONCIERGE');
 
     const whereClause: any = {};
 
@@ -96,6 +123,19 @@ export class VisitorsService {
       whereClause.unitId = {
         in: userUnits.map((uu) => uu.unitId),
       };
+    }
+
+    // Si es conserje (y no admin), limitar a las unidades de su(s) comunidad(es)
+    if (isConcierge && !isAdmin) {
+      const communityIds = ((user as any)?.communityAdmins || []).map((ca: any) => ca.communityId);
+      if (communityIds.length > 0) {
+        whereClause.unit = {
+          communityId: { in: communityIds },
+        } as any;
+      } else {
+        // Sin comunidad asociada: no devolver resultados
+        whereClause.unitId = '__none__';
+      }
     }
 
     // Si se especifica unitId, filtrar por esa unidad
@@ -167,10 +207,22 @@ export class VisitorsService {
     );
 
     const isResident = user?.roles.some((role) => role.role.name === 'RESIDENT');
+    const isConcierge = user?.roles.some((role) => role.role.name === 'CONCIERGE');
     const hasAccessToUnit = visitor.unit.userUnits.some((userUnit) => userUnit.userId === userId);
 
     if (!isAdmin && !(isResident && hasAccessToUnit)) {
-      throw new ForbiddenException('No tienes permisos para ver esta visita');
+      if (isConcierge) {
+        const canConcierge = await this.authorizationService.hasContextAccess(
+          userId,
+          visitor.unit.communityId,
+          Permission.MANAGE_VISITORS,
+        );
+        if (!canConcierge) {
+          throw new ForbiddenException('No tienes permisos para ver esta visita');
+        }
+      } else {
+        throw new ForbiddenException('No tienes permisos para ver esta visita');
+      }
     }
 
     return this.formatVisitorResponse(visitor);

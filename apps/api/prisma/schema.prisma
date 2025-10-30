@@ -282,6 +282,14 @@ model Parcel {
   unitId      String       @map("unit_id")
   description String
   sender      String?
+  senderPhone String?
+  recipientName String?
+  recipientResidence String?
+  recipientPhone String?
+  recipientEmail String?
+  conciergeName String?
+  conciergePhone String?
+  notes       String?
   receivedAt  DateTime     @default(now()) @map("received_at")
   retrievedAt DateTime?    @map("retrieved_at")
   status      ParcelStatus @default(RECEIVED)

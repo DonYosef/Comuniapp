@@ -8,7 +8,7 @@ import DynamicVisitsView from '@/components/visitas/DynamicVisitsView';
 export default function VisitasPage() {
   return (
     <ProtectedRoute>
-      <RoleGuard allowedRoles={['SUPER_ADMIN', 'COMMUNITY_ADMIN', 'RESIDENT']}>
+      <RoleGuard allowedRoles={['SUPER_ADMIN', 'COMMUNITY_ADMIN', 'RESIDENT', 'CONCIERGE']}>
         <DashboardLayout>
           <DynamicVisitsView />
         </DashboardLayout>

@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { AuthorizationService } from '../auth/services/authorization.service';
+import { Permission } from '../domain/entities/role.entity';
 import { ParcelStatus } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -8,7 +10,10 @@ import { UpdateParcelDto } from './dto/update-parcel.dto';
 
 @Injectable()
 export class ParcelsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly authorizationService: AuthorizationService,
+  ) {}
 
   async create(createParcelDto: CreateParcelDto, userId: string) {
     // Verificar que la unidad existe y el usuario tiene acceso
@@ -37,16 +42,39 @@ export class ParcelsService {
     );
 
     const isResident = user?.roles.some((role) => role.role.name === 'RESIDENT');
+    const isConcierge = user?.roles.some((role) => role.role.name === 'CONCIERGE');
     const hasAccessToUnit = unit.userUnits.some((userUnit) => userUnit.userId === userId);
 
     if (!isAdmin && !(isResident && hasAccessToUnit)) {
-      throw new ForbiddenException('No tienes permisos para crear encomiendas en esta unidad');
+      if (isConcierge) {
+        const canConcierge = await this.authorizationService.hasContextAccess(
+          userId,
+          unit.communityId,
+          Permission.MANAGE_PARCELS as any,
+        );
+        if (!canConcierge) {
+          throw new ForbiddenException('No tienes permisos para crear encomiendas en esta unidad');
+        }
+      } else {
+        throw new ForbiddenException('No tienes permisos para crear encomiendas en esta unidad');
+      }
     }
 
     const parcel = await this.prisma.parcel.create({
       data: {
-        ...createParcelDto,
+        unitId: createParcelDto.unitId,
+        description: createParcelDto.description,
+        sender: createParcelDto.sender,
+        senderPhone: (createParcelDto as any).senderPhone,
+        recipientName: (createParcelDto as any).recipientName,
+        recipientResidence: (createParcelDto as any).recipientResidence,
+        recipientPhone: (createParcelDto as any).recipientPhone,
+        recipientEmail: (createParcelDto as any).recipientEmail,
+        conciergeName: (createParcelDto as any).conciergeName,
+        conciergePhone: (createParcelDto as any).conciergePhone,
+        notes: (createParcelDto as any).notes,
         receivedAt: createParcelDto.receivedAt ? new Date(createParcelDto.receivedAt) : new Date(),
+        status: createParcelDto.status,
       },
       include: {
         unit: {
@@ -74,6 +102,7 @@ export class ParcelsService {
     );
 
     const isResident = user?.roles.some((role) => role.role.name === 'RESIDENT');
+    const isConcierge = user?.roles.some((role) => role.role.name === 'CONCIERGE');
 
     const whereClause: any = {};
 
@@ -142,10 +171,22 @@ export class ParcelsService {
     );
 
     const isResident = user?.roles.some((role) => role.role.name === 'RESIDENT');
+    const isConcierge = user?.roles.some((role) => role.role.name === 'CONCIERGE');
     const hasAccessToUnit = parcel.unit.userUnits.some((userUnit) => userUnit.userId === userId);
 
     if (!isAdmin && !(isResident && hasAccessToUnit)) {
-      throw new ForbiddenException('No tienes permisos para ver esta encomienda');
+      if (isConcierge) {
+        const canConcierge = await this.authorizationService.hasContextAccess(
+          userId,
+          parcel.unit.communityId,
+          Permission.MANAGE_PARCELS as any,
+        );
+        if (!canConcierge) {
+          throw new ForbiddenException('No tienes permisos para ver esta encomienda');
+        }
+      } else {
+        throw new ForbiddenException('No tienes permisos para ver esta encomienda');
+      }
     }
 
     return this.formatParcelResponse(parcel);
@@ -157,8 +198,19 @@ export class ParcelsService {
     const updatedParcel = await this.prisma.parcel.update({
       where: { id },
       data: {
-        ...updateParcelDto,
+        // Solo campos existentes en el modelo Prisma
+        description: updateParcelDto.description,
+        sender: updateParcelDto.sender,
+        senderPhone: (updateParcelDto as any).senderPhone,
+        recipientName: (updateParcelDto as any).recipientName,
+        recipientResidence: (updateParcelDto as any).recipientResidence,
+        recipientPhone: (updateParcelDto as any).recipientPhone,
+        recipientEmail: (updateParcelDto as any).recipientEmail,
+        conciergeName: (updateParcelDto as any).conciergeName,
+        conciergePhone: (updateParcelDto as any).conciergePhone,
+        notes: (updateParcelDto as any).notes,
         receivedAt: updateParcelDto.receivedAt ? new Date(updateParcelDto.receivedAt) : undefined,
+        status: updateParcelDto.status,
       },
       include: {
         unit: {
@@ -218,8 +270,13 @@ export class ParcelsService {
       description: parcel.description,
       sender: parcel.sender,
       senderPhone: parcel.senderPhone,
-      recipientName: parcel.recipientName,
-      recipientResidence: parcel.recipientResidence,
+      // Fallbacks: como estos campos no existen en BD, derivamos valores útiles para la UI
+      recipientName:
+        parcel.recipientName ||
+        (parcel.unit.userUnits && parcel.unit.userUnits[0]
+          ? parcel.unit.userUnits[0].user.name
+          : undefined),
+      recipientResidence: parcel.recipientResidence || parcel.unit.number,
       recipientPhone: parcel.recipientPhone,
       recipientEmail: parcel.recipientEmail,
       conciergeName: parcel.conciergeName,

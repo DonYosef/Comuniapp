@@ -95,7 +95,7 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
 
   // Solo cargar comunidades si NO es residente
   const { isLoading: communitiesLoading, error: communitiesError, communities } = useCommunities();
-  const { createVisit, markAsArrived, markAsCompleted } = useVisits();
+  const { createVisit, updateVisit, markAsArrived, markAsCompleted } = useVisits();
   const [visits, setVisits] = useState<VisitorResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -103,6 +103,7 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingVisit, setEditingVisit] = useState<VisitFormData | null>(null);
+  const [editingUnits, setEditingUnits] = useState<ReturnType<typeof useUnits>['units']>([]);
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'error' | 'warning' | 'info';
@@ -112,19 +113,25 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
   console.log('🔍 [DynamicVisitsView] isResident:', isResident);
   console.log('🔍 [DynamicVisitsView] user.userUnits:', user?.userUnits);
 
-  // Obtener la comunidad del usuario (solo para admins)
-  const userCommunity = isResident ? null : communities?.[0];
+  // Determinar comunidad según rol:
+  // - Admin: primera comunidad cargada
+  // - Conserje: usar comunidad desde el token del usuario
+  // - Residente: no carga lista completa (flujo distinto)
+  const isConcierge = user?.roles?.some((role) => role.name === 'CONCIERGE');
+  const adminCommunityId = !isResident ? communities?.[0]?.id : undefined;
+  const conciergeCommunityId = isConcierge ? user?.communities?.[0]?.id : undefined;
+  const selectedCommunityId = adminCommunityId || conciergeCommunityId;
+
   console.log('🔍 [DynamicVisitsView] communities:', communities);
-  console.log('🔍 [DynamicVisitsView] userCommunity:', userCommunity);
-  const { units, isLoading: unitsLoading } = useUnits(userCommunity?.id);
+  console.log('🔍 [DynamicVisitsView] selectedCommunityId:', selectedCommunityId);
+  const { units, isLoading: unitsLoading } = useUnits(selectedCommunityId);
   console.log('🔍 [DynamicVisitsView] units:', units);
 
   // Cargar visitas desde la API
   useEffect(() => {
     const fetchVisits = async () => {
-      // Para residentes, no necesitamos userCommunity, solo user.userUnits
-      // Para admins, necesitamos userCommunity
-      if (!isResident && !userCommunity) return;
+      // Para residentes o conserjes no exigimos comunidad; para administradores sí
+      if (!isResident && !isConcierge && !selectedCommunityId) return;
 
       setIsLoading(true);
       try {
@@ -155,7 +162,7 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
     };
 
     fetchVisits();
-  }, [userCommunity, user, isResident]);
+  }, [selectedCommunityId, user, isResident]);
 
   // Convertir datos reales de la API a formato de visualización
   let allVisits: VisitItem[] = visits.map((v) => ({
@@ -258,6 +265,28 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
         hostUserId: visitDetails.hostUserId,
         status: visitDetails.status,
       });
+
+      // Preparar unidades para el modal si no están cargadas
+      if (!units || units.length === 0) {
+        setEditingUnits([
+          {
+            id: visitDetails.unitId,
+            number: visitDetails.unitNumber,
+            floor: undefined,
+            type: 'APARTMENT',
+            communityName: visitDetails.communityName,
+            residents: (visitDetails.residents || []).map((r) => ({
+              id: r.id,
+              name: r.name,
+              email: r.email,
+              phone: r.phone,
+              status: r.status,
+            })),
+          },
+        ] as any);
+      } else {
+        setEditingUnits(units);
+      }
     } catch (error) {
       console.error('Error loading visit details:', error);
       setToast({
@@ -266,6 +295,20 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
       });
     } finally {
       setIsLoadingDetails(false);
+    }
+  };
+
+  const handleUpdateVisit = async (data: VisitFormData) => {
+    try {
+      if (!data.id) throw new Error('ID de visita no proporcionado');
+      await updateVisit(data.id, data);
+      setEditingVisit(null);
+      setToast({ message: 'Visita actualizada exitosamente', type: 'success' });
+
+      const visitsData = await VisitorsService.getVisitors();
+      setVisits(visitsData);
+    } catch (error) {
+      setToast({ message: 'Error al actualizar la visita', type: 'error' });
     }
   };
 
@@ -572,11 +615,11 @@ export default function DynamicVisitsView({ isResidentView = false }: DynamicVis
         <VisitModal
           isOpen={!!editingVisit}
           onClose={handleCloseModal}
-          onSubmit={handleCreateVisit}
+          onSubmit={!isResident ? handleUpdateVisit : handleCreateVisit}
           initialData={editingVisit}
-          units={units}
+          units={editingUnits && editingUnits.length > 0 ? editingUnits : units}
           isEditing={!isResident}
-          isReadOnly={isResident}
+          isReadOnly={isResident ? true : false}
           userUnits={user?.userUnits || []}
         />
       )}

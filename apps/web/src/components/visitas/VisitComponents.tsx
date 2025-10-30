@@ -745,7 +745,18 @@ export const StatusBadge = ({ status }: StatusBadgeProps) => {
     },
   };
 
-  const config = statusConfig[status];
+  // Soportar estados del backend (ENTERED/EXITED) mapeándolos a ARRIVED/COMPLETED
+  const normalizedStatus =
+    status === 'ENTERED' ? 'ARRIVED' : status === 'EXITED' ? 'COMPLETED' : status;
+  const config = statusConfig[normalizedStatus] || {
+    text: status || 'Desconocido',
+    color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01" />
+      </svg>
+    ),
+  };
 
   return (
     <span

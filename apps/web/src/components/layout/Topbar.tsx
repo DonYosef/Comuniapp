@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useCommunity } from '@/hooks/useCommunity';
-import { useTheme } from '@/hooks/useTheme';
+import { useThemeSafe } from '@/hooks/useTheme';
 
 interface TopbarProps {
   isSidebarCollapsed?: boolean;
@@ -16,48 +16,8 @@ export default function Topbar({ isSidebarCollapsed = false }: TopbarProps) {
   const [isCommunityMenuOpen, setIsCommunityMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const { currentCommunity, communities, setCurrentCommunity } = useCommunity();
-  // Manejo seguro del tema con fallback
-  let resolvedTheme: 'light' | 'dark' = 'dark'; // Tema oscuro por defecto
-  let toggleTheme: () => void = () => {};
-
-  try {
-    const themeContext = useTheme();
-    resolvedTheme = themeContext.resolvedTheme;
-    toggleTheme = themeContext.toggleTheme;
-  } catch (error) {
-    // Si useTheme falla, usar tema del DOM como fallback
-    console.warn('useTheme no disponible, usando fallback:', error);
-
-    // Verificar que estamos en el cliente antes de acceder a document
-    if (typeof window !== 'undefined' && document) {
-      resolvedTheme = document.documentElement.classList.contains('light') ? 'light' : 'dark';
-      toggleTheme = () => {
-        const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
-        document.documentElement.classList.remove('light', 'dark');
-        document.documentElement.classList.add(newTheme);
-        document.documentElement.setAttribute('data-theme', newTheme);
-
-        // Actualizar variables CSS
-        const bgColor = newTheme === 'dark' ? '#0a0a0a' : '#ffffff';
-        const textColor = newTheme === 'dark' ? '#ededed' : '#171717';
-
-        document.documentElement.style.setProperty('--background', bgColor);
-        document.documentElement.style.setProperty('--foreground', textColor);
-
-        // Guardar en localStorage
-        try {
-          localStorage.setItem('comuniapp-theme', newTheme);
-        } catch (e) {
-          console.warn('No se pudo guardar el tema en localStorage:', e);
-        }
-      };
-    } else {
-      // En el servidor, mantener tema oscuro por defecto
-      console.warn('Ejecutándose en servidor, usando tema oscuro por defecto');
-    }
-  }
+  // Obtiene tema de forma segura sin requerir ThemeProvider
+  const { resolvedTheme, toggleTheme } = useThemeSafe();
   const router = useRouter();
 
   // Debug: Mostrar información del usuario

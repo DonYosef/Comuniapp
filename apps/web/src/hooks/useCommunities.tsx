@@ -21,7 +21,12 @@ export function useCommunities() {
         const result = await CommunityService.getCommunities(endpoint);
         console.log('✅ [useCommunities] Comunidades cargadas:', result);
         // Asegurar que siempre devolvemos un array
-        return Array.isArray(result) ? result : [];
+        if (isAdmin()) {
+          return Array.isArray(result) ? result : [];
+        } else {
+          // Para no-admins (residentes/concierges), el resultado es un objeto único o null
+          return result ? [result] : [];
+        }
       } catch (err) {
         console.error('❌ [useCommunities] Error al cargar comunidades:', err);
         // Devolver array vacío en caso de error

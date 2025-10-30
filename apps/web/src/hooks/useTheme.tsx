@@ -194,3 +194,43 @@ export function useTheme(): ThemeContextType {
 
   return context;
 }
+
+/**
+ * useThemeSafe
+ * Variante segura que no lanza error si no hay ThemeProvider.
+ * Devuelve un mínimo de API: resolvedTheme y toggleTheme con fallback al DOM.
+ */
+export function useThemeSafe(): { resolvedTheme: 'light' | 'dark'; toggleTheme: () => void } {
+  try {
+    const ctx = useContext(ThemeContext);
+    if (ctx) {
+      return { resolvedTheme: ctx.resolvedTheme, toggleTheme: ctx.toggleTheme };
+    }
+  } catch (_e) {
+    // ignorar y usar fallback
+  }
+
+  let resolved: 'light' | 'dark' = 'dark';
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    resolved = document.documentElement.classList.contains('light') ? 'light' : 'dark';
+  }
+
+  const toggle = () => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    const html = document.documentElement;
+    const current = html.classList.contains('dark') ? 'dark' : 'light';
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.classList.remove('light', 'dark');
+    html.classList.add(next);
+    html.setAttribute('data-theme', next);
+    const bg = next === 'dark' ? '#0a0a0a' : '#ffffff';
+    const fg = next === 'dark' ? '#ededed' : '#171717';
+    html.style.setProperty('--background', bg);
+    html.style.setProperty('--foreground', fg);
+    try {
+      localStorage.setItem('comuniapp-theme', next);
+    } catch (_err) {}
+  };
+
+  return { resolvedTheme: resolved, toggleTheme: toggle };
+}

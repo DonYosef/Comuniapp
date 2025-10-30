@@ -87,18 +87,19 @@ export default function ChatbotWindow({ isOpen, onClose, onMinimize }: ChatbotWi
     });
   }, [isAuthenticated, user]);
 
-  const handleSendMessage = async () => {
-    if (!inputText.trim()) return;
+  const handleSendMessage = async (messageOverride?: string) => {
+    const messageToSend = messageOverride || inputText.trim();
+    if (!messageToSend) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: inputText.trim(),
+      text: messageToSend,
       isUser: true,
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    const currentInput = inputText.trim();
+    const currentInput = messageToSend;
     setInputText('');
     setIsTyping(true);
 
@@ -151,6 +152,7 @@ export default function ChatbotWindow({ isOpen, onClose, onMinimize }: ChatbotWi
   };
 
   // Función para generar acciones rápidas basadas en el rol y permisos del usuario
+  // Los mensajes están alineados con las palabras clave reconocidas por el backend
   const getQuickActions = () => {
     if (!isAuthenticated || !user) {
       // Acciones para usuarios no autenticados
@@ -164,68 +166,69 @@ export default function ChatbotWindow({ isOpen, onClose, onMinimize }: ChatbotWi
     const actions = [];
 
     // Acciones básicas para todos los usuarios autenticados
-    actions.push({ label: 'avisos', icon: '📢' }, { label: 'mi perfil', icon: '👤' });
+    actions.push({ label: 'avisos', icon: '📢' });
 
     // Acciones específicas según roles y permisos
     if (hasRole('SUPER_ADMIN')) {
       actions.push(
-        { label: 'gestión de organizaciones', icon: '🏢' },
+        { label: 'organizaciones', icon: '🏢' },
         { label: 'usuarios del sistema', icon: '👥' },
         { label: 'métricas del sistema', icon: '📊' },
-        { label: 'configuración global', icon: '⚙️' },
-      );
-    }
-
-    if (hasRole('COMMUNITY_ADMIN')) {
-      actions.push(
-        { label: 'gestión de comunidad', icon: '🏘️' },
-        { label: 'residentes', icon: '👥' },
+        { label: 'comunidades', icon: '🏘️' },
+        { label: 'espacios comunes', icon: '🏢' },
         { label: 'gastos comunes', icon: '💰' },
-        { label: 'reportes', icon: '📊' },
       );
-    }
-
-    if (hasRole('CONCIERGE')) {
+    } else if (hasRole('COMMUNITY_ADMIN')) {
+      actions.push(
+        { label: 'gastos comunes', icon: '💰' },
+        { label: 'residentes', icon: '👥' },
+        { label: 'espacios comunes', icon: '🏢' },
+        { label: 'ingresos', icon: '💵' },
+        { label: 'visitantes', icon: '👤' },
+        { label: 'encomiendas', icon: '📦' },
+      );
+    } else if (hasRole('CONCIERGE')) {
       actions.push(
         { label: 'visitantes', icon: '👥' },
         { label: 'encomiendas', icon: '📦' },
         { label: 'reservas', icon: '📅' },
         { label: 'espacios comunes', icon: '🏢' },
       );
-    }
-
-    if (hasRole('RESIDENT') || hasRole('OWNER') || hasRole('TENANT')) {
+    } else if (hasRole('RESIDENT') || hasRole('OWNER') || hasRole('TENANT')) {
       actions.push(
-        { label: 'mis gastos', icon: '💰' },
-        { label: 'mis visitantes', icon: '👥' },
-        { label: 'mis encomiendas', icon: '📦' },
-        { label: 'reportar problema', icon: '🚨' },
+        { label: 'gastos comunes', icon: '💰' },
+        { label: 'cuanto debo', icon: '💸' },
+        { label: 'visitantes', icon: '👥' },
+        { label: 'encomiendas', icon: '📦' },
+        { label: 'espacios comunes', icon: '🏢' },
+        { label: 'reservas', icon: '📅' },
       );
     }
 
-    // Acciones adicionales basadas en permisos específicos
-    if (hasPermission('manage_community_expenses')) {
-      actions.push({ label: 'gastos comunes', icon: '💰' });
+    // Acciones adicionales basadas en permisos específicos (solo si no están ya incluidas)
+    if (hasPermission('view_own_expenses') && !actions.some((a) => a.label.includes('gasto'))) {
+      actions.push({ label: 'mis gastos', icon: '💰' });
     }
 
-    if (hasPermission('manage_visitors')) {
-      actions.push({ label: 'visitantes', icon: '👥' });
+    if (hasPermission('create_incidents')) {
+      actions.push({ label: 'reportar problema', icon: '🚨' });
     }
 
-    if (hasPermission('manage_parcels')) {
-      actions.push({ label: 'encomiendas', icon: '📦' });
-    }
+    // Eliminar duplicados basándose en label similar
+    const uniqueActions = actions.filter((action, index, self) => {
+      const normalizedLabel = action.label.toLowerCase().replace(/\s+/g, '');
+      return (
+        index ===
+        self.findIndex((a) => {
+          const normalizedA = a.label.toLowerCase().replace(/\s+/g, '');
+          // Evitar duplicados exactos o muy similares
+          return normalizedA === normalizedLabel;
+        })
+      );
+    });
 
-    if (hasPermission('manage_reservations')) {
-      actions.push({ label: 'reservas', icon: '📅' });
-    }
-
-    // Eliminar duplicados y limitar a 6 acciones máximo
-    const uniqueActions = actions
-      .filter((action, index, self) => index === self.findIndex((a) => a.label === action.label))
-      .slice(0, 6);
-
-    return uniqueActions;
+    // Limitar a máximo 6 acciones para mantener la UI limpia
+    return uniqueActions.slice(0, 6);
   };
 
   const quickActions = getQuickActions();
@@ -326,8 +329,13 @@ export default function ChatbotWindow({ isOpen, onClose, onMinimize }: ChatbotWi
           {quickActions.map((action, index) => (
             <button
               key={index}
-              onClick={() => setInputText(action.label)}
-              className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              onClick={() => {
+                // Enviar el mensaje directamente sin necesidad de actualizar el estado del input primero
+                handleSendMessage(action.label);
+              }}
+              disabled={isTyping}
+              className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={`Hacer clic para consultar: ${action.label}`}
             >
               {action.icon} {action.label}
             </button>
@@ -349,7 +357,7 @@ export default function ChatbotWindow({ isOpen, onClose, onMinimize }: ChatbotWi
             disabled={isTyping}
           />
           <button
-            onClick={handleSendMessage}
+            onClick={() => handleSendMessage()}
             disabled={!inputText.trim() || isTyping}
             className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >

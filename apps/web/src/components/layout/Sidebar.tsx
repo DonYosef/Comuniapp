@@ -181,11 +181,13 @@ export default function Sidebar({ isCollapsed = true, onToggle, onHoverChange }:
     }
 
     // Mostrar Visitas - vista unificada que se adapta al rol
-    const canAccessVisits = isAdmin() || isResident;
+    const isJanitor = hasRole('CONCIERGE');
+    const canAccessVisits = isAdmin() || isResident || isJanitor;
 
     console.log('🔍 [Sidebar] Verificando módulo Visitas:');
     console.log('- isAdmin():', isAdmin());
     console.log('- isResident:', isResident);
+    console.log('- isJanitor:', isJanitor);
     console.log('- canAccessVisits:', canAccessVisits);
 
     if (canAccessVisits) {

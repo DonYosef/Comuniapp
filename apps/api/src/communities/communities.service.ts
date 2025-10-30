@@ -261,7 +261,7 @@ export class CommunitiesService {
   async getMyCommunity(userId: string) {
     console.log('🔍 [CommunitiesService] getMyCommunity - userId:', userId);
 
-    // Buscar el usuario con sus roles y unidades
+    // Buscar el usuario con sus roles, unidades y comunidades como admin
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -281,6 +281,18 @@ export class CommunitiesService {
                     _count: { select: { units: true } },
                   },
                 },
+              },
+            },
+          },
+        },
+        communityAdmins: {
+          include: {
+            community: {
+              include: {
+                organization: true,
+                commonSpaces: true,
+                createdBy: { select: { id: true, name: true, email: true } },
+                _count: { select: { units: true } },
               },
             },
           },
@@ -305,8 +317,24 @@ export class CommunitiesService {
       return communities.length > 0 ? communities[0] : null; // Retornar la primera comunidad
     }
 
-    // Para RESIDENT, CONCIERGE, etc., buscar a través de sus unidades
-    console.log('🔍 [CommunitiesService] Usuario es residente/concierge, buscando por unidades');
+    // Para CONCIERGE, buscar primero a través de communityAdmins (como los admins)
+    if (userRoles.includes('CONCIERGE')) {
+      console.log('🔍 [CommunitiesService] Usuario es conserje, buscando por communityAdmins');
+
+      if (user.communityAdmins.length > 0) {
+        const firstCommunity = user.communityAdmins[0].community;
+        console.log(
+          `✅ [CommunitiesService] Comunidad encontrada para conserje: ${firstCommunity.name}`,
+        );
+        return firstCommunity;
+      }
+
+      console.log('🔍 [CommunitiesService] Conserje no tiene comunidades asignadas como admin');
+      return null;
+    }
+
+    // Para RESIDENT, buscar a través de sus unidades
+    console.log('🔍 [CommunitiesService] Usuario es residente, buscando por unidades');
 
     if (user.userUnits.length === 0) {
       console.log('🔍 [CommunitiesService] Usuario no tiene unidades asignadas');

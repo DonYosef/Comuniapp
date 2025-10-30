@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 // Componente de Toast Notification
 interface ToastProps {
@@ -188,6 +188,14 @@ export const ParcelModal = ({
   });
 
   const [errors, setErrors] = useState<Partial<ParcelFormData>>({});
+
+  // Sincronizar el formulario cuando cambie initialData
+  useEffect(() => {
+    if (initialData) {
+      setFormData((prev) => ({ ...prev, ...initialData }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

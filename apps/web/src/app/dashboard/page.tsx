@@ -2,10 +2,13 @@
 
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useCommunities } from '@/hooks/useCommunities';
+import { useAuth } from '@/hooks/useAuth';
 import CommunitiesSkeleton from '@/components/ui/CommunitiesSkeleton';
 
 export default function DashboardPage() {
   const { communities, isLoading, hasCommunities } = useCommunities();
+  const { user } = useAuth();
+  const isConcierge = user?.roles?.some((r) => r.name === 'CONCIERGE');
 
   if (isLoading) {
     return (
@@ -20,22 +23,26 @@ export default function DashboardPage() {
       <div className="space-y-6">
         {/* Header de la página */}
         <div>
-          <h1 className="text-2xl font-bold gradient-title-primary">Dashboard</h1>
+          <h1 className="text-2xl font-bold gradient-title-primary">
+            {isConcierge && communities[0] ? communities[0].name : 'Dashboard'}
+          </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Bienvenido a la administración de Comuniapp
+            {isConcierge && communities[0]
+              ? 'Tu residencia'
+              : 'Bienvenido a la administración de Comuniapp'}
           </p>
         </div>
 
         {/* Comunidades del usuario */}
-        {hasCommunities && (
+        {hasCommunities && !isConcierge && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Tus Comunidades ({communities.length})
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {communities.map((community) => (
+              {communities.map((community, index) => (
                 <div
-                  key={community.id}
+                  key={`${community?.id ?? community?.name ?? 'community'}-${index}`}
                   className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-center space-x-3">
@@ -76,6 +83,48 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Vista simplificada para conserje: solo su comunidad */}
+        {hasCommunities && isConcierge && communities[0] && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Tu Comunidad
+            </h2>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                  <svg
+                    className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                    {communities[0].name}
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    {communities[0].address}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 flex justify-between items-center">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {communities[0].totalUnits} unidades
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">&nbsp;</span>
+              </div>
             </div>
           </div>
         )}

@@ -31,35 +31,35 @@ export class ParcelsController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(RoleName.SUPER_ADMIN, RoleName.COMMUNITY_ADMIN, RoleName.RESIDENT)
+  @Roles(RoleName.SUPER_ADMIN, RoleName.COMMUNITY_ADMIN, RoleName.RESIDENT, RoleName.CONCIERGE)
   create(@Body() createParcelDto: CreateParcelDto, @Request() req) {
     return this.parcelsService.create(createParcelDto, req.user.id);
   }
 
   @Get()
   @UseGuards(RolesGuard)
-  @Roles(RoleName.SUPER_ADMIN, RoleName.COMMUNITY_ADMIN, RoleName.RESIDENT)
+  @Roles(RoleName.SUPER_ADMIN, RoleName.COMMUNITY_ADMIN, RoleName.RESIDENT, RoleName.CONCIERGE)
   findAll(@Request() req, @Query('unitId') unitId?: string) {
     return this.parcelsService.findAll(req.user.id, unitId);
   }
 
   @Get(':id')
   @UseGuards(RolesGuard)
-  @Roles(RoleName.SUPER_ADMIN, RoleName.COMMUNITY_ADMIN, RoleName.RESIDENT)
+  @Roles(RoleName.SUPER_ADMIN, RoleName.COMMUNITY_ADMIN, RoleName.RESIDENT, RoleName.CONCIERGE)
   findOne(@Param('id') id: string, @Request() req) {
     return this.parcelsService.findOne(id, req.user.id);
   }
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles(RoleName.SUPER_ADMIN, RoleName.COMMUNITY_ADMIN)
+  @Roles(RoleName.SUPER_ADMIN, RoleName.COMMUNITY_ADMIN, RoleName.CONCIERGE)
   update(@Param('id') id: string, @Body() updateParcelDto: UpdateParcelDto, @Request() req) {
     return this.parcelsService.update(id, updateParcelDto, req.user.id);
   }
 
   @Patch(':id/mark-retrieved')
   @UseGuards(RolesGuard)
-  @Roles(RoleName.SUPER_ADMIN, RoleName.COMMUNITY_ADMIN, RoleName.RESIDENT)
+  @Roles(RoleName.SUPER_ADMIN, RoleName.COMMUNITY_ADMIN, RoleName.RESIDENT, RoleName.CONCIERGE)
   markAsRetrieved(@Param('id') id: string, @Request() req) {
     return this.parcelsService.markAsRetrieved(id, req.user.id);
   }
@@ -73,11 +73,12 @@ export class ParcelsController {
 
   @Get('units/available')
   @UseGuards(RolesGuard)
-  @Roles(RoleName.SUPER_ADMIN, RoleName.COMMUNITY_ADMIN, RoleName.RESIDENT)
+  @Roles(RoleName.SUPER_ADMIN, RoleName.COMMUNITY_ADMIN, RoleName.RESIDENT, RoleName.CONCIERGE)
   getAvailableUnits(@Request() req, @Query('communityId') communityId?: string) {
     if (communityId) {
       return this.unitsService.getUnitsByCommunity(communityId);
     }
-    return this.unitsService.getUnitsByUser(req.user.id);
+    // Sin communityId: devolver unidades según el contexto del usuario
+    return this.unitsService.getUnitsForUser(req.user.id);
   }
 }

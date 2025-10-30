@@ -61,6 +61,7 @@ const FilterIcon = () => (
 );
 
 interface ParcelItem {
+  unitId: string;
   id: string;
   unitNumber: string;
   description: string;
@@ -95,28 +96,32 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
   // Solo cargar comunidades si NO es residente
   const { isLoading: communitiesLoading, error: communitiesError, communities } = useCommunities();
 
-  const { createParcel, markAsRetrieved } = useParcels();
+  const { createParcel, updateParcel, markAsRetrieved } = useParcels();
   const [parcels, setParcels] = useState<ParcelResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingParcel, setEditingParcel] = useState<ParcelFormData | null>(null);
+  const [editingUnits, setEditingUnits] = useState<ReturnType<typeof useUnits>['units']>([]);
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'error' | 'warning' | 'info';
   } | null>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
-  // Obtener la comunidad del usuario
-  const userCommunity = communities?.[0]; // Asumiendo que el usuario pertenece a una comunidad
-  const { units, isLoading: unitsLoading } = useUnits(userCommunity?.id);
+  // Determinar comunidad según rol (admin usa comunidades cargadas; conserje usa comunidades del token)
+  const isConcierge = user?.roles?.some((role) => role.name === 'CONCIERGE');
+  const adminCommunityId = !isResident ? communities?.[0]?.id : undefined;
+  const conciergeCommunityId = isConcierge ? user?.communities?.[0]?.id : undefined;
+  const selectedCommunityId = adminCommunityId || conciergeCommunityId;
+  const { units, isLoading: unitsLoading } = useUnits(selectedCommunityId);
 
   // Cargar encomiendas desde la API
   useEffect(() => {
     const fetchParcels = async () => {
-      // Para residentes, no necesitamos userCommunity, solo user.userUnits
-      // Para admins, necesitamos userCommunity
-      if (!isResident && !userCommunity) return;
+      // Para residentes o conserjes no exigimos comunidad; para administradores sí
+      if (!isResident && !isConcierge && !selectedCommunityId) return;
 
       setIsLoading(true);
       try {
@@ -155,10 +160,11 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
     };
 
     fetchParcels();
-  }, [userCommunity, user, isResident]);
+  }, [selectedCommunityId, user, isResident]);
 
   // Convertir datos reales de la API a formato de visualización
   let allParcels: ParcelItem[] = parcels.map((p) => ({
+    unitId: p.unitId,
     id: p.id,
     unitNumber: p.unitNumber,
     description: p.description,
@@ -211,22 +217,67 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
     }
   };
 
-  const handleEditParcel = (parcel: ParcelItem) => {
-    setEditingParcel({
-      id: parcel.id,
-      unitId: parcel.unitNumber,
-      description: parcel.description,
-      sender: parcel.sender,
-      senderPhone: parcel.senderPhone || '',
-      recipientName: parcel.recipientName,
-      recipientResidence: parcel.recipientResidence,
-      recipientPhone: parcel.recipientPhone || '',
-      recipientEmail: parcel.recipientEmail || '',
-      conciergeName: parcel.conciergeName || '',
-      conciergePhone: parcel.conciergePhone || '',
-      notes: parcel.notes || '',
-      receivedAt: parcel.receivedAt,
-    });
+  const handleEditParcel = async (parcel: ParcelItem) => {
+    try {
+      setIsLoadingDetails(true);
+      const details = await ParcelsService.getParcel(parcel.id);
+      setEditingParcel({
+        id: details.id,
+        unitId: details.unitId,
+        description: details.description,
+        sender: details.sender || '',
+        senderPhone: (details as any).senderPhone || '',
+        recipientName: (details as any).recipientName || '',
+        recipientResidence: (details as any).recipientResidence || '',
+        recipientPhone: (details as any).recipientPhone || '',
+        recipientEmail: (details as any).recipientEmail || '',
+        conciergeName: (details as any).conciergeName || '',
+        conciergePhone: (details as any).conciergePhone || '',
+        notes: (details as any).notes || '',
+        receivedAt: new Date(details.receivedAt),
+        status: details.status,
+      });
+
+      // Preparar unidades para el modal: si no hay unidades cargadas por contexto, usar la unidad del detalle
+      if (!units || units.length === 0) {
+        setEditingUnits([
+          {
+            id: details.unitId,
+            number: details.unitNumber,
+            floor: undefined,
+            type: 'APARTMENT',
+            communityName: details.communityName,
+            residents: (details.residents || []).map((r) => ({
+              id: r.id,
+              name: r.name,
+              email: r.email,
+              phone: r.phone,
+              status: r.status,
+            })),
+          },
+        ] as any);
+      } else {
+        setEditingUnits(units);
+      }
+    } catch (error) {
+      setToast({ message: 'Error al cargar los detalles de la encomienda', type: 'error' });
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
+  const handleUpdateParcel = async (data: ParcelFormData) => {
+    try {
+      if (!data.id) throw new Error('ID de encomienda no proporcionado');
+      await updateParcel(data.id, data);
+      setEditingParcel(null);
+      setToast({ message: 'Encomienda actualizada exitosamente', type: 'success' });
+
+      const parcelsData = await ParcelsService.getParcels();
+      setParcels(parcelsData);
+    } catch (error) {
+      setToast({ message: 'Error al actualizar la encomienda', type: 'error' });
+    }
   };
 
   const handleMarkAsRetrieved = async (id: string) => {
@@ -470,11 +521,12 @@ export default function DynamicParcelsView({ isResidentView = false }: DynamicPa
         <ParcelModal
           isOpen={!!editingParcel}
           onClose={handleCloseModal}
-          onSubmit={handleCreateParcel}
+          onSubmit={!isResident ? handleUpdateParcel : handleCreateParcel}
           initialData={editingParcel}
-          isReadOnly={isResident} // Solo lectura para residentes
-          userUnits={user?.userUnits || []} // Pasar las unidades del usuario
-          units={units}
+          isEditing={!isResident}
+          isReadOnly={isResident}
+          userUnits={user?.userUnits || []}
+          units={editingUnits && editingUnits.length > 0 ? editingUnits : units}
         />
       )}
 

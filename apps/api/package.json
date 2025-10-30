@@ -21,6 +21,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
+    "seed:concierges": "ts-node prisma/seed-concierges.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
     "validate:architecture": "node validate-architecture.js",
