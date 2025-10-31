@@ -175,6 +175,71 @@ export class ConciergeService {
     });
   }
 
+  async updateReservationStatus(reservationId: string, status: string, requestingUserId: string) {
+    const reservation = await this.prisma.spaceReservation.findUnique({
+      where: { id: reservationId },
+      include: {
+        unit: {
+          include: {
+            community: true,
+          },
+        },
+      },
+    });
+
+    if (!reservation) {
+      throw new NotFoundException('Reserva no encontrada');
+    }
+
+    const hasAccess = await this.authorizationService.hasContextAccess(
+      requestingUserId,
+      reservation.unit.communityId,
+      'manage_reservations' as any,
+    );
+
+    if (!hasAccess) {
+      throw new ForbiddenException('No tienes permisos para actualizar esta reserva');
+    }
+
+    // Validar que solo se permitan estados CONFIRMED o CANCELLED
+    if (status !== 'CONFIRMED' && status !== 'CANCELLED') {
+      throw new ForbiddenException('Solo se puede cambiar el estado a Confirmada o Cancelada');
+    }
+
+    // El conserje puede:
+    // - Cambiar PENDING a CONFIRMED (confirmar solicitud del residente)
+    // - Cambiar PENDING a CANCELLED (rechazar solicitud del residente)
+    // - Cambiar CONFIRMED a CANCELLED (cancelar reserva confirmada)
+    // - Cambiar CANCELLED a CONFIRMED (reactivar reserva cancelada)
+
+    // Actualizar el estado de la reserva
+    return this.prisma.spaceReservation.update({
+      where: { id: reservationId },
+      data: {
+        status: status as any,
+      },
+      include: {
+        commonSpace: true,
+        unit: {
+          include: {
+            userUnits: {
+              where: { status: 'CONFIRMED' },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   async getCommonSpaces(communityId: string, requestingUserId: string) {
     console.log(
       `[ConciergeService] getCommonSpaces - communityId: ${communityId}, userId: ${requestingUserId}`,

@@ -86,6 +86,14 @@ export class ResidentsController {
     return this.residentsService.createReservation(reservationData, req.user.id);
   }
 
+  @Get('common-spaces')
+  @RequirePermission(Permission.VIEW_OWN_UNIT)
+  @ApiOperation({ summary: 'Obtener espacios comunes de mis comunidades' })
+  @ApiResponse({ status: 200, description: 'Lista de espacios comunes' })
+  getMyCommonSpaces(@Request() req) {
+    return this.residentsService.getMyCommonSpaces(req.user.id);
+  }
+
   @Get('announcements')
   @RequirePermission(Permission.VIEW_ANNOUNCEMENTS)
   @ApiOperation({ summary: 'Obtener anuncios de mis comunidades' })

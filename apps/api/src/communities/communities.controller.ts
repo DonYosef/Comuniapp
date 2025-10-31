@@ -65,6 +65,14 @@ export class CommunitiesController {
     return this.communitiesService.getMyUnits(req.user.id);
   }
 
+  @Get('users-by-name/:communityName')
+  @RequirePermission(Permission.MANAGE_COMMUNITY)
+  getUsersByCommunityName(@Param('communityName') communityName: string) {
+    // Decodificar el nombre de la comunidad (por si tiene espacios o caracteres especiales)
+    const decodedName = decodeURIComponent(communityName);
+    return this.communitiesService.getUsersByCommunityName(decodedName);
+  }
+
   @Get(':id')
   @RequirePermission(Permission.MANAGE_COMMUNITY)
   findOne(@Param('id') id: string, @Request() req) {

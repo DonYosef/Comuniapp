@@ -91,6 +91,17 @@ export class ConciergeService {
     return response.data;
   }
 
+  static async updateReservationStatus(
+    reservationId: string,
+    status: string,
+  ): Promise<Reservation> {
+    const response = await apiClient.patch<Reservation>(
+      `${this.BASE_URL}/reservations/${reservationId}/status`,
+      { status },
+    );
+    return response.data;
+  }
+
   static async getDebugInfo(communityId: string): Promise<any> {
     const response = await apiClient.get<any>(`${this.BASE_URL}/community/${communityId}/debug`);
     return response.data;

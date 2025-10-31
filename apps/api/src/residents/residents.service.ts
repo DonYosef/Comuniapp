@@ -158,8 +158,69 @@ export class ResidentsService {
       throw new ForbiddenException('No tienes acceso a esta unidad');
     }
 
+    // Convertir la fecha a DateTime completo para Prisma
+    // El frontend envía solo la fecha (YYYY-MM-DD), pero Prisma necesita DateTime completo
+    const reservationDate = reservationData.reservationDate
+      ? new Date(reservationData.reservationDate)
+      : new Date();
+
+    // Las reservas creadas por residentes siempre quedan en estado PENDING
+    // El conserje debe confirmarlas o cancelarlas
     return this.prisma.spaceReservation.create({
-      data: reservationData,
+      data: {
+        commonSpaceId: reservationData.commonSpaceId,
+        unitId: reservationData.unitId,
+        reservationDate: reservationDate,
+        startTime: reservationData.startTime,
+        endTime: reservationData.endTime,
+        status: 'PENDING',
+      },
+      include: {
+        commonSpace: true,
+        unit: {
+          include: {
+            community: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async getMyCommonSpaces(userId: string) {
+    const userUnits = await this.prisma.userUnit.findMany({
+      where: { userId, status: 'CONFIRMED' },
+      include: {
+        unit: {
+          select: { communityId: true },
+        },
+      },
+    });
+
+    const communityIds = [...new Set(userUnits.map((uu) => uu.unit.communityId))];
+
+    return this.prisma.communityCommonSpace.findMany({
+      where: {
+        communityId: { in: communityIds },
+        isActive: true,
+      },
+      include: {
+        community: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        schedules: {
+          where: { isActive: true },
+          orderBy: { dayOfWeek: 'asc' },
+        },
+      },
+      orderBy: { name: 'asc' },
     });
   }
 

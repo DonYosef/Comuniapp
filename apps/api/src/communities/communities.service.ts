@@ -728,4 +728,87 @@ export class CommunitiesService {
     );
     return communities;
   }
+
+  async getUsersByCommunityName(communityName: string) {
+    // Buscar la comunidad por nombre
+    const community = await this.prisma.community.findFirst({
+      where: {
+        name: {
+          contains: communityName,
+          mode: 'insensitive',
+        },
+        isActive: true,
+      },
+    });
+
+    if (!community) {
+      return [];
+    }
+
+    // Obtener todos los usuarios que tienen unidades en esta comunidad
+    const users = await this.prisma.user.findMany({
+      where: {
+        userUnits: {
+          some: {
+            unit: {
+              communityId: community.id,
+            },
+            status: 'CONFIRMED',
+          },
+        },
+      },
+      include: {
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+        userUnits: {
+          where: {
+            unit: {
+              communityId: community.id,
+            },
+            status: 'CONFIRMED',
+          },
+          include: {
+            unit: {
+              select: {
+                id: true,
+                number: true,
+                floor: true,
+                type: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return {
+      community: {
+        id: community.id,
+        name: community.name,
+        address: community.address,
+      },
+      users: users.map((user) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        status: user.status,
+        roles: user.roles.map((ur) => ur.role.name),
+        units: user.userUnits.map((uu) => ({
+          id: uu.unit.id,
+          number: uu.unit.number,
+          floor: uu.unit.floor,
+          type: uu.unit.type,
+        })),
+        createdAt: user.createdAt,
+      })),
+      totalUsers: users.length,
+    };
+  }
 }

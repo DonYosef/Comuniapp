@@ -70,6 +70,18 @@ export class ConciergeController {
     return this.conciergeService.updateParcelStatus(parcelId, body.status, req.user.id);
   }
 
+  @Patch('reservations/:reservationId/status')
+  @RequirePermission(Permission.MANAGE_RESERVATIONS)
+  @ApiOperation({ summary: 'Actualizar estado de reserva' })
+  @ApiResponse({ status: 200, description: 'Estado de reserva actualizado exitosamente' })
+  updateReservationStatus(
+    @Param('reservationId') reservationId: string,
+    @Body() body: { status: string },
+    @Request() req,
+  ) {
+    return this.conciergeService.updateReservationStatus(reservationId, body.status, req.user.id);
+  }
+
   @Get('community/:communityId/common-spaces')
   @RequirePermission(Permission.MANAGE_RESERVATIONS)
   @ApiOperation({ summary: 'Obtener espacios comunes de una comunidad' })
