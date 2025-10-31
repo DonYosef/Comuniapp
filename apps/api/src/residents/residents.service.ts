@@ -128,7 +128,17 @@ export class ResidentsService {
         unitId: { in: unitIds },
       },
       include: {
-        unit: true,
+        unit: {
+          include: {
+            community: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        commonSpace: true,
       },
       orderBy: { reservationDate: 'desc' },
     });
