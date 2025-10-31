@@ -22,6 +22,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "seed:concierges": "ts-node prisma/seed-concierges.ts",
+    "check:spaces": "ts-node prisma/check-common-spaces.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
     "validate:architecture": "node validate-architecture.js",

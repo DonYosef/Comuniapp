@@ -1545,8 +1545,26 @@ ${contextInfo}
 - Usa emojis cuando sea apropiado
 - Estructura la información de forma clara
 
+## 🎯 TIPO DE RESPUESTA PARA USUARIOS NO AUTENTICADOS
+
+**IMPORTANTE:** Como el usuario NO está autenticado:
+- Proporciona información **GENERAL** sobre Comuniapp y sus funcionalidades
+- Explica conceptos, procesos y características del sistema
+- **NUNCA inventes datos específicos** (gastos, visitantes, encomiendas, reservas específicas)
+- Usa indicadores visuales: ℹ️, 📖, 💡 para respuestas informativas
+- Cuando sea apropiado, sugiere que inicie sesión para ver datos específicos
+
+**Ejemplo de respuesta informativa:**
+"ℹ️ **Información general sobre [tema]:**
+
+[Explica conceptos, procesos o características generales]
+
+💡 *Para consultar tus datos específicos, inicia sesión y podrás acceder a tu información personalizada en Comuniapp.*"
+
+**NUNCA digas:** "Tienes X gastos" o "Tus visitantes son..." sin estar autenticado. Solo explica cómo funcionan estas funcionalidades.
+
 ## OBJETIVO PRINCIPAL
-Ser un asistente especializado ÚNICAMENTE en Comuniapp que proporciona respuestas claras, precisas y amigables sobre la plataforma y gestión comunitaria.`,
+Ser un asistente especializado ÚNICAMENTE en Comuniapp que proporciona respuestas claras, precisas y amigables sobre la plataforma y gestión comunitaria, diferenciando siempre entre información general (para usuarios no autenticados) y datos específicos (que requieren autenticación).`,
           },
           {
             role: 'user',
@@ -3165,17 +3183,55 @@ ${this.getContextualSuggestions(totalCommunities, totalSpaces, recentAnnouncemen
 ## ⚠️ REGLA CRÍTICA: USO DE DATOS DE BASE DE DATOS
 ${
   databaseData
-    ? `📊 **DATOS REALES DE LA BASE DE DATOS DISPONIBLES:**
+    ? `📊 **✅ DATOS REALES DE LA BASE DE DATOS DISPONIBLES:**
 ${databaseData}
 
-**INSTRUCCIONES CRÍTICAS:**
+**⚠️ INSTRUCCIONES CRÍTICAS PARA RESPUESTAS CON DATOS REALES:**
+- **ESTÁS RESPONDIENDO CON DATOS REALES DE LA BASE DE DATOS**
 - SIEMPRE usa estos datos cuando respondas preguntas sobre Comuniapp
 - NUNCA inventes o hagas conjeturas sobre datos del sistema
 - Si hay datos disponibles aquí, ÚSALOS en tu respuesta
 - Si no hay datos disponibles, indica claramente que no hay información disponible
 - NUNCA digas "no hay información" si hay datos disponibles aquí arriba
-- Si el usuario pregunta sobre algo que está en los datos, usa esos datos específicos`
-    : `**No hay datos específicos de base de datos para esta consulta.**`
+- Si el usuario pregunta sobre algo que está en los datos, usa esos datos específicos
+
+**🔍 FORMATO DE RESPUESTA CON DATOS REALES:**
+- Comienza indicando que estás consultando datos actuales del sistema
+- Usa un indicador visual como "📊 Datos actualizados:" o "✅ Información en tiempo real:"
+- Presenta los datos de forma clara y estructurada
+- Al final, puedes agregar un pequeño mensaje como "💾 *Datos consultados directamente del sistema*" para indicar que son datos reales
+- Si los datos muestran que no hay información, di claramente: "No hay registros disponibles en el sistema actualmente"
+
+**Ejemplo de respuesta con datos reales:**
+"📊 **Consultando datos actuales del sistema...**
+
+✅ **Información en tiempo real:**
+
+[Presenta aquí los datos reales de la BD de forma clara]
+
+💾 *Datos consultados directamente del sistema Comuniapp*"`
+    : `**ℹ️ NO HAY DATOS ESPECÍFICOS DE BASE DE DATOS PARA ESTA CONSULTA**
+
+**⚠️ INSTRUCCIONES PARA RESPUESTAS INFORMATIVAS (SIN DATOS DE BD):**
+- **ESTÁS DANDO INFORMACIÓN GENERAL O EXPLICATIVA**
+- No tienes acceso a datos específicos de la base de datos para esta consulta
+- Proporciona información general sobre cómo funciona Comuniapp
+- Explica funcionalidades, procesos o características del sistema
+- Puedes dar ejemplos genéricos pero NUNCA inventes datos específicos
+- Si el usuario necesita datos reales, sugiere que use comandos específicos
+
+**🔍 FORMATO DE RESPUESTA INFORMATIVA:**
+- Comienza indicando que es información general
+- Usa un indicador como "ℹ️ Información general:" o "📖 Sobre esta funcionalidad:"
+- Explica conceptos, procesos o características generales
+- Al final, sugiere cómo obtener datos reales: "💡 *Para ver datos específicos, puedes consultar [comando] o ir a la sección [nombre] en el menú*"
+
+**Ejemplo de respuesta informativa:**
+"ℹ️ **Información general sobre [tema]:**
+
+[Explica conceptos, procesos o características generales]
+
+💡 *Para consultar tus datos específicos, puedes escribir "muéstrame mis [tema]" o ir a la sección correspondiente en el menú.*"`
 }
 
 ## INFORMACIÓN DEL SISTEMA (OPCIONAL)
@@ -3204,6 +3260,22 @@ ${this.getGreetingAndFarewellInstructions(userInfo, userRoles)}
 - SIEMPRE respeta los límites de acceso según el rol del usuario
 - Si el usuario pregunta sobre algo que no puede hacer, explícale cortésmente sus limitaciones
 - **CRÍTICO:** Cuando hay datos de BD disponibles arriba, ÚSALOS. Nunca inventes información del sistema.
+
+## 🎯 DIFERENCIACIÓN DE TIPOS DE RESPUESTA
+
+**RESPUESTAS CON DATOS REALES (cuando hay datos de BD arriba):**
+- Usa indicadores visuales: 📊, ✅, 💾
+- Estructura los datos de forma clara
+- Indica que son "datos actualizados" o "información en tiempo real"
+- Termina con "💾 *Datos consultados directamente del sistema*"
+
+**RESPUESTAS INFORMATIVAS (cuando NO hay datos de BD arriba):**
+- Usa indicadores visuales: ℹ️, 📖, 💡
+- Explica conceptos y procesos generales
+- NUNCA inventes datos específicos
+- Sugiere comandos para obtener datos reales
+
+**NUNCA mezcles ambos tipos:** Si tienes datos de BD, úsalos. Si no, explica de forma general.
 
 ## OBJETIVO PRINCIPAL
 Ser un asistente especializado ÚNICAMENTE en Comuniapp que proporciona respuestas claras, precisas y amigables sobre la plataforma y gestión comunitaria, respetando siempre los permisos y funcionalidades disponibles según el rol del usuario, y usando SIEMPRE datos reales de la base de datos cuando estén disponibles.`,
@@ -3916,10 +3988,11 @@ Ser un asistente especializado ÚNICAMENTE en Comuniapp que proporciona respuest
       });
 
       if (spaces.length === 0) {
-        return '📋 **Espacios Comunes:** No hay espacios comunes registrados.';
+        return '📊 **DATOS REALES DE BD - Espacios Comunes:**\n❌ No hay espacios comunes registrados en la base de datos.';
       }
 
-      let data = '📋 **ESPACIOS COMUNES DISPONIBLES EN LA BASE DE DATOS:**\n\n';
+      let data =
+        '📊 **DATOS REALES DE BD - ESPACIOS COMUNES:**\n✅ **Información consultada directamente del sistema**\n\n';
       spaces.forEach((space) => {
         data += `🏢 **${space.name}** (${space.community.name})\n`;
         data += `   Estado: ${space.isActive ? '✅ Disponible' : '❌ No disponible'}\n`;
@@ -3989,10 +4062,11 @@ Ser un asistente especializado ÚNICAMENTE en Comuniapp que proporciona respuest
       });
 
       if (announcements.length === 0) {
-        return '📢 **Avisos:** No hay avisos registrados.';
+        return '📊 **DATOS REALES DE BD - Avisos:**\n❌ No hay avisos registrados en la base de datos.';
       }
 
-      let data = '📢 **AVISOS COMUNITARIOS EN LA BASE DE DATOS:**\n\n';
+      let data =
+        '📊 **DATOS REALES DE BD - AVISOS COMUNITARIOS:**\n✅ **Información consultada directamente del sistema**\n\n';
       announcements.forEach((announcement) => {
         const date = announcement.publishedAt.toLocaleDateString('es-ES');
         data += `📌 **${announcement.title}** (${announcement.community.name})\n`;
@@ -4036,10 +4110,11 @@ Ser un asistente especializado ÚNICAMENTE en Comuniapp que proporciona respuest
         });
 
         if (expenses.length === 0) {
-          return '💰 **Gastos:** No tienes gastos registrados.';
+          return '📊 **DATOS REALES DE BD - Gastos:**\n✅ No tienes gastos pendientes registrados en la base de datos.';
         }
 
-        let data = '💰 **TUS GASTOS COMUNES EN LA BASE DE DATOS:**\n\n';
+        let data =
+          '📊 **DATOS REALES DE BD - TUS GASTOS COMUNES:**\n✅ **Información consultada directamente del sistema**\n\n';
         expenses.forEach((expense) => {
           data += `💵 ${expense.unit.community.name} - Unidad ${expense.unit.number}\n`;
           data += `   Categoría: ${expense.category.name}\n`;
@@ -4113,10 +4188,11 @@ Ser un asistente especializado ÚNICAMENTE en Comuniapp que proporciona respuest
       });
 
       if (visitors.length === 0) {
-        return '👥 **Visitantes:** No hay visitantes registrados.';
+        return '📊 **DATOS REALES DE BD - Visitantes:**\n❌ No hay visitantes registrados en la base de datos.';
       }
 
-      let data = '👥 **VISITANTES REGISTRADOS EN LA BASE DE DATOS:**\n\n';
+      let data =
+        '📊 **DATOS REALES DE BD - VISITANTES:**\n✅ **Información consultada directamente del sistema**\n\n';
       visitors.forEach((visitor) => {
         data += `👤 **${visitor.visitorName}**\n`;
         data += `   Unidad: ${visitor.unit.number} (${visitor.unit.community.name})\n`;
@@ -4171,10 +4247,11 @@ Ser un asistente especializado ÚNICAMENTE en Comuniapp que proporciona respuest
       });
 
       if (parcels.length === 0) {
-        return '📦 **Encomiendas:** No hay encomiendas registradas.';
+        return '📊 **DATOS REALES DE BD - Encomiendas:**\n❌ No hay encomiendas registradas en la base de datos.';
       }
 
-      let data = '📦 **ENCOMIENDAS EN LA BASE DE DATOS:**\n\n';
+      let data =
+        '📊 **DATOS REALES DE BD - ENCOMIENDAS:**\n✅ **Información consultada directamente del sistema**\n\n';
       parcels.forEach((parcel) => {
         data += `📦 **${parcel.description}**\n`;
         data += `   Unidad: ${parcel.unit.number} (${parcel.unit.community.name})\n`;
@@ -4222,10 +4299,11 @@ Ser un asistente especializado ÚNICAMENTE en Comuniapp que proporciona respuest
       });
 
       if (userUnits.length === 0) {
-        return '👥 **Residentes:** No hay residentes registrados.';
+        return '📊 **DATOS REALES DE BD - Residentes:**\n❌ No hay residentes registrados en la base de datos.';
       }
 
-      let data = '👥 **RESIDENTES REGISTRADOS EN LA BASE DE DATOS:**\n\n';
+      let data =
+        '📊 **DATOS REALES DE BD - RESIDENTES:**\n✅ **Información consultada directamente del sistema**\n\n';
       userUnits.forEach((uu) => {
         data += `👤 **${uu.user.name}**\n`;
         data += `   Unidad: ${uu.unit.number} (${uu.unit.community.name})\n`;
@@ -4282,7 +4360,8 @@ Ser un asistente especializado ÚNICAMENTE en Comuniapp que proporciona respuest
         return '📅 **Reservas:** No hay reservas registradas.';
       }
 
-      let data = '📅 **RESERVAS DE ESPACIOS COMUNES EN LA BASE DE DATOS:**\n\n';
+      let data =
+        '📊 **DATOS REALES DE BD - RESERVAS:**\n✅ **Información consultada directamente del sistema**\n\n';
       reservations.forEach((reservation) => {
         data += `📅 **${reservation.commonSpace.name}**\n`;
         data += `   Unidad: ${reservation.unit.number} (${reservation.unit.community.name})\n`;
@@ -4330,10 +4409,11 @@ Ser un asistente especializado ÚNICAMENTE en Comuniapp que proporciona respuest
       });
 
       if (incomes.length === 0) {
-        return '💵 **Ingresos:** No hay ingresos registrados.';
+        return '📊 **DATOS REALES DE BD - Ingresos:**\n❌ No hay ingresos registrados en la base de datos.';
       }
 
-      let data = '💵 **INGRESOS COMUNITARIOS EN LA BASE DE DATOS:**\n\n';
+      let data =
+        '📊 **DATOS REALES DE BD - INGRESOS COMUNITARIOS:**\n✅ **Información consultada directamente del sistema**\n\n';
       incomes.forEach((income) => {
         data += `💰 ${income.community.name} - Período: ${income.period}\n`;
         data += `   Monto total: $${income.totalAmount.toString()}\n`;
@@ -4413,7 +4493,8 @@ Ser un asistente especializado ÚNICAMENTE en Comuniapp que proporciona respuest
         return '🚨 **Incidencias:** No tienes incidencias reportadas.\n💡 **Puedes reportar una incidencia** usando este chatbot o el sistema.';
       }
 
-      let data = '🚨 **TUS INCIDENCIAS EN LA BASE DE DATOS:**\n\n';
+      let data =
+        '📊 **DATOS REALES DE BD - TUS INCIDENCIAS:**\n✅ **Información consultada directamente del sistema**\n\n';
       incidents.forEach((incident) => {
         data += `📌 **${incident.title}**\n`;
         data += `   Estado: ${incident.status}\n`;
@@ -4936,18 +5017,6 @@ Ser un asistente especializado ÚNICAMENTE en Comuniapp que proporciona respuest
 - Eres útil, informativo y conversacional
 - Puedes responder sobre CUALQUIER TEMA con conocimiento y claridad
 
-## FLEXIBILIDAD TOTAL
-Aunque estás integrado en Comuniapp (una plataforma de gestión comunitaria), puedes responder sobre CUALQUIER TEMA que el usuario pregunte:
-✅ Preguntas generales sobre cualquier tema
-✅ Explicaciones técnicas o científicas
-✅ Programación y tecnología
-✅ Consejos y recomendaciones
-✅ Conversación casual
-✅ Historia, cultura, arte
-✅ Salud, deportes, entretenimiento
-✅ Educación y aprendizaje
-✅ Y CUALQUIER otro tema imaginable
-
 ## INFORMACIÓN DEL SISTEMA (OPCIONAL)
 Si el usuario pregunta específicamente sobre Comuniapp:
 ${contextInfo}
@@ -4957,6 +5026,7 @@ Funcionalidades de Comuniapp:
 
 ## INSTRUCCIONES DE RESPUESTA
 - Responde CUALQUIER pregunta que te hagan, no solo sobre gestión comunitaria
+- Responde de forma natural cuando el usuario necesita información específica de alguna funcionalidad de Comuniapp
 - Sé conversacional, natural y útil
 - No te limites a un solo tema o dominio
 - Proporciona información precisa y completa

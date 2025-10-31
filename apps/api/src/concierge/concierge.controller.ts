@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
@@ -68,5 +68,37 @@ export class ConciergeController {
     @Request() req,
   ) {
     return this.conciergeService.updateParcelStatus(parcelId, body.status, req.user.id);
+  }
+
+  @Get('community/:communityId/common-spaces')
+  @RequirePermission(Permission.MANAGE_RESERVATIONS)
+  @ApiOperation({ summary: 'Obtener espacios comunes de una comunidad' })
+  @ApiResponse({ status: 200, description: 'Lista de espacios comunes' })
+  getCommonSpaces(@Param('communityId') communityId: string, @Request() req) {
+    return this.conciergeService.getCommonSpaces(communityId, req.user.id);
+  }
+
+  @Get('community/:communityId/units')
+  @RequirePermission(Permission.MANAGE_RESERVATIONS)
+  @ApiOperation({ summary: 'Obtener unidades de una comunidad' })
+  @ApiResponse({ status: 200, description: 'Lista de unidades con residentes' })
+  getUnits(@Param('communityId') communityId: string, @Request() req) {
+    return this.conciergeService.getUnits(communityId, req.user.id);
+  }
+
+  @Post('reservations')
+  @RequirePermission(Permission.MANAGE_RESERVATIONS)
+  @ApiOperation({ summary: 'Crear reserva de espacio común' })
+  @ApiResponse({ status: 201, description: 'Reserva creada exitosamente' })
+  createReservation(@Body() reservationData: any, @Request() req) {
+    return this.conciergeService.createReservation(reservationData, req.user.id);
+  }
+
+  @Get('community/:communityId/debug')
+  @RequirePermission(Permission.MANAGE_RESERVATIONS)
+  @ApiOperation({ summary: 'Información de depuración para una comunidad' })
+  @ApiResponse({ status: 200, description: 'Información de depuración' })
+  async getDebugInfo(@Param('communityId') communityId: string, @Request() req) {
+    return this.conciergeService.getDebugInfo(communityId, req.user.id);
   }
 }

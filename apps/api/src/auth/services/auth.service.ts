@@ -73,7 +73,42 @@ export class AuthService {
       throw new UnauthorizedException('Usuario no encontrado');
     }
 
-    // Crear payload con información de roles y permisos
+    // Preparar comunidades para el payload
+    const communitiesFromAdmins =
+      userWithRoles.communityAdmins?.map((ca) => ({
+        id: ca.community.id,
+        name: ca.community.name,
+        address: ca.community.address,
+        isActive: ca.community.isActive,
+        status: ca.community.isActive ? 'ACTIVE' : 'INACTIVE',
+      })) || [];
+
+    const isConcierge = userWithRoles.roles.some((ur) => ur.role.name === 'CONCIERGE');
+    let communitiesFromUnits: any[] = [];
+
+    if (isConcierge && communitiesFromAdmins.length === 0 && userWithRoles.userUnits?.length > 0) {
+      const communityMap = new Map();
+      userWithRoles.userUnits.forEach((uu) => {
+        const community = uu.unit.community;
+        if (!communityMap.has(community.id)) {
+          communityMap.set(community.id, {
+            id: community.id,
+            name: community.name,
+            address: community.address,
+            isActive: community.isActive,
+            status: community.isActive ? 'ACTIVE' : 'INACTIVE',
+          });
+        }
+      });
+      communitiesFromUnits = Array.from(communityMap.values());
+    }
+
+    const allCommunities = [...communitiesFromAdmins, ...communitiesFromUnits];
+    const uniqueCommunities = allCommunities.filter(
+      (community, index, self) => index === self.findIndex((c) => c.id === community.id),
+    );
+
+    // Crear payload con información de roles, permisos y comunidades
     const payload = {
       sub: user.id,
       email: user.email,
@@ -84,6 +119,7 @@ export class AuthService {
         name: ur.role.name,
         permissions: ur.role.permissions,
       })),
+      communities: uniqueCommunities,
     };
 
     const accessToken = this.jwtService.sign(payload);
@@ -108,13 +144,8 @@ export class AuthService {
       permissions: ur.role.permissions,
     }));
 
-    (userWithPermissions as any).communities =
-      userWithRoles.communityAdmins?.map((ca) => ({
-        id: ca.community.id,
-        name: ca.community.name,
-        address: ca.community.address,
-        isActive: ca.community.isActive,
-      })) || [];
+    // Usar las comunidades ya calculadas para el payload
+    (userWithPermissions as any).communities = uniqueCommunities;
 
     (userWithPermissions as any).userUnits =
       userWithRoles.userUnits?.map((uu) => ({

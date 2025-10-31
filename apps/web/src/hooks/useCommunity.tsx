@@ -78,13 +78,27 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       const isAdmin = user.roles?.some(
         (role: any) => role.name === 'SUPER_ADMIN' || role.name === 'COMMUNITY_ADMIN',
       );
+      const isConcierge = user.roles?.some((role: any) => role.name === 'CONCIERGE');
 
       const endpoint = isAdmin ? '/communities' : '/communities/my-community';
       console.log('🔍 [useCommunity] Usando endpoint:', endpoint, 'para usuario:', user.email);
+      console.log('🔍 [useCommunity] Es conserje:', isConcierge);
+      console.log('🔍 [useCommunity] Es admin:', isAdmin);
 
       const result = await CommunityService.getCommunities(endpoint);
 
-      const list = Array.isArray(result) ? result : result ? [result] : [];
+      // Para conserjes y residentes, el resultado puede ser un objeto único o null
+      // Para admins, es un array
+      let list: Community[] = [];
+      if (isAdmin) {
+        list = Array.isArray(result) ? result : [];
+      } else {
+        // Para conserjes y residentes, convertir el objeto único a array
+        list = result ? [result] : [];
+        console.log('🔍 [useCommunity] Resultado convertido a lista:', list);
+      }
+
+      console.log('🔍 [useCommunity] Comunidades obtenidas:', list.length);
       setCommunities(list);
 
       if (!currentCommunity && list.length > 0) {
