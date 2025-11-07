@@ -124,52 +124,40 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload);
 
-    // Crear objeto de usuario con roles y permisos
-    const userWithPermissions = new User(
-      user.id,
-      user.email,
-      user.name,
-      user.passwordHash,
-      user.status as UserStatus,
-      user.organizationId,
-      user.phone,
-      user.createdAt,
-      user.updatedAt,
-    );
-
-    // Agregar roles, comunidades y unidades al objeto de usuario
-    (userWithPermissions as any).roles = userWithRoles.roles.map((ur) => ({
-      id: ur.role.id,
-      name: ur.role.name,
-      permissions: ur.role.permissions,
-    }));
-
-    // Usar las comunidades ya calculadas para el payload
-    (userWithPermissions as any).communities = uniqueCommunities;
-
-    (userWithPermissions as any).userUnits =
-      userWithRoles.userUnits?.map((uu) => ({
-        id: uu.id,
-        unit: {
-          id: uu.unit.id,
-          number: uu.unit.number,
-          floor: uu.unit.floor,
-          community: {
-            id: uu.unit.community.id,
-            name: uu.unit.community.name,
-            address: uu.unit.community.address,
+    // Crear objeto de usuario plano para evitar problemas de serialización
+    const userResponse = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      status: user.status,
+      organizationId: user.organizationId,
+      phone: user.phone,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      roles: userWithRoles.roles.map((ur) => ({
+        id: ur.role.id,
+        name: ur.role.name,
+        permissions: ur.role.permissions || [],
+      })),
+      communities: uniqueCommunities,
+      userUnits:
+        userWithRoles.userUnits?.map((uu) => ({
+          id: uu.id,
+          unit: {
+            id: uu.unit.id,
+            number: uu.unit.number,
+            floor: uu.unit.floor,
+            community: {
+              id: uu.unit.community.id,
+              name: uu.unit.community.name,
+              address: uu.unit.community.address,
+            },
           },
-        },
-      })) || [];
-
-    console.log(
-      '🔍 [AuthService] login - userWithPermissions:',
-      JSON.stringify(userWithPermissions, null, 2),
-    );
-    console.log('🔍 [AuthService] login - userUnits:', (userWithPermissions as any).userUnits);
+        })) || [],
+    };
 
     return {
-      user: userWithPermissions,
+      user: userResponse,
       accessToken,
       organizationId: user.organizationId || undefined,
     };
