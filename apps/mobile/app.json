@@ -16,7 +16,8 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.anonymous.comuniappmobile"
     },
     "web": {},
     "scheme": "comuniapp",

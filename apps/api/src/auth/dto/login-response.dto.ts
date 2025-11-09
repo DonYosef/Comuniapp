@@ -25,6 +25,23 @@ export class UserRoleDto {
   permissions: string[];
 }
 
+export class UserUnitDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  unit: {
+    id: string;
+    number: string;
+    floor: string | null;
+    community: {
+      id: string;
+      name: string;
+      address: string;
+    };
+  };
+}
+
 export class UserDto {
   @ApiProperty()
   id: string;
@@ -36,13 +53,22 @@ export class UserDto {
   name: string;
 
   @ApiProperty()
+  status: string;
+
+  @ApiProperty()
   organizationId: string | null;
 
-  @ApiProperty({ type: [UserRoleDto], required: false })
-  roles?: UserRoleDto[];
+  @ApiProperty({ required: false })
+  phone: string | null;
 
-  @ApiProperty({ type: [CommunityDto], required: false })
-  communities?: CommunityDto[];
+  @ApiProperty({ type: [UserRoleDto] })
+  roles: UserRoleDto[];
+
+  @ApiProperty({ type: [CommunityDto] })
+  communities: CommunityDto[];
+
+  @ApiProperty({ type: [UserUnitDto] })
+  userUnits: UserUnitDto[];
 
   @ApiProperty()
   createdAt: Date;

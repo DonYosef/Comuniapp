@@ -10,7 +10,20 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Crear un valor por defecto para el contexto
+const defaultAuthContext: AuthContextType = {
+  user: null,
+  isAuthenticated: false,
+  isLoading: true,
+  login: async () => {
+    throw new Error('AuthProvider no está inicializado');
+  },
+  logout: async () => {
+    throw new Error('AuthProvider no está inicializado');
+  },
+};
+
+const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<LoginResponse['user'] | null>(null);
@@ -51,17 +64,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.replace('/login');
   };
 
-  return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout }}>
-      {children}
-    </AuthContext.Provider>
+  // El contexto siempre debe estar disponible, incluso durante la carga
+  // Usar useMemo para evitar recrear el objeto en cada render
+  const contextValue = React.useMemo(
+    () => ({
+      user,
+      isAuthenticated,
+      isLoading,
+      login,
+      logout,
+    }),
+    [user, isAuthenticated, isLoading],
   );
+
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth debe ser usado dentro de AuthProvider');
-  }
+  // El contexto siempre tiene un valor (por defecto o del provider)
   return context;
 }

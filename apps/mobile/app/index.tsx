@@ -5,13 +5,13 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../src/contexts/AuthContext';
 
 export default function HomeScreen() {
-  const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
     if (!isLoading) {
       if (isAuthenticated) {
-        router.replace('/(tabs)/dashboard');
+        router.replace('/(drawer)/dashboard');
       } else {
         router.replace('/login');
       }

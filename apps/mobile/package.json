@@ -7,8 +7,11 @@
     "dev": "expo start",
     "build": "expo export",
     "start": "expo start --clear",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "start:offline": "expo start --offline --clear",
+    "android": "expo run:android",
+    "android:studio": "powershell -ExecutionPolicy Bypass -File open-android-studio.ps1",
+    "android:run": "powershell -ExecutionPolicy Bypass -File run-android.ps1",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit"
@@ -26,6 +29,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
+    "react-native-gesture-handler": "~2.20.2",
     "react-native-safe-area-context": "5.6.2",
     "react-native-screens": "~4.16.0",
     "react-native-web": "~0.21.2"

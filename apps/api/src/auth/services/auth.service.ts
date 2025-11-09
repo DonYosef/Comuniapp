@@ -13,8 +13,38 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RegisterResponseDto } from '../dto/register-response.dto';
 import { RegisterDto } from '../dto/register.dto';
 
+export interface UserResponse {
+  id: string;
+  email: string;
+  name: string;
+  status: UserStatus;
+  organizationId: string | null;
+  phone: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  roles: Array<{
+    id: string;
+    name: string;
+    permissions: string[];
+  }>;
+  communities: any[];
+  userUnits: Array<{
+    id: string;
+    unit: {
+      id: string;
+      number: string;
+      floor: string | null;
+      community: {
+        id: string;
+        name: string;
+        address: string;
+      };
+    };
+  }>;
+}
+
 export interface LoginResponse {
-  user: User;
+  user: UserResponse;
   accessToken: string;
   organizationId?: string;
 }

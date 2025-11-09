@@ -62,6 +62,29 @@ export interface CommonSpace {
   updatedAt?: string;
 }
 
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  type: 'INFO' | 'WARNING' | 'URGENT' | 'EVENT';
+  isActive: boolean;
+  publishedAt: string;
+  expiresAt?: string | null;
+  communityId: string;
+  community?: {
+    id: string;
+    name: string;
+    address?: string;
+  };
+  createdBy?: {
+    id: string;
+    name: string;
+    email?: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface UserUnit {
   id: string;
   unit: {
@@ -191,5 +214,11 @@ export class ResidentsService {
   static async markVisitAsCompleted(id: string): Promise<Visitor> {
     const response = await api.patch<Visitor>(`/visitors/${id}/completed`);
     return response.data;
+  }
+
+  // Avisos
+  static async getMyAnnouncements(): Promise<Announcement[]> {
+    const response = await api.get<Announcement[]>('/residents/announcements');
+    return Array.isArray(response.data) ? response.data : [];
   }
 }

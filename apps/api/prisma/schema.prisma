@@ -111,27 +111,27 @@ model Unit {
 }
 
 model User {
-  id                 String           @id @default(cuid())
-  email              String           @unique
-  name               String
-  passwordHash       String           @map("password_hash")
-  status             UserStatus       @default(ACTIVE)
-  createdAt          DateTime         @default(now()) @map("created_at")
-  updatedAt          DateTime         @updatedAt @map("updated_at")
-  deletedAt          DateTime?        @map("deleted_at")
-  isActive           Boolean          @default(true) @map("is_active")
-  phone              String?
-  organizationId     String?          @map("organization_id")
-  communications     Communication[]
-  createdCommunities Community[]      @relation("CommunityCreator")
-  communityAdmins    CommunityAdmin[]
-  incidents          Incident[]
-  payments           Payment[]
-  roles              UserRole[]
-  userUnits          UserUnit[]
-  organization       Organization?    @relation(fields: [organizationId], references: [id])
-  hostedVisitors     Visitor[]        @relation("HostedVisitors")
-  createdAnnouncements Announcement[] @relation("AnnouncementCreator")
+  id                   String           @id @default(cuid())
+  email                String           @unique
+  name                 String
+  passwordHash         String           @map("password_hash")
+  status               UserStatus       @default(ACTIVE)
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+  deletedAt            DateTime?        @map("deleted_at")
+  isActive             Boolean          @default(true) @map("is_active")
+  phone                String?
+  organizationId       String?          @map("organization_id")
+  createdAnnouncements Announcement[]   @relation("AnnouncementCreator")
+  communications       Communication[]
+  createdCommunities   Community[]      @relation("CommunityCreator")
+  communityAdmins      CommunityAdmin[]
+  incidents            Incident[]
+  payments             Payment[]
+  roles                UserRole[]
+  userUnits            UserUnit[]
+  organization         Organization?    @relation(fields: [organizationId], references: [id])
+  hostedVisitors       Visitor[]        @relation("HostedVisitors")
 
   @@index([email])
   @@index([organizationId])
@@ -278,24 +278,24 @@ model CommunityExpenseItem {
 }
 
 model Parcel {
-  id          String       @id @default(cuid())
-  unitId      String       @map("unit_id")
-  description String
-  sender      String?
-  senderPhone String?
-  recipientName String?
+  id                 String       @id @default(cuid())
+  unitId             String       @map("unit_id")
+  description        String
+  sender             String?
+  receivedAt         DateTime     @default(now()) @map("received_at")
+  retrievedAt        DateTime?    @map("retrieved_at")
+  status             ParcelStatus @default(RECEIVED)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+  conciergeName      String?
+  conciergePhone     String?
+  notes              String?
+  recipientEmail     String?
+  recipientName      String?
+  recipientPhone     String?
   recipientResidence String?
-  recipientPhone String?
-  recipientEmail String?
-  conciergeName String?
-  conciergePhone String?
-  notes       String?
-  receivedAt  DateTime     @default(now()) @map("received_at")
-  retrievedAt DateTime?    @map("retrieved_at")
-  status      ParcelStatus @default(RECEIVED)
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
-  unit        Unit         @relation(fields: [unitId], references: [id])
+  senderPhone        String?
+  unit               Unit         @relation(fields: [unitId], references: [id])
 
   @@map("parcels")
 }
@@ -329,7 +329,6 @@ model Visitor {
 model Announcement {
   id          String           @id @default(cuid())
   communityId String           @map("community_id")
-  createdById String           @map("created_by_id")
   title       String
   content     String
   type        AnnouncementType @default(GENERAL)
@@ -337,6 +336,7 @@ model Announcement {
   publishedAt DateTime         @default(now()) @map("published_at")
   createdAt   DateTime         @default(now()) @map("created_at")
   updatedAt   DateTime         @updatedAt @map("updated_at")
+  createdById String           @map("created_by_id")
   community   Community        @relation(fields: [communityId], references: [id])
   createdBy   User             @relation("AnnouncementCreator", fields: [createdById], references: [id])
 
