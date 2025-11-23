@@ -45,7 +45,11 @@ export default function ProrrateModal({
   const [units, setUnits] = useState<Unit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasExistingExpense, setHasExistingExpense] = useState(false);
+  const [existingExpenseId, setExistingExpenseId] = useState<string | null>(null);
+  const [isAlreadyProrated, setIsAlreadyProrated] = useState(false);
 
   // Formulario
   const [dueDate, setDueDate] = useState('');
@@ -72,6 +76,9 @@ export default function ProrrateModal({
 
       // Calcular totales de egresos e ingresos
       calculateTotals();
+
+      // Verificar si ya existe un gasto común para este período
+      checkExistingExpense();
     }
   }, [isOpen, period, expenseType, expenses, incomes]);
 
@@ -103,6 +110,40 @@ export default function ProrrateModal({
     setExpensesTotal(totalExpenses);
     setIncomesTotal(totalIncomes);
     setNetTotal(netTotal);
+  };
+
+  // Verificar si ya existe un gasto común para este período y si está prorrateado
+  const checkExistingExpense = async () => {
+    try {
+      const existingExpenses = await CommonExpenseService.getCommonExpensesByCommunity(
+        communityId,
+        period,
+      );
+      if (existingExpenses && existingExpenses.length > 0) {
+        setHasExistingExpense(true);
+        setExistingExpenseId(existingExpenses[0].id);
+
+        // Obtener los detalles completos para verificar si está prorrateado
+        const fullExpense = await CommonExpenseService.getCommonExpenseById(existingExpenses[0].id);
+        const hasUnitExpenses = fullExpense.unitExpenses && fullExpense.unitExpenses.length > 0;
+        setIsAlreadyProrated(hasUnitExpenses);
+
+        console.log('📊 Estado del gasto común:', {
+          id: existingExpenses[0].id,
+          hasUnitExpenses,
+          unitExpensesCount: fullExpense.unitExpenses?.length || 0,
+        });
+      } else {
+        setHasExistingExpense(false);
+        setExistingExpenseId(null);
+        setIsAlreadyProrated(false);
+      }
+    } catch (error) {
+      console.error('Error al verificar gasto común existente:', error);
+      setHasExistingExpense(false);
+      setExistingExpenseId(null);
+      setIsAlreadyProrated(false);
+    }
   };
 
   // Cargar unidades al abrir el modal
@@ -223,34 +264,57 @@ export default function ProrrateModal({
 
     setIsCreating(true);
     try {
-      // Crear un item único con el total neto a prorratear
-      const items = [
-        {
-          name: `Gastos Comunes ${period}`,
-          amount: netTotal,
-          description: `Egresos: $${expensesTotal.toLocaleString('es-CL', { minimumFractionDigits: 2 })} - Ingresos: $${incomesTotal.toLocaleString('es-CL', { minimumFractionDigits: 2 })}${observation.trim() ? ` - ${observation.trim()}` : ''}`,
-        },
-      ];
+      // Si ya existe un gasto común Y NO está prorrateado, prorratearlo
+      if (hasExistingExpense && existingExpenseId && !isAlreadyProrated) {
+        console.log('📊 Prorrateando gasto común existente:', existingExpenseId);
+        await CommonExpenseService.prorrateCommonExpense(existingExpenseId);
+        showToast('Gastos comunes prorrateados exitosamente', 'success');
+        setIsAlreadyProrated(true);
+      } else if (!hasExistingExpense) {
+        // Si no existe, crear uno nuevo con prorrateo
+        console.log('🚀 Creando nuevo gasto común con prorrateo');
+        const items = [
+          {
+            name: `Gastos Comunes ${period}`,
+            amount: netTotal,
+            description: `Egresos: $${expensesTotal.toLocaleString('es-CL', { minimumFractionDigits: 2 })} - Ingresos: $${incomesTotal.toLocaleString('es-CL', { minimumFractionDigits: 2 })}${observation.trim() ? ` - ${observation.trim()}` : ''}`,
+          },
+        ];
 
-      const createDto: CreateCommonExpenseDto = {
-        communityId,
-        period: period,
-        dueDate: new Date(dueDate).toISOString(),
-        items,
-        prorrateMethod,
-      };
+        const createDto: CreateCommonExpenseDto = {
+          communityId,
+          period: period,
+          dueDate: new Date(dueDate).toISOString(),
+          items,
+          prorrateMethod,
+          shouldProrate: true, // Crear con prorrateo
+        };
 
-      await CommonExpenseService.createCommonExpense(createDto);
+        await CommonExpenseService.createCommonExpense(createDto);
+        showToast('Gastos comunes creados y prorrateados exitosamente', 'success');
+        setHasExistingExpense(true);
+        setIsAlreadyProrated(true);
+      } else if (isAlreadyProrated) {
+        // Ya está prorrateado, no hacer nada
+        showToast('Los gastos comunes ya están prorrateados para este período', 'warning');
+        onClose();
+        return;
+      }
 
-      showToast('Gastos comunes creados exitosamente', 'success');
       onSuccess?.();
       onClose();
     } catch (error: any) {
-      console.error('Error creating common expense:', error);
+      console.error('Error al prorratear/crear gastos comunes:', error);
 
-      let errorMessage = 'Error al crear los gastos comunes';
+      let errorMessage =
+        hasExistingExpense && !isAlreadyProrated
+          ? 'Error al prorratear los gastos comunes'
+          : 'Error al crear los gastos comunes';
+
       if (error.response?.status === 409) {
-        errorMessage = 'Ya existe un gasto común para este período';
+        errorMessage = 'Los gastos comunes ya están prorrateados';
+        // Actualizar el estado
+        await checkExistingExpense();
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       }
@@ -261,8 +325,53 @@ export default function ProrrateModal({
     }
   };
 
+  const handleDelete = async () => {
+    if (!existingExpenseId) {
+      showToast('No hay gasto común para eliminar', 'error');
+      return;
+    }
+
+    if (!isAlreadyProrated) {
+      showToast('No hay gastos prorrateados para eliminar', 'warning');
+      return;
+    }
+
+    // Confirmar eliminación
+    if (
+      !window.confirm(
+        '¿Estás seguro de que deseas eliminar los gastos prorrateados? Los egresos e ingresos se mantendrán, pero se eliminarán los cobros generados a las unidades. Esta acción no se puede deshacer.',
+      )
+    ) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      // Eliminar solo los gastos prorrateados, NO el CommonExpense con los items
+      await CommonExpenseService.deleteProrratedExpenses(existingExpenseId);
+
+      showToast(
+        'Gastos prorrateados eliminados exitosamente. Los egresos/ingresos se mantienen.',
+        'success',
+      );
+      setIsAlreadyProrated(false); // Ya no está prorrateado
+      onSuccess?.();
+    } catch (error: any) {
+      console.error('Error deleting prorated expenses:', error);
+
+      let errorMessage = 'Error al eliminar los gastos prorrateados';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+
+      showToast(errorMessage, 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleClose = () => {
-    if (!isCreating) {
+    if (!isCreating && !isDeleting) {
       setObservation('');
       setError(null);
       onClose();
@@ -557,28 +666,74 @@ export default function ProrrateModal({
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
-          <div className="flex justify-end space-x-3">
-            <button
-              onClick={handleClose}
-              disabled={isCreating}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-50 dark:hover:bg-gray-500 disabled:opacity-50 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleCreate}
-              disabled={isCreating || units.length === 0 || netTotal <= 0}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
-            >
-              {isCreating ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Creando...
-                </>
-              ) : (
-                'Crear Gastos Comunes'
-              )}
-            </button>
+          <div className="flex justify-between items-center">
+            {/* Botón de eliminar a la izquierda - Solo si está prorrateado */}
+            {hasExistingExpense && isAlreadyProrated && (
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting || isCreating}
+                className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1.5"></div>
+                    Eliminando...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-3 h-3 mr-1.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                    Eliminar gg.cc
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Botones de acción a la derecha */}
+            <div className="flex space-x-3 ml-auto">
+              <button
+                onClick={handleClose}
+                disabled={isCreating || isDeleting}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-50 dark:hover:bg-gray-500 disabled:opacity-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={
+                  isCreating ||
+                  isDeleting ||
+                  units.length === 0 ||
+                  netTotal <= 0 ||
+                  isAlreadyProrated
+                }
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+              >
+                {isCreating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    {hasExistingExpense && !isAlreadyProrated ? 'Prorrateando...' : 'Creando...'}
+                  </>
+                ) : isAlreadyProrated ? (
+                  'Gastos comunes ya prorrateados'
+                ) : hasExistingExpense ? (
+                  'Prorratear Gastos Comunes'
+                ) : (
+                  'Crear y Prorratear Gastos Comunes'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

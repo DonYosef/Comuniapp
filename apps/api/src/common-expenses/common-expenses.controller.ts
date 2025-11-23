@@ -41,6 +41,29 @@ export class CommonExpensesController {
     return this.commonExpensesService.getCommonExpenses(user, communityId, period);
   }
 
+  // Rutas específicas deben ir ANTES que las rutas generales
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/prorate')
+  @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES)
+  async prorrateExpense(
+    @CurrentUser() user: UserPayload,
+    @Param('id') id: string,
+  ): Promise<CommonExpenseResponseDto> {
+    console.log('📊 [Controller] Prorrateando gasto común:', { id, userId: user.id });
+    return this.commonExpensesService.prorrateCommonExpense(user, id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id/prorated')
+  @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES)
+  async deleteProrated(
+    @CurrentUser() user: UserPayload,
+    @Param('id') id: string,
+  ): Promise<{ message: string }> {
+    console.log('🗑️ [Controller] Eliminando gastos prorrateados:', { id, userId: user.id });
+    return this.commonExpensesService.deleteProrratedExpenses(user, id);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Delete(':id/items/:itemId')
   @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES)
@@ -51,6 +74,17 @@ export class CommonExpensesController {
   ): Promise<{ message: string }> {
     console.log('🗑️ [Controller] Eliminando item:', { id, itemId, userId: user.id });
     return this.commonExpensesService.deleteExpenseItem(user, id, itemId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  @RequirePermission(Permission.MANAGE_COMMUNITY_EXPENSES)
+  async delete(
+    @CurrentUser() user: UserPayload,
+    @Param('id') id: string,
+  ): Promise<{ message: string }> {
+    console.log('🗑️ [Controller] Eliminando gasto común completo:', { id, userId: user.id });
+    return this.commonExpensesService.deleteCommonExpense(user, id);
   }
 
   @UseGuards(JwtAuthGuard)

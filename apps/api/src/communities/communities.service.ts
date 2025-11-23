@@ -811,4 +811,655 @@ export class CommunitiesService {
       totalUsers: users.length,
     };
   }
+
+  async getDashboardStats(userId: string) {
+    // Obtener usuario con sus roles y unidades
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        roles: {
+          include: { role: true },
+        },
+        userUnits: {
+          where: { status: 'CONFIRMED' },
+          include: {
+            unit: {
+              include: {
+                community: true,
+              },
+            },
+          },
+        },
+        communityAdmins: {
+          include: {
+            community: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const roles = user.roles.map((r) => r.role.name);
+    const isSuperAdmin = roles.includes('SUPER_ADMIN');
+    const isCommunityAdmin = roles.includes('COMMUNITY_ADMIN');
+    const isConcierge = roles.includes('CONCIERGE');
+    const isResident =
+      roles.includes('RESIDENT') || roles.includes('OWNER') || roles.includes('TENANT');
+
+    // Para Super Admin: estadísticas globales
+    if (isSuperAdmin) {
+      const [
+        totalUsers,
+        totalCommunities,
+        totalReservations,
+        pendingReservations,
+        totalVisitors,
+        pendingVisitors,
+        totalParcels,
+        pendingParcels,
+        totalAnnouncements,
+      ] = await Promise.all([
+        this.prisma.user.count({ where: { isActive: true } }),
+        this.prisma.community.count({ where: { isActive: true } }),
+        this.prisma.spaceReservation.count(),
+        this.prisma.spaceReservation.count({ where: { status: 'PENDING' } }),
+        this.prisma.visitor.count(),
+        this.prisma.visitor.count({ where: { status: 'REGISTERED' } }),
+        this.prisma.parcel.count(),
+        this.prisma.parcel.count({ where: { status: 'RECEIVED' } }),
+        this.prisma.announcement.count({ where: { isActive: true } }),
+      ]);
+
+      // Obtener actividad reciente (últimos 7 días)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const [recentUsers, recentVisitors, recentParcels] = await Promise.all([
+        this.prisma.user.count({
+          where: {
+            createdAt: { gte: sevenDaysAgo },
+          },
+        }),
+        this.prisma.visitor.count({
+          where: {
+            createdAt: { gte: sevenDaysAgo },
+          },
+        }),
+        this.prisma.parcel.count({
+          where: {
+            receivedAt: { gte: sevenDaysAgo },
+          },
+        }),
+      ]);
+
+      // Obtener avisos recientes (últimos 5)
+      const recentAnnouncements = await this.prisma.announcement.findMany({
+        where: {
+          isActive: true,
+        },
+        include: {
+          community: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          publishedAt: 'desc',
+        },
+        take: 5,
+      });
+
+      // Calcular totales de gastos e ingresos (todas las comunidades)
+      const [totalExpensesResult, totalIncomesResult] = await Promise.all([
+        this.prisma.expense.aggregate({
+          _sum: {
+            amount: true,
+          },
+          where: {
+            status: 'PAID',
+          },
+        }),
+        this.prisma.communityIncome.aggregate({
+          _sum: {
+            totalAmount: true,
+          },
+        }),
+      ]);
+
+      const totalExpenses = totalExpensesResult._sum.amount?.toNumber() || 0;
+      const totalIncomes = totalIncomesResult._sum.totalAmount?.toNumber() || 0;
+
+      return {
+        role: 'SUPER_ADMIN',
+        stats: {
+          totalUsers,
+          totalCommunities,
+          totalReservations,
+          pendingReservations,
+          totalVisitors,
+          pendingVisitors,
+          totalParcels,
+          pendingParcels,
+          totalAnnouncements,
+        },
+        recentActivity: {
+          newUsers: recentUsers,
+          newVisitors: recentVisitors,
+          newParcels: recentParcels,
+        },
+        financialSummary: {
+          totalExpenses,
+          totalIncomes,
+          balance: totalIncomes - totalExpenses,
+        },
+        recentAnnouncements: recentAnnouncements.map((a) => ({
+          id: a.id,
+          title: a.title,
+          content: a.content.substring(0, 150) + (a.content.length > 150 ? '...' : ''),
+          type: a.type,
+          publishedAt: a.publishedAt,
+          community: {
+            id: a.community.id,
+            name: a.community.name,
+          },
+        })),
+      };
+    }
+
+    // Para Community Admin: estadísticas de sus comunidades
+    if (isCommunityAdmin) {
+      const communityIds = user.communityAdmins.map((ca) => ca.community.id);
+
+      const [
+        totalUnits,
+        totalReservations,
+        pendingReservations,
+        totalVisitors,
+        pendingVisitors,
+        totalParcels,
+        pendingParcels,
+        totalAnnouncements,
+        totalResidents,
+      ] = await Promise.all([
+        this.prisma.unit.count({
+          where: {
+            communityId: { in: communityIds },
+            isActive: true,
+          },
+        }),
+        this.prisma.spaceReservation.count({
+          where: {
+            unit: {
+              communityId: { in: communityIds },
+            },
+          },
+        }),
+        this.prisma.spaceReservation.count({
+          where: {
+            unit: {
+              communityId: { in: communityIds },
+            },
+            status: 'PENDING',
+          },
+        }),
+        this.prisma.visitor.count({
+          where: {
+            unit: {
+              communityId: { in: communityIds },
+            },
+          },
+        }),
+        this.prisma.visitor.count({
+          where: {
+            unit: {
+              communityId: { in: communityIds },
+            },
+            status: 'REGISTERED',
+          },
+        }),
+        this.prisma.parcel.count({
+          where: {
+            unit: {
+              communityId: { in: communityIds },
+            },
+          },
+        }),
+        this.prisma.parcel.count({
+          where: {
+            unit: {
+              communityId: { in: communityIds },
+            },
+            status: 'RECEIVED',
+          },
+        }),
+        this.prisma.announcement.count({
+          where: {
+            communityId: { in: communityIds },
+            isActive: true,
+          },
+        }),
+        this.prisma.userUnit.count({
+          where: {
+            unit: {
+              communityId: { in: communityIds },
+            },
+            status: 'CONFIRMED',
+          },
+        }),
+      ]);
+
+      // Obtener avisos recientes de las comunidades del admin (últimos 5)
+      const recentAnnouncements = await this.prisma.announcement.findMany({
+        where: {
+          communityId: { in: communityIds },
+          isActive: true,
+        },
+        include: {
+          community: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          publishedAt: 'desc',
+        },
+        take: 5,
+      });
+
+      // Calcular totales de gastos e ingresos de las comunidades administradas
+      const [totalExpensesResult, totalIncomesResult] = await Promise.all([
+        this.prisma.expense.aggregate({
+          _sum: {
+            amount: true,
+          },
+          where: {
+            unit: {
+              communityId: { in: communityIds },
+            },
+            status: 'PAID',
+          },
+        }),
+        this.prisma.communityIncome.aggregate({
+          _sum: {
+            totalAmount: true,
+          },
+          where: {
+            communityId: { in: communityIds },
+          },
+        }),
+      ]);
+
+      const totalExpenses = totalExpensesResult._sum.amount?.toNumber() || 0;
+      const totalIncomes = totalIncomesResult._sum.totalAmount?.toNumber() || 0;
+
+      return {
+        role: 'COMMUNITY_ADMIN',
+        communities: user.communityAdmins.map((ca) => ca.community),
+        stats: {
+          totalUnits,
+          totalReservations,
+          pendingReservations,
+          totalVisitors,
+          pendingVisitors,
+          totalParcels,
+          pendingParcels,
+          totalAnnouncements,
+          totalResidents,
+        },
+        financialSummary: {
+          totalExpenses,
+          totalIncomes,
+          balance: totalIncomes - totalExpenses,
+        },
+        recentAnnouncements: recentAnnouncements.map((a) => ({
+          id: a.id,
+          title: a.title,
+          content: a.content.substring(0, 150) + (a.content.length > 150 ? '...' : ''),
+          type: a.type,
+          publishedAt: a.publishedAt,
+          community: {
+            id: a.community.id,
+            name: a.community.name,
+          },
+        })),
+      };
+    }
+
+    // Para Conserje: estadísticas de su comunidad
+    if (isConcierge) {
+      // Obtener la comunidad del conserje (primera unidad confirmada)
+      const firstUnit = user.userUnits[0];
+      if (!firstUnit) {
+        return {
+          role: 'CONCIERGE',
+          stats: {
+            totalReservations: 0,
+            pendingReservations: 0,
+            totalVisitors: 0,
+            pendingVisitors: 0,
+            totalParcels: 0,
+            pendingParcels: 0,
+          },
+        };
+      }
+
+      const communityId = firstUnit.unit.community.id;
+
+      const [
+        totalReservations,
+        pendingReservations,
+        totalVisitors,
+        pendingVisitors,
+        totalParcels,
+        pendingParcels,
+      ] = await Promise.all([
+        this.prisma.spaceReservation.count({
+          where: {
+            unit: {
+              communityId,
+            },
+          },
+        }),
+        this.prisma.spaceReservation.count({
+          where: {
+            unit: {
+              communityId,
+            },
+            status: 'PENDING',
+          },
+        }),
+        this.prisma.visitor.count({
+          where: {
+            unit: {
+              communityId,
+            },
+          },
+        }),
+        this.prisma.visitor.count({
+          where: {
+            unit: {
+              communityId,
+            },
+            status: 'REGISTERED',
+          },
+        }),
+        this.prisma.parcel.count({
+          where: {
+            unit: {
+              communityId,
+            },
+          },
+        }),
+        this.prisma.parcel.count({
+          where: {
+            unit: {
+              communityId,
+            },
+            status: 'RECEIVED',
+          },
+        }),
+      ]);
+
+      // Obtener avisos recientes de la comunidad del conserje (últimos 5)
+      const recentAnnouncements = await this.prisma.announcement.findMany({
+        where: {
+          communityId,
+          isActive: true,
+        },
+        include: {
+          community: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          publishedAt: 'desc',
+        },
+        take: 5,
+      });
+
+      return {
+        role: 'CONCIERGE',
+        community: firstUnit.unit.community,
+        stats: {
+          totalReservations,
+          pendingReservations,
+          totalVisitors,
+          pendingVisitors,
+          totalParcels,
+          pendingParcels,
+        },
+        recentAnnouncements: recentAnnouncements.map((a) => ({
+          id: a.id,
+          title: a.title,
+          content: a.content.substring(0, 150) + (a.content.length > 150 ? '...' : ''),
+          type: a.type,
+          publishedAt: a.publishedAt,
+          community: {
+            id: a.community.id,
+            name: a.community.name,
+          },
+        })),
+      };
+    }
+
+    // Para Residentes: estadísticas personales
+    if (isResident) {
+      const unitIds = user.userUnits.map((uu) => uu.unit.id);
+
+      const [
+        totalExpenses,
+        pendingExpenses,
+        totalReservations,
+        pendingReservations,
+        totalVisitors,
+        pendingVisitors,
+        totalParcels,
+        pendingParcels,
+        lastPayment,
+      ] = await Promise.all([
+        this.prisma.expense.count({
+          where: {
+            unitId: { in: unitIds },
+          },
+        }),
+        this.prisma.expense.count({
+          where: {
+            unitId: { in: unitIds },
+            status: { in: ['PENDING', 'OVERDUE'] },
+          },
+        }),
+        this.prisma.spaceReservation.count({
+          where: {
+            unitId: { in: unitIds },
+          },
+        }),
+        this.prisma.spaceReservation.count({
+          where: {
+            unitId: { in: unitIds },
+            status: 'PENDING',
+          },
+        }),
+        this.prisma.visitor.count({
+          where: {
+            unitId: { in: unitIds },
+          },
+        }),
+        this.prisma.visitor.count({
+          where: {
+            unitId: { in: unitIds },
+            status: 'REGISTERED',
+          },
+        }),
+        this.prisma.parcel.count({
+          where: {
+            unitId: { in: unitIds },
+          },
+        }),
+        this.prisma.parcel.count({
+          where: {
+            unitId: { in: unitIds },
+            status: 'RECEIVED',
+          },
+        }),
+        this.prisma.payment.findFirst({
+          where: {
+            userId: userId,
+            expense: {
+              unitId: { in: unitIds },
+            },
+          },
+          include: {
+            expense: {
+              select: {
+                id: true,
+                concept: true,
+                amount: true,
+                status: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        }),
+      ]);
+
+      // Obtener avisos recientes de las comunidades del residente (últimos 5)
+      const communityIds = [...new Set(user.userUnits.map((uu) => uu.unit.community.id))];
+      const recentAnnouncements = await this.prisma.announcement.findMany({
+        where: {
+          communityId: { in: communityIds },
+          isActive: true,
+        },
+        include: {
+          community: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          publishedAt: 'desc',
+        },
+        take: 5,
+      });
+
+      // Obtener pagos de los últimos 12 meses agrupados por mes
+      const twelveMonthsAgo = new Date();
+      twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+      const payments = await this.prisma.payment.findMany({
+        where: {
+          userId: userId,
+          expense: {
+            unitId: { in: unitIds },
+          },
+          status: 'PAID',
+          paymentDate: {
+            gte: twelveMonthsAgo,
+          },
+        },
+        select: {
+          amount: true,
+          paymentDate: true,
+        },
+        orderBy: {
+          paymentDate: 'asc',
+        },
+      });
+
+      // Agrupar pagos por mes
+      const monthlyPayments = payments.reduce(
+        (acc, payment) => {
+          if (payment.paymentDate) {
+            const date = new Date(payment.paymentDate);
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            if (!acc[monthKey]) {
+              acc[monthKey] = 0;
+            }
+            acc[monthKey] += payment.amount.toNumber();
+          }
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
+
+      // Crear array con los últimos 12 meses
+      const monthlyPaymentsArray = [];
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        monthlyPaymentsArray.push({
+          month: monthKey,
+          amount: monthlyPayments[monthKey] || 0,
+        });
+      }
+
+      return {
+        role: 'RESIDENT',
+        units: user.userUnits.map((uu) => ({
+          id: uu.unit.id,
+          number: uu.unit.number,
+          floor: uu.unit.floor,
+          community: uu.unit.community,
+        })),
+        stats: {
+          totalExpenses,
+          pendingExpenses,
+          totalReservations,
+          pendingReservations,
+          totalVisitors,
+          pendingVisitors,
+          totalParcels,
+          pendingParcels,
+        },
+        lastPayment: lastPayment
+          ? {
+              id: lastPayment.id,
+              amount: lastPayment.amount.toNumber(),
+              status: lastPayment.status,
+              paymentDate: lastPayment.paymentDate,
+              createdAt: lastPayment.createdAt,
+              method: lastPayment.method,
+              expense: {
+                id: lastPayment.expense.id,
+                concept: lastPayment.expense.concept,
+                amount: lastPayment.expense.amount.toNumber(),
+                status: lastPayment.expense.status,
+              },
+            }
+          : null,
+        recentAnnouncements: recentAnnouncements.map((a) => ({
+          id: a.id,
+          title: a.title,
+          content: a.content.substring(0, 150) + (a.content.length > 150 ? '...' : ''),
+          type: a.type,
+          publishedAt: a.publishedAt,
+          community: {
+            id: a.community.id,
+            name: a.community.name,
+          },
+        })),
+        monthlyPayments: monthlyPaymentsArray,
+      };
+    }
+
+    // Si no tiene ningún rol reconocido
+    return {
+      role: 'UNKNOWN',
+      stats: {},
+    };
+  }
 }

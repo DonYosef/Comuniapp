@@ -574,10 +574,8 @@ export default function CommonExpensesDashboard({
             onConfigIncome={onConfigIncome}
           />
 
-          {/* Estado de Pagos del Período Actual */}
-          {expenses.length > 0 && (
-            <ExpensePaymentsList communityId={communityId} period={selectedPeriod} />
-          )}
+          {/* Estado de Pagos del Período Actual - Solo mostrar cuando hay un gasto común generado */}
+          <ExpensePaymentsList communityId={communityId} period={selectedPeriod} />
         </>
       )}
 
@@ -707,7 +705,8 @@ function ExpensePaymentsList({ communityId, period }: { communityId: string; per
     );
   }
 
-  if (!expense || !expense.unitExpenses) {
+  // Solo mostrar si existe el gasto común Y tiene gastos de unidades prorrateados
+  if (!expense || !expense.unitExpenses || expense.unitExpenses.length === 0) {
     return null;
   }
 

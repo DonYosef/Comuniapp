@@ -333,27 +333,30 @@ export default function ExpenseConfigModal({
       };
 
       if (type === 'expenses') {
-        // Manejo de gastos (egresos)
+        // Manejo de gastos (egresos) - NO prorratear automáticamente
         const existingExpenses = await CommonExpensesService.getCommonExpenses(communityId);
         const currentPeriodExpense = existingExpenses.find(
           (expense) => expense.period === currentPeriod,
         );
 
         if (currentPeriodExpense) {
+          // Si ya existe un gasto común para este período, agregar el item
           const updatedItems = [...(currentPeriodExpense.items || []), newItem];
           console.log('🔄 Actualizando gasto común existente:', currentPeriodExpense.id);
           await CommonExpensesService.updateCommonExpense(currentPeriodExpense.id, {
             items: updatedItems,
           });
         } else {
+          // Si no existe, crear uno SIN prorratear (shouldProrate: false)
           const newCommonExpense = {
             communityId: communityId,
             period: currentPeriod,
             dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             items: [newItem],
             prorrateMethod: 'EQUAL' as const,
+            shouldProrate: false, // NO prorratear automáticamente
           };
-          console.log('🚀 Creando nuevo gasto común:', newCommonExpense);
+          console.log('🚀 Creando nuevo gasto común SIN prorratear:', newCommonExpense);
           await CommonExpensesService.createCommonExpense(newCommonExpense);
         }
       } else {

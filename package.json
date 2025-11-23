@@ -28,5 +28,17 @@
     "eslint-plugin-import": "^2.0.0",
     "cross-env": "^7.0.0",
     "zx": "^7.0.0"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "react",
+        "react-dom"
+      ],
+      "allowedVersions": {
+        "react": "*",
+        "react-dom": "*"
+      }
+    }
   }
 }

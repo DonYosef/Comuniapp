@@ -99,14 +99,17 @@ export class PaymentsController {
       const subject = `Pago gasto común: ${expense.concept}`;
       const amount = Math.round(expense.amount.toNumber()); // Redondeo a entero para Flow CLP
 
+      // IMPORTANTE: payerEmail es el email del cliente/pagador (opcional, solo para referencia)
+      // El email de la cuenta de Flow se toma de FLOW_USER_EMAIL en las variables de entorno
       const flowOrder = await this.flowService.createOrder({
         commerceOrder,
         subject,
         amount,
-        email: user.email,
+        payerEmail: user.email, // Email del cliente, se enviará en optionalData si es necesario
         optionalData: {
           expenseId: expenseId,
           userId: userId,
+          payerEmail: user.email, // Incluir email del cliente en optionalData para referencia
         },
       });
 

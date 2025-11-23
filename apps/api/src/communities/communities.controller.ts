@@ -73,6 +73,16 @@ export class CommunitiesController {
     return this.communitiesService.getUsersByCommunityName(decodedName);
   }
 
+  @Get('dashboard/stats')
+  @RequirePermission(
+    Permission.VIEW_SYSTEM_METRICS,
+    Permission.MANAGE_COMMUNITY,
+    Permission.VIEW_OWN_UNIT,
+  )
+  getDashboardStats(@Request() req) {
+    return this.communitiesService.getDashboardStats(req.user.id);
+  }
+
   @Get(':id')
   @RequirePermission(Permission.MANAGE_COMMUNITY)
   findOne(@Param('id') id: string, @Request() req) {

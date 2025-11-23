@@ -8,7 +8,7 @@ export interface FlowCreateOrderParams {
   commerceOrder: string;
   subject: string;
   amount: number;
-  email: string;
+  payerEmail?: string; // Email del cliente/pagador (opcional, para referencia)
   optionalData?: Record<string, any>;
 }
 
@@ -52,8 +52,11 @@ export class FlowService {
   private readonly flowApiUrl: string;
   private readonly flowApiKey: string;
   private readonly flowSecretKey: string;
+  private readonly flowUserEmail: string;
   private readonly urlConfirmation: string;
   private readonly urlReturn: string;
+
+  private readonly timeout: number;
 
   constructor(
     private readonly httpService: HttpService,
@@ -62,13 +65,17 @@ export class FlowService {
     this.flowApiUrl = this.configService.get<string>('FLOW_API_URL') || '';
     this.flowApiKey = this.configService.get<string>('FLOW_API_KEY') || '';
     this.flowSecretKey = this.configService.get<string>('FLOW_SECRET_KEY') || '';
+    this.flowUserEmail = this.configService.get<string>('FLOW_USER_EMAIL') || '';
     this.urlConfirmation = this.configService.get<string>('FLOW_URL_CONFIRMATION') || '';
     this.urlReturn = this.configService.get<string>('FLOW_URL_RETURN') || '';
+    // Timeout configurable, por defecto 30 segundos (más razonable para APIs externas)
+    this.timeout = this.configService.get<number>('FLOW_API_TIMEOUT', 30000);
 
     if (
       !this.flowApiUrl ||
       !this.flowApiKey ||
       !this.flowSecretKey ||
+      !this.flowUserEmail ||
       !this.urlConfirmation ||
       !this.urlReturn
     ) {
@@ -101,17 +108,27 @@ export class FlowService {
       // Flow requiere montos CLP como enteros (sin decimales)
       const amount = Math.round(params.amount);
 
+      // IMPORTANTE: El campo 'email' en Flow debe ser el email de la cuenta/comercio de Flow,
+      // NO el email del cliente/pagador. El email del cliente se puede enviar en optionalData si es necesario.
       const flowParams: Record<string, any> = {
         apiKey: this.flowApiKey,
         commerceOrder: params.commerceOrder,
         subject: params.subject,
         amount: amount,
-        email: params.email,
+        email: this.flowUserEmail, // Email de la cuenta de Flow (comercio), no del cliente
         urlConfirmation: this.urlConfirmation,
         urlReturn: this.urlReturn,
         currency: 'CLP',
         paymentMethod: 9, // Todos los medios de pago
       };
+
+      // Si se proporciona el email del pagador, agregarlo en optionalData para referencia
+      if (params.payerEmail) {
+        if (!params.optionalData) {
+          params.optionalData = {};
+        }
+        params.optionalData.payerEmail = params.payerEmail;
+      }
 
       // Agregar datos opcionales si existen
       if (params.optionalData) {
@@ -137,12 +154,13 @@ export class FlowService {
       this.logger.log(`📤 Sending to Flow: ${JSON.stringify(Object.fromEntries(body))}`);
 
       // Enviar POST a Flow con body form-urlencoded
+      this.logger.log(`⏱️ Using timeout: ${this.timeout}ms`);
       const response = await firstValueFrom(
         this.httpService.post(`${this.flowApiUrl}/payment/create`, body.toString(), {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
-          timeout: 10000,
+          timeout: this.timeout,
         }),
       );
 
@@ -190,7 +208,7 @@ export class FlowService {
       const response = await firstValueFrom(
         this.httpService.get(`${this.flowApiUrl}/payment/getStatus`, {
           params: flowParams,
-          timeout: 10000,
+          timeout: this.timeout,
         }),
       );
 

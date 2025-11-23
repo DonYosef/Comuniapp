@@ -39,9 +39,23 @@ export class CommonExpenseService {
     return response.data;
   }
 
-  // Eliminar un gasto común (prorrateo)
-  static async deleteCommonExpense(id: string): Promise<{ message: string }> {
-    const response = await apiClient.delete<{ message: string }>(`/common-expenses/${id}`);
+  // Eliminar un gasto común completo (items y gastos prorrateados)
+  static async deleteCommonExpense(id: string): Promise<void> {
+    const response = await apiClient.delete(`/common-expenses/${id}`);
+    // No necesitamos retornar nada, solo esperamos la confirmación
+  }
+
+  // Eliminar solo los gastos prorrateados (unitExpenses), mantiene los items del CommonExpense
+  static async deleteProrratedExpenses(id: string): Promise<void> {
+    const response = await apiClient.delete(`/common-expenses/${id}/prorated`);
+    // No necesitamos retornar nada, solo esperamos la confirmación
+  }
+
+  // Prorratear un gasto común existente
+  static async prorrateCommonExpense(id: string): Promise<CommonExpenseResponseDto> {
+    const response = await apiClient.post<CommonExpenseResponseDto>(
+      `/common-expenses/${id}/prorate`,
+    );
     return response.data;
   }
 

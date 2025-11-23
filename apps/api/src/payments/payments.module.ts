@@ -8,7 +8,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 @Module({
   imports: [
     HttpModule.register({
-      timeout: 10000,
+      timeout: 30000, // Aumentado a 30 segundos por defecto
       maxRedirects: 5,
     }),
     ConfigModule,

@@ -24,6 +24,7 @@ export interface CreateCommonExpenseDto {
   dueDate: string; // ISO date string
   items: CreateCommonExpenseItemDto[];
   prorrateMethod: ProrrateMethod;
+  shouldProrate?: boolean; // Si es true o undefined, se prorratean los gastos. Si es false, solo se crean los items sin prorratear
 }
 
 // DTOs de respuesta

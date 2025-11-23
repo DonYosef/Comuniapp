@@ -1,6 +1,7 @@
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsNotEmpty,
@@ -60,4 +61,8 @@ export class CreateCommonExpenseDto {
   @IsEnum(ProrrateMethod)
   @IsNotEmpty()
   prorrateMethod: ProrrateMethod;
+
+  @IsOptional()
+  @IsBoolean()
+  shouldProrate?: boolean;
 }

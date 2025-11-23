@@ -62,25 +62,52 @@ function FlowReturnContent() {
     // Solo ejecutar en el cliente
     if (typeof window === 'undefined') return;
 
-    if (!searchParams) {
-      setError('No se recibió el token de pago');
-      setIsLoading(false);
-      return;
+    // Intentar obtener el token de múltiples lugares
+    let token: string | null = null;
+
+    // 1. Intentar desde los parámetros de la URL (GET)
+    if (searchParams) {
+      token = searchParams.get('token');
+
+      // Verificar si hay un error en los parámetros
+      const errorParam = searchParams.get('error');
+      if (errorParam) {
+        const errorMessages: Record<string, string> = {
+          no_token: 'No se recibió el token de pago de Flow',
+          processing_error: 'Error al procesar la respuesta de Flow',
+        };
+        setError(errorMessages[errorParam] || 'Error desconocido');
+        setIsLoading(false);
+        return;
+      }
     }
 
-    // Verificar si hay un error en los parámetros
-    const errorParam = searchParams.get('error');
-    if (errorParam) {
-      const errorMessages: Record<string, string> = {
-        no_token: 'No se recibió el token de pago de Flow',
-        processing_error: 'Error al procesar la respuesta de Flow',
-      };
-      setError(errorMessages[errorParam] || 'Error desconocido');
-      setIsLoading(false);
-      return;
+    // 2. Si no hay token en los parámetros, intentar desde sessionStorage
+    // (por si Flow redirigió como POST y el endpoint lo guardó temporalmente)
+    if (!token && typeof window !== 'undefined') {
+      const storedToken = sessionStorage.getItem('flow_payment_token');
+      if (storedToken) {
+        token = storedToken;
+        sessionStorage.removeItem('flow_payment_token');
+        // Actualizar la URL sin recargar la página
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('token', token);
+        window.history.replaceState({}, '', newUrl.toString());
+      }
     }
 
-    const token = searchParams.get('token');
+    // 3. Intentar desde localStorage (último recurso)
+    if (!token && typeof window !== 'undefined') {
+      const storedToken = localStorage.getItem('flow_payment_token');
+      if (storedToken) {
+        token = storedToken;
+        localStorage.removeItem('flow_payment_token');
+        // Actualizar la URL sin recargar la página
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('token', token);
+        window.history.replaceState({}, '', newUrl.toString());
+      }
+    }
 
     if (!token) {
       setError('No se recibió el token de pago');

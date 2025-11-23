@@ -252,6 +252,20 @@ export class ChatbotService {
         'noticias',
         'anuncios',
         'informacion',
+        'ultimos avisos',
+        'últimos avisos',
+        'ultimos anuncios',
+        'últimos anuncios',
+        'avisos recientes',
+        'anuncios recientes',
+        'hay avisos',
+        'hay noticias',
+        'mis avisos',
+        'que avisos hay',
+        'qué avisos hay',
+        'notificaciones',
+        'comunicaciones',
+        'hay comunicados',
       ])
     ) {
       return await this.getCommunityAnnouncementsForUser(userInfo, userRoles);
@@ -272,7 +286,35 @@ export class ChatbotService {
       return await this.getCommonExpensesInfoForUser(userInfo, userRoles);
     }
 
-    // --- 3.1) CONSULTAS ESPECÍFICAS SOBRE DEUDAS ---
+    // --- 3.1) CONSULTAS ESPECÍFICAS SOBRE PAGOS REALIZADOS / HISTORIAL ---
+    if (
+      this.matchesKeywords(lowerQuestion, [
+        'ultimo pago',
+        'últimos pagos',
+        'pagos realizados',
+        'historial de pagos',
+        'historial pago',
+        'pagos hechos',
+        'pague',
+        'pagué',
+        'mis ultimos pagos',
+        'pagos anteriores',
+        'cuando pague',
+        'cuando pagué',
+        'cuanto pague',
+        'cuánto pagué',
+        'ultimo que pague',
+        'último que pagué',
+        'ya pague',
+        'ya pagué',
+        'pagos completados',
+        'pagos exitosos',
+      ])
+    ) {
+      return await this.getPaymentsHistoryForUser(userInfo, userRoles);
+    }
+
+    // --- 3.2) CONSULTAS ESPECÍFICAS SOBRE DEUDAS ---
     if (
       this.matchesKeywords(lowerQuestion, [
         'plata',
@@ -293,6 +335,17 @@ export class ChatbotService {
         'cuanto debo pagar',
         'estado de pagos',
         'mis pagos',
+        'tengo algo por pagar',
+        'algo por pagar',
+        'debo algo',
+        'tengo deudas',
+        'algo pendiente',
+        'por pagar',
+        'pagar algo',
+        'tengo que pagar',
+        'si tengo que pagar',
+        'si debo',
+        'si o no',
       ])
     ) {
       return await this.getDebtInfoForUser(userInfo, userRoles);
@@ -313,7 +366,25 @@ export class ChatbotService {
 
     // --- 5) VISITANTES ---
     if (
-      this.matchesKeywords(lowerQuestion, ['visitantes', 'visitas', 'invitados', 'acompanantes'])
+      this.matchesKeywords(lowerQuestion, [
+        'visitantes',
+        'visitas',
+        'invitados',
+        'acompanantes',
+        'ultima visita',
+        'últimas visitas',
+        'ultimos visitantes',
+        'últimos visitantes',
+        'visitas recientes',
+        'visitantes recientes',
+        'quien vino',
+        'quién vino',
+        'quien me visito',
+        'quién me visitó',
+        'mis visitas',
+        'tengo visitas',
+        'hay visitas',
+      ])
     ) {
       return await this.getVisitorsInfoForUser(userInfo, userRoles);
     }
@@ -327,6 +398,20 @@ export class ChatbotService {
         'delivery',
         'envios',
         'recepcion',
+        'ultima encomienda',
+        'últimas encomiendas',
+        'ultimos paquetes',
+        'últimos paquetes',
+        'encomiendas recientes',
+        'paquetes recientes',
+        'tengo encomiendas',
+        'hay encomiendas',
+        'me llego',
+        'me llegó',
+        'paquete pendiente',
+        'encomienda pendiente',
+        'mis encomiendas',
+        'mis paquetes',
       ])
     ) {
       return await this.getParcelsInfoForUser(userInfo, userRoles);
@@ -2057,6 +2142,17 @@ Ser un asistente especializado ÚNICAMENTE en Comuniapp que proporciona respuest
     return statusNames[status] || 'Recibido';
   }
 
+  private getPaymentMethodName(method: string): string {
+    const methodNames: Record<string, string> = {
+      BANK_TRANSFER: 'Transferencia Bancaria',
+      CASH: 'Efectivo',
+      CHECK: 'Cheque',
+      CARD: 'Tarjeta',
+      FLOW: 'Flow',
+    };
+    return methodNames[method] || 'No especificado';
+  }
+
   private async getSystemContext(): Promise<string> {
     try {
       // Obtener estadísticas básicas del sistema
@@ -2593,51 +2689,235 @@ ${this.getContextualSuggestions(totalCommunities, totalSpaces, recentAnnouncemen
         take: 10,
       });
 
+      // Respuesta personalizada y directa según si tiene deudas o no
+      const userName = userInfo?.name || 'Usuario';
+
       if (expenses.length === 0) {
         return {
-          answer: `💰 Estado de Pagos\n\n✅ No tienes gastos pendientes.\n\n💡 *Todos tus pagos están al día.*`,
+          answer: `¡Buenas noticias ${userName}! 🎉\n\n✅ No tienes nada pendiente por pagar. Todos tus pagos están al día.\n\n💚 ¡Sigue así!`,
         };
       }
 
-      let response = `💰 Estado de Pagos\n\n`;
-      response += '─'.repeat(50) + '\n\n';
-
+      // Calcular total antes de armar la respuesta
       let totalPending = 0;
-
       for (const expense of expenses) {
+        totalPending += Number(expense.amount);
+      }
+
+      // Respuesta directa y amigable
+      let response = `Hola ${userName}, `;
+
+      if (expenses.length === 1) {
+        response += `tienes 1 pago pendiente:\n\n`;
+      } else {
+        response += `tienes ${expenses.length} pagos pendientes:\n\n`;
+      }
+
+      // Mostrar cada gasto de forma simple
+      for (let i = 0; i < expenses.length; i++) {
+        const expense = expenses[i];
         const dueDate = expense.dueDate.toLocaleDateString('es-ES', {
           day: '2-digit',
           month: '2-digit',
           year: 'numeric',
         });
-
         const amount = Number(expense.amount);
-        totalPending += amount;
 
-        response += `📅 ${expense.concept}\n`;
-        response += `💰 Monto: $${amount.toFixed(2)}\n`;
-        response += `📆 Vencimiento: ${dueDate}\n`;
-        response += `📊 Estado: ⏳ Pendiente\n`;
+        response += `${i + 1}. ${expense.concept}\n`;
+        response += `   💰 $${amount.toLocaleString('es-CL')}\n`;
+        response += `   📅 Vence: ${dueDate}\n`;
 
         if (expense.description) {
-          response += `📝 Detalle: ${expense.description}\n`;
+          response += `   📝 ${expense.description}\n`;
         }
 
-        response += `🏢 Comunidad: ${expense.unit.community.name}\n`;
-        response += `🏠 Unidad: ${expense.unit.number}\n\n`;
-
-        response += '─'.repeat(30) + '\n\n';
+        response += '\n';
       }
 
-      response += `💵 Total pendiente: $${totalPending.toFixed(2)}\n\n`;
-      response += `💡 *Tienes ${expenses.length} gasto${expenses.length > 1 ? 's' : ''} pendiente${expenses.length > 1 ? 's' : ''}.*\n`;
-      response += `📞 *Para más detalles, contacta a la administración.*`;
+      // Mensaje final directo
+      response += `💵 Total a pagar: $${totalPending.toLocaleString('es-CL')}\n\n`;
+
+      if (totalPending > 100000) {
+        response += `💡 Si tienes dudas sobre estos pagos, puedes contactar a la administración.`;
+      } else {
+        response += `💡 Recuerda pagar antes de la fecha de vencimiento para evitar recargos.`;
+      }
 
       return { answer: response };
     } catch (error) {
       this.logger.error('Error obteniendo información de deudas para usuario:', error);
       return {
         answer: '❌ Error al obtener información de deudas. Por favor, intenta más tarde.',
+      };
+    }
+  }
+
+  // Método específico para consultas sobre historial de pagos realizados
+  private async getPaymentsHistoryForUser(
+    userInfo: any,
+    userRoles: string[],
+  ): Promise<ChatbotResponseDto> {
+    try {
+      const isResident = userRoles.includes('RESIDENT');
+      const isCommunityAdmin = userRoles.includes('COMMUNITY_ADMIN');
+      const isConcierge = userRoles.includes('CONCIERGE');
+      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
+
+      const userId = userInfo?.id;
+      if (!userId && isResident) {
+        return {
+          answer: '❌ No se encontró información del usuario. Contacta a la administración.',
+        };
+      }
+
+      let whereClause: any = {
+        status: 'PAID', // Solo pagos completados exitosamente
+      };
+
+      let communityContext = '';
+
+      if (isResident) {
+        // Para residentes: solo sus propios pagos
+        whereClause.userId = userId;
+        communityContext = 'tus pagos';
+      } else if (isConcierge) {
+        // Para conserje: pagos de su comunidad
+        const communityId = userInfo?.userUnits?.[0]?.unit?.community?.id;
+        if (communityId) {
+          whereClause.expense = {
+            unit: {
+              community: {
+                id: communityId,
+              },
+            },
+          };
+          communityContext = `su comunidad (${userInfo?.userUnits?.[0]?.unit?.community?.name})`;
+        }
+      } else if (isCommunityAdmin) {
+        // Para admin de comunidad: pagos de sus comunidades
+        const communityIds = userInfo?.communityAdmins?.map((ca: any) => ca.community.id) || [];
+        if (communityIds.length > 0) {
+          whereClause.expense = {
+            unit: {
+              community: {
+                id: { in: communityIds },
+              },
+            },
+          };
+          communityContext = 'sus comunidades administradas';
+        }
+      } else if (isSuperAdmin) {
+        // Super Admin ve todos los pagos
+        communityContext = 'todas las comunidades';
+      }
+
+      // Obtener los últimos pagos realizados
+      const payments = await this.prisma.payment.findMany({
+        where: whereClause,
+        include: {
+          expense: {
+            include: {
+              unit: {
+                include: {
+                  community: true,
+                },
+              },
+            },
+          },
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: { paymentDate: 'desc' },
+        take: 10, // Últimos 10 pagos
+      });
+
+      if (payments.length === 0) {
+        return {
+          answer:
+            `💳 **Historial de Pagos**\n\n` +
+            `📭 No hay pagos registrados en ${communityContext}.\n\n` +
+            `💡 *Los pagos aparecerán aquí una vez que sean procesados.*`,
+        };
+      }
+
+      let response = `💳 **HISTORIAL DE PAGOS REALIZADOS**\n`;
+      response += `👤 **Vista de:** ${this.getUserRoleDisplayName(userRoles)}\n`;
+      response += `🏢 **Contexto:** ${communityContext}\n`;
+      response += '═'.repeat(50) + '\n\n';
+
+      let totalPaid = 0;
+
+      for (let i = 0; i < payments.length; i++) {
+        const payment = payments[i];
+        const paymentDate = payment.paymentDate
+          ? payment.paymentDate.toLocaleDateString('es-ES', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : 'Fecha no disponible';
+
+        const amount = Number(payment.amount);
+        totalPaid += amount;
+
+        response += `✅ **${payment.expense.concept}**\n`;
+        response += `   💰 Monto: $${amount.toFixed(2)}\n`;
+        response += `   📅 Fecha de pago: ${paymentDate}\n`;
+        response += `   💳 Método: ${this.getPaymentMethodName(payment.method)}\n`;
+
+        if (payment.reference) {
+          response += `   🔖 Referencia: ${payment.reference}\n`;
+        }
+
+        // Solo mostrar información del usuario si no es el propio usuario consultando
+        if (!isResident && payment.user) {
+          response += `   👤 Pagado por: ${payment.user.name}\n`;
+        }
+
+        response += `   🏢 Comunidad: ${payment.expense.unit.community.name}\n`;
+        response += `   🏠 Unidad: ${payment.expense.unit.number}\n`;
+
+        response += '\n';
+
+        if (i < payments.length - 1) {
+          response += '─'.repeat(30) + '\n\n';
+        }
+      }
+
+      response += '\n';
+      response += `💵 **Total pagado:** $${totalPaid.toFixed(2)}\n`;
+      response += `📊 **Cantidad de pagos:** ${payments.length}\n\n`;
+
+      response += '💡 **Información adicional:**\n';
+      if (isResident) {
+        response += '• Estos son tus últimos 10 pagos realizados\n';
+        response += '• Si tienes dudas sobre un pago, contacta a la administración\n';
+        response += '• Guarda tus comprobantes de pago para futuras referencias\n';
+      } else if (isConcierge) {
+        response += '• Puedes ver los pagos de tu comunidad para referencia\n';
+        response += '• Para consultas específicas, contacta a la administración\n';
+      } else if (isCommunityAdmin) {
+        response += '• Puedes ver todos los pagos de tus comunidades administradas\n';
+        response += '• Exporta reportes detallados desde el panel de administración\n';
+      } else if (isSuperAdmin) {
+        response += '• Vista completa de todos los pagos del sistema\n';
+        response += '• Accede al panel de administración para reportes detallados\n';
+      }
+
+      return { answer: response };
+    } catch (error) {
+      this.logger.error('Error obteniendo historial de pagos para usuario:', error);
+      return {
+        answer:
+          '❌ **Error del Sistema**\n\n' +
+          'Ocurrió un error al obtener el historial de pagos.\n' +
+          'Por favor, intenta nuevamente o contacta a la administración.',
       };
     }
   }
@@ -4683,6 +4963,125 @@ Ser un asistente especializado ÚNICAMENTE en Comuniapp que proporciona respuest
     const roleDisplayName = this.getUserRoleDisplayName(userRoles);
     const userName = user.name || 'Usuario';
     const trimmedQuestion = lowerQuestion.trim();
+
+    // === PREGUNTAS BÁSICAS Y ÚTILES ===
+
+    // Hora actual
+    if (
+      lowerQuestion.includes('que hora') ||
+      lowerQuestion.includes('qué hora') ||
+      lowerQuestion.includes('hora es') ||
+      lowerQuestion.includes('que horas') ||
+      lowerQuestion.includes('dame la hora')
+    ) {
+      const now = new Date();
+      const hora = now.toLocaleTimeString('es-CL', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+      const fecha = now.toLocaleDateString('es-CL', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+
+      return `🕐 Son las ${hora}, ${userName}.\n📅 Hoy es ${fecha}.`;
+    }
+
+    // Fecha actual
+    if (
+      lowerQuestion.includes('que dia') ||
+      lowerQuestion.includes('qué día') ||
+      lowerQuestion.includes('fecha') ||
+      lowerQuestion.includes('que fecha') ||
+      lowerQuestion.includes('hoy es')
+    ) {
+      const now = new Date();
+      const fecha = now.toLocaleDateString('es-CL', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+
+      return `📅 Hoy es ${fecha}, ${userName}.`;
+    }
+
+    // Clima (respuesta simple ya que no tenemos API de clima integrada)
+    if (
+      lowerQuestion.includes('clima') ||
+      (lowerQuestion.includes('tiempo') &&
+        (lowerQuestion.includes('hace') || lowerQuestion.includes('como'))) ||
+      lowerQuestion.includes('temperatura') ||
+      lowerQuestion.includes('llueve') ||
+      lowerQuestion.includes('sol')
+    ) {
+      return (
+        `🌤️ Para información del clima, te recomiendo:\n\n` +
+        `• Abrir tu app del clima favorita\n` +
+        `• Consultar en google.com/search?q=clima\n` +
+        `• Mirar por la ventana 😊\n\n` +
+        `💡 Si quieres saber algo sobre tu comunidad, ¡estoy aquí para ayudarte!`
+      );
+    }
+
+    // Saludos personalizados y más naturales
+    if (
+      trimmedQuestion === 'hola' ||
+      trimmedQuestion === 'ola' ||
+      trimmedQuestion === 'holi' ||
+      trimmedQuestion === 'oye' ||
+      trimmedQuestion === 'ey' ||
+      trimmedQuestion === 'hey' ||
+      trimmedQuestion === 'buenas' ||
+      trimmedQuestion === 'buenos dias' ||
+      trimmedQuestion === 'buenos días' ||
+      trimmedQuestion === 'buenas tardes' ||
+      trimmedQuestion === 'buenas noches'
+    ) {
+      const hora = new Date().getHours();
+      let saludo = '¡Hola';
+
+      if (hora >= 5 && hora < 12) {
+        saludo = '¡Buenos días';
+      } else if (hora >= 12 && hora < 20) {
+        saludo = '¡Buenas tardes';
+      } else {
+        saludo = '¡Buenas noches';
+      }
+
+      return (
+        `${saludo} ${userName}! 👋\n\n` +
+        `¿En qué puedo ayudarte hoy? Puedo informarte sobre:\n\n` +
+        `• 💰 Tus pagos y deudas\n` +
+        `• 📦 Encomiendas recibidas\n` +
+        `• 👥 Visitas registradas\n` +
+        `• 📢 Avisos de la comunidad\n` +
+        `• 🏢 Espacios comunes\n\n` +
+        `Solo pregúntame lo que necesites de forma natural. 😊`
+      );
+    }
+
+    // Despedidas más naturales
+    if (
+      trimmedQuestion === 'chao' ||
+      trimmedQuestion === 'adios' ||
+      trimmedQuestion === 'adiós' ||
+      trimmedQuestion === 'hasta luego' ||
+      trimmedQuestion === 'nos vemos' ||
+      trimmedQuestion === 'bye' ||
+      trimmedQuestion === 'gracias' ||
+      trimmedQuestion === 'muchas gracias'
+    ) {
+      const despedidas = [
+        `¡Hasta pronto ${userName}! 👋 Si necesitas algo más, aquí estaré.`,
+        `¡Nos vemos ${userName}! 😊 Que tengas un excelente día.`,
+        `¡Adiós ${userName}! 🌟 Vuelve cuando necesites ayuda.`,
+      ];
+      return despedidas[Math.floor(Math.random() * despedidas.length)];
+    }
 
     // Confirmaciones y comprensión personalizadas - Reconocimiento flexible
     if (
